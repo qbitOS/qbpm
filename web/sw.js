@@ -1,4 +1,4 @@
-const CACHE = "qbpm-v38";
+const CACHE = "qbpm-v39";
 const SHELL = [
   "./",
   "./static/pages-boot.js",
@@ -28,6 +28,8 @@ const SHELL = [
   "./static/header-waveform.js",
   "./static/header-stage.js",
   "./static/header-play-strip.js",
+  "./static/dj-scratch-spot.js",
+  "./static/live-node-panel.js",
   "./static/viz-user-rail.js",
   "./static/tab-runtime.js",
   "./static/video-embed-parse.js",

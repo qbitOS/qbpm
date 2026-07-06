@@ -77,7 +77,7 @@ export function createMusicPanes(core, opts = {}) {
         </div>
         <div id="mp-grand-staff" class="ml-staff mp-grand-staff" aria-label="Grand staff"></div>
         <div id="mp-grand-piano" class="mp-grand-piano" aria-label="Grand piano"></div>
-        <div class="mp-meta" id="mp-grand-meta">4 oct · C2–C6</div>
+        <div class="mp-meta" id="mp-grand-meta">3 oct · C3–B5</div>
       </div>`;
     const piano = root.querySelector("#mp-grand-piano");
     piano.innerHTML = `<div class="mp-white"></div><div class="mp-black"></div>`;
@@ -96,7 +96,7 @@ export function createMusicPanes(core, opts = {}) {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "mp-key mp-black-key";
-      b.style.left = `${k.w}px`;
+      if (k.w != null) b.style.left = `${k.w * 100}%`;
       b.dataset.note = k.n;
       b.dataset.freq = String(k.f);
       b.title = k.n;
