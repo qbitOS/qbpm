@@ -8,6 +8,11 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TOKEN="${FORNEVER_DEPLOY_TOKEN:-}"
 DEST="${FORGE_DEST:-}"
 
+if [ -z "$TOKEN" ] && [ ! -d "$ROOT/Qbpm/.git" ]; then
+  echo "Skip forge sync — set FORNEVER_DEPLOY_TOKEN or clone Qbpm/ locally"
+  exit 0
+fi
+
 if [ -z "$DEST" ]; then
   if [ -n "$TOKEN" ]; then
     DEST="/tmp/Qbpm-forge"

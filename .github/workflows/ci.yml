@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - uses: actions/setup-python@v5
         with:
@@ -20,7 +22,7 @@ jobs:
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
       - name: Sync deps
-        run: uv sync
+        run: uv sync --extra dev
 
       - name: pytest
         run: uv run pytest -q
@@ -32,6 +34,8 @@ jobs:
         variant: [pages, forge, cloudflare]
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - name: Build ${{ matrix.variant }}
         run: |
