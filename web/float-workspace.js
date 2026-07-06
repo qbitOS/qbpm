@@ -17,10 +17,13 @@ export function createFloatWorkspace(opts = {}) {
     getSendTargets,
     getBpm,
     getLocalHandle = () => "guest",
+    getPeers = () => [],
     getPanScale,
     getFrames,
     onJamEval,
   } = opts;
+
+  let chatToId = "all";
 
   let musicLab = null;
   let processingWing = null;
@@ -49,12 +52,22 @@ export function createFloatWorkspace(opts = {}) {
     const root = document.createElement("div");
     root.id = "float-workspace";
     root.innerHTML = `
-      <aside id="float-panel-tr" class="float-panel float-tr" aria-label="Chat">
-        <div class="float-hd">chat</div>
-        <div id="float-chat-log" class="float-chat-log"></div>
-        <div class="float-chat-row">
-          <input id="float-chat-in" type="text" placeholder="quick chat…" autocomplete="off" enterkeyhint="send" />
-          <button type="button" id="float-chat-send">↵</button>
+      <aside id="float-panel-tr" class="float-panel float-tr" aria-label="Quick chat">
+        <div class="float-hd">quick chat · to / from</div>
+        <div class="float-chat-route-bar">
+          <label class="float-chat-field">
+            <span>from</span>
+            <input id="float-chat-from" type="text" readonly title="Your handle" />
+          </label>
+          <label class="float-chat-field">
+            <span>to</span>
+            <select id="float-chat-to" title="Recipient"></select>
+          </label>
+        </div>
+        <div id="float-chat-log" class="float-chat-log" aria-live="polite"></div>
+        <div class="float-chat-compose">
+          <textarea id="float-chat-in" rows="4" placeholder="message… · Enter send · Shift+Enter newline" autocomplete="off" spellcheck="true"></textarea>
+          <button type="button" id="float-chat-send" title="Send">↵</button>
         </div>
       </aside>
       <aside id="float-panel-bl" class="float-panel float-bl" aria-label="Music lab">
@@ -87,32 +100,69 @@ export function createFloatWorkspace(opts = {}) {
     processingWing.mount(document.getElementById("float-processing-host"));
     videoFeed = createVideoFeed({ onIngestUrl: onPromptIngest });
     videoFeed.mount(document.getElementById("float-video-host"));
+    refreshChatRoute();
     requestAnimationFrame(() => floatDock.layoutPanels());
+  }
+
+  function refreshChatRoute() {
+    const fromEl = document.getElementById("float-chat-from");
+    const toEl = document.getElementById("float-chat-to");
+    if (fromEl) fromEl.value = getLocalHandle() || "guest";
+
+    if (!toEl) return;
+    const peers = getPeers() || [];
+    const prev = chatToId;
+    toEl.innerHTML = `<option value="all">all · broadcast</option>${peers
+      .map((p) => {
+        const id = p.clientId || p.id;
+        const name = p.name || id;
+        return `<option value="${escapeAttr(id)}">${escapeHtml(name)}</option>`;
+      })
+      .join("")}`;
+    if ([...toEl.options].some((o) => o.value === prev)) toEl.value = prev;
+    else {
+      chatToId = "all";
+      toEl.value = "all";
+    }
   }
 
   function bindEvents() {
     const sendChat = () => {
       const text = document.getElementById("float-chat-in")?.value?.trim();
       if (!text) return;
-      onChatSend?.(text);
+      const toEl = document.getElementById("float-chat-to");
+      const to = toEl?.value || "all";
+      const toName = to === "all" ? "all" : toEl?.selectedOptions?.[0]?.textContent?.trim() || to;
+      chatToId = to;
+      const fromName = getLocalHandle() || "guest";
+      onChatSend?.({ text, to, toName, fromName });
       document.getElementById("float-chat-in").value = "";
     };
     document.getElementById("float-chat-send")?.addEventListener("click", sendChat);
     document.getElementById("float-chat-in")?.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter") { ev.preventDefault(); sendChat(); }
+      if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); sendChat(); }
     });
-
+    document.getElementById("float-chat-to")?.addEventListener("change", (ev) => {
+      chatToId = ev.target.value;
+    });
   }
 
   function appendChatLine(msg) {
     const log = document.getElementById("float-chat-log");
     if (!log) return;
-    const who = msg.fromName || msg.from || "sys";
+    const from = msg.fromName || msg.from || "sys";
+    const to = msg.toName || msg.to || "all";
     const line = document.createElement("div");
-    line.className = "float-chat-line";
-    line.innerHTML = `<span class="float-chat-who" style="color:${msg.color || "#8b949e"}">${escapeHtml(who)}</span> ${escapeHtml(msg.text)}`;
+    line.className = `float-chat-line${msg.local ? " local" : ""}`;
+    line.innerHTML = `
+      <div class="float-chat-route">
+        <span class="float-chat-from" style="color:${msg.color || "#8b949e"}">${escapeHtml(from)}</span>
+        <span class="float-chat-arrow">→</span>
+        <span class="float-chat-to">${escapeHtml(to)}</span>
+      </div>
+      <div class="float-chat-text">${escapeHtml(msg.text)}</div>`;
     log.appendChild(line);
-    while (log.children.length > 24) log.firstChild?.remove();
+    while (log.children.length > 48) log.firstChild?.remove();
     log.scrollTop = log.scrollHeight;
   }
 
@@ -133,6 +183,10 @@ export function createFloatWorkspace(opts = {}) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
+  function escapeAttr(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  }
+
   function getVideoElement() {
     return videoFeed?.getVideoElement?.() || null;
   }
@@ -145,6 +199,7 @@ export function createFloatWorkspace(opts = {}) {
 
   return {
     appendChatLine,
+    refreshChatRoute,
     setProcessing,
     drawNotation,
     setPeerChats,

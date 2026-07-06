@@ -116,9 +116,14 @@ export function createCanvasCollab(opts) {
     ws.send(JSON.stringify({ type: "viewport", pan, scale, frameId, windowId }));
   }
 
-  function sendChat(text) {
+  function sendChat(text, opts = {}) {
     if (!ws || ws.readyState !== 1) return;
-    ws.send(JSON.stringify({ type: "chat", text, name, color }));
+    const payload = { type: "chat", text, name, color };
+    if (opts.to && opts.to !== "all") {
+      payload.to = opts.to;
+      payload.toName = opts.toName || opts.to;
+    }
+    ws.send(JSON.stringify(payload));
   }
 
   function sendJam(pattern) {

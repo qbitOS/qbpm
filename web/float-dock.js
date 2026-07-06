@@ -100,7 +100,7 @@ export function createFloatDock() {
     else showPanel(video, RAIL_W + EDGE, TOP + 2);
 
     if (!open.chat) hidePanel(chat);
-    else showPanel(chat, ww - (chat?.offsetWidth || 220) - EDGE, TOP);
+    else showPanel(chat, ww - (chat?.offsetWidth || 340) - EDGE, TOP);
 
     if (!open.music) hidePanel(music);
     else {

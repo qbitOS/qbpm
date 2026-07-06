@@ -93,6 +93,8 @@ class GraphCollabHub:
         name: str,
         color: str,
         text: str,
+        to: str | None = None,
+        to_name: str | None = None,
     ) -> dict[str, Any]:
         entry = {
             "from": client_id,
@@ -101,6 +103,9 @@ class GraphCollabHub:
             "text": text[:500],
             "ts": time.time(),
         }
+        if to and to != "all":
+            entry["to"] = to
+            entry["toName"] = to_name or to
         log = self.chat_log(graph_name)
         log.append(entry)
         if len(log) > self._chat_max:
@@ -239,6 +244,8 @@ async def graph_ws_loop(
                         name=client.name,
                         color=client.color,
                         text=text,
+                        to=str(msg.get("to", "")).strip() or None,
+                        to_name=str(msg.get("toName", "")).strip() or None,
                     )
                 continue
 

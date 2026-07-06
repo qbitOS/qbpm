@@ -438,6 +438,7 @@ function initCollab() {
       for (const p of clients) {
         ensureUserFrame(p.clientId, p.name, p.color);
       }
+      floatWorkspace?.refreshChatRoute?.();
       const el = document.getElementById("collab-status");
       if (el) el.textContent = clients.length ? `● ${clients.length + 1} live` : "● solo";
       collabShell?.renderPeers(clients);
@@ -472,7 +473,18 @@ function initCollab() {
   });
 
   floatWorkspace = createFloatWorkspace({
-    onChatSend: (text) => collab?.sendChat(text),
+    onChatSend: (msg) => {
+      if (collab) {
+        collab.sendChat(msg.text, { to: msg.to, toName: msg.toName });
+        return;
+      }
+      floatWorkspace?.appendChatLine?.({
+        ...msg,
+        color: localStorage.getItem("qbpm-collab-color") || "#58a6ff",
+        local: true,
+      });
+    },
+    getPeers: () => collabPeers,
     onPromptIngest: (url) => runPromptSearch(url),
     onNotePlay: (n) => window.qbpmLive?.ingest?.({ musica: n.note ?? n.hz, bpm: liveState?.bpm }, "piano"),
     getPanScale: () => ({ pan, scale }),
