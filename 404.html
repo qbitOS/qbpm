@@ -46,20 +46,12 @@
     <div id="header-play-strip" class="header-play-strip" aria-label="Piano · beat · record"></div>
   </div>
 
-  <nav id="mobile-tabs" class="mobile-only" aria-label="Panels">
-    <button type="button" data-panel="canvas" class="active">graph</button>
-    <button type="button" data-panel="viz">viz</button>
-    <button type="button" data-panel="inspector">edit</button>
-    <button type="button" data-panel="kbatch">kbatch</button>
-    <button type="button" data-panel="tools">tools</button>
-    <button type="button" data-panel="terminal">grok</button>
-  </nav>
-
   <main id="workspace">
     <section id="canvas-wrap" data-panel="canvas">
       <div id="canvas-toolbar">
         <button id="btn-add" type="button" title="Add node">+</button>
         <button id="btn-add-live-rail" type="button" title="Add live video rail node">📹</button>
+        <button id="btn-studio-preset" type="button" title="Load drum session preset (Underoath / Gillespie)">🥁</button>
         <button id="btn-del-node" type="button" title="Delete selected node">✕</button>
         <button id="btn-center" type="button" title="Center view">◎</button>
         <button id="btn-add-frame" type="button" title="Add canvas frame">▢</button>
@@ -68,7 +60,7 @@
         <div id="device-picker" class="device-picker" aria-label="Device frames"></div>
         <button id="btn-pan-mode" type="button" title="Pan mode (mobile)" class="mobile-only" aria-pressed="false">✥</button>
       </div>
-      <div id="canvas-hint" class="hide-mobile">vfx comp · in◉ in♪ midi · out▶ out♪ · shift+wire · alt+collab lane</div>
+      <div id="canvas-hint" class="hide-mobile">wire ◉ ports · drag +−0 · shift frame bus · 🥁 studio preset</div>
       <div id="canvas-resolution" class="canvas-resolution" aria-live="polite">—</div>
       <button type="button" id="btn-right-expand" title="Expand right column" aria-label="Expand right column">◂</button>
       <canvas id="canvas"></canvas>
@@ -116,12 +108,24 @@
                 <option value="core.output">core.output</option>
                 <option value="music.score">music.score</option>
                 <option value="music.clock">music.clock</option>
+                <option value="music.piano">music.piano</option>
+                <option value="music.beatpad">music.beatpad</option>
+                <option value="music.loop">music.loop</option>
+                <option value="music.notation">music.notation</option>
+                <option value="music.eq">music.eq</option>
+                <option value="music.code">music.code (strudel)</option>
+                <option value="music.waveform">music.waveform</option>
+                <option value="audio.mic">audio.mic</option>
+                <option value="studio.session">studio.session</option>
                 <option value="tool.kbatch">tool.kbatch</option>
                 <option value="wasm.classify">wasm.classify</option>
                 <option value="repel.play">repel.play</option>
+                <option value="live.ingest">live.ingest (transport)</option>
                 <option value="live.rail">live.rail</option>
+                <option value="live.vwall">live.vwall</option>
+                <option value="live.queue">live.queue</option>
+                <option value="live.transport">live.transport</option>
                 <option value="live.video">live.video</option>
-                <option value="live.ingest">live.ingest</option>
               </select>
             </label>
             <label>code<textarea id="insp-code" rows="8" spellcheck="false"></textarea></label>
@@ -203,16 +207,26 @@
     </aside>
   </main>
 
-  <section id="prompt-bar" class="prompt-bar grok-prompt-bar" aria-label="Main prompt">
-    <div class="prompt-search-row">
-      <span id="prompt-char" class="prompt-char" title="qbpm prompt">qbpm&gt;</span>
-      <input id="prompt-search-in" type="search" placeholder="prompt · strudel · Fail-safe · ingest URL · imagine…" autocomplete="off" spellcheck="false" />
-      <button id="prompt-search-go" type="button" title="Search / run">↵</button>
-      <button id="prompt-video-ingest" type="button" title="Video ingest (yt-dlp)" class="hide-mobile">▶ ingest</button>
-      <button id="prompt-imagine" type="button" title="Imagine presets" class="hide-mobile">✦ imagine</button>
-    </div>
-    <pre id="prompt-search-out" class="prompt-search-out" aria-live="polite"></pre>
-  </section>
+  <footer id="app-footer" class="app-footer">
+    <section id="prompt-bar" class="prompt-bar grok-prompt-bar" aria-label="Main prompt">
+      <div class="prompt-search-row">
+        <span id="prompt-char" class="prompt-char" title="qbpm prompt">qbpm&gt;</span>
+        <input id="prompt-search-in" type="search" placeholder="prompt · strudel · Fail-safe · ingest URL · imagine…" autocomplete="off" spellcheck="false" />
+        <button id="prompt-search-go" type="button" title="Search / run">↵</button>
+        <button id="prompt-video-ingest" type="button" title="Video ingest (yt-dlp)" class="hide-mobile">▶ ingest</button>
+        <button id="prompt-imagine" type="button" title="Imagine presets" class="hide-mobile">✦ imagine</button>
+      </div>
+      <pre id="prompt-search-out" class="prompt-search-out" aria-live="polite"></pre>
+    </section>
+    <nav id="mobile-tabs" class="mobile-only" aria-label="Panels">
+      <button type="button" data-panel="canvas" class="active">graph</button>
+      <button type="button" data-panel="viz">viz</button>
+      <button type="button" data-panel="inspector">edit</button>
+      <button type="button" data-panel="kbatch">kbatch</button>
+      <button type="button" data-panel="tools">tools</button>
+      <button type="button" data-panel="terminal">grok</button>
+    </nav>
+  </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.5/build/cjs/vexflow.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>

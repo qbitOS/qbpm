@@ -1,4 +1,11 @@
 /** Multi-user infinite canvas — presence, graph sync, chat, hop, video */
+import {
+  bridgeComponentEnabled,
+  resetBridgeReconnect,
+  scheduleBridgeReconnect,
+  waitForBridgeReady,
+} from "./api-bridge.js";
+
 const COLORS = ["#9ca3af", "#8b949e", "#7d8590", "#b1bac4", "#6e7681", "#a8b0bc"];
 
 export function createCanvasCollab(opts) {
@@ -21,20 +28,30 @@ export function createCanvasCollab(opts) {
   let name = localStorage.getItem("qbpm-collab-name") || `user-${clientId.slice(-4)}`;
   let color = localStorage.getItem("qbpm-collab-color") || COLORS[Math.floor(Math.random() * COLORS.length)];
   const peers = new Map();
-  let reconnectTimer = null;
+  let reconnectState = {};
   let lastRev = 0;
+  let started = false;
 
   function connect() {
-    const P = typeof window !== "undefined" && window.QBPM_PAGES;
-    if (P?.staticShell) {
-      if (!P.hasComponent?.("collab")) return;
-      if (P.componentMode?.("collab") === "bridge" && !P.apiBase?.()) return;
+    if (!bridgeComponentEnabled("collab")) {
+      onPresence?.([]);
+      return;
     }
-    const wsUrl = P?.wsApi
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    const P = typeof window !== "undefined" && window.QBPM_PAGES;
+    const wsTarget = P?.wsApi
       ? P.wsApi(`api/graph/ws?graph=${encodeURIComponent(graphName)}`)
       : `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/graph/ws?graph=${encodeURIComponent(graphName)}`;
-    ws = new WebSocket(wsUrl);
-    ws.onopen = () => sendJoin();
+    try {
+      ws = new WebSocket(wsTarget);
+    } catch (_) {
+      onPresence?.([]);
+      return;
+    }
+    ws.onopen = () => {
+      resetBridgeReconnect(reconnectState);
+      sendJoin();
+    };
     ws.onmessage = (ev) => {
       let msg;
       try { msg = JSON.parse(ev.data); } catch { return; }
@@ -103,8 +120,21 @@ export function createCanvasCollab(opts) {
       }
     };
     ws.onclose = () => {
-      reconnectTimer = setTimeout(connect, 2500);
+      ws = null;
+      peers.clear();
+      onPresence?.([]);
+      scheduleBridgeReconnect("collab", connect, reconnectState);
     };
+    ws.onerror = () => {};
+  }
+
+  function start() {
+    if (started) return;
+    started = true;
+    waitForBridgeReady().then((ok) => {
+      if (ok) connect();
+      else onPresence?.([]);
+    });
   }
 
   function ingestPeer(c) {
@@ -208,7 +238,10 @@ export function createCanvasCollab(opts) {
     }
   }
 
-  connect();
+  if (typeof window !== "undefined") {
+    if (window.QBPM_PAGES?.launchReady?.()) start();
+    else window.addEventListener("qbpm-launch-ready", start, { once: true });
+  }
 
   return {
     get clientId() { return clientId; },

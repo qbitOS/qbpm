@@ -96,12 +96,57 @@
     return c || "off";
   }
 
+  let bridgeOnline = staticShell ? null : true;
+  let bridgeBase = "";
+
+  async function probeBridge() {
+    if (!staticShell) {
+      bridgeOnline = true;
+      window.QBPM_PAGES.bridgeOnline = true;
+      return true;
+    }
+    const base = readApiBase() || defaultApiBase;
+    bridgeBase = base || "";
+    window.QBPM_PAGES.bridgeBase = bridgeBase;
+    if (!base) {
+      bridgeOnline = false;
+      window.QBPM_PAGES.bridgeOnline = false;
+      document.body.classList.add("bridge-offline");
+      window.dispatchEvent(
+        new CustomEvent("qbpm-bridge-status", { detail: { online: false, base: "" } }),
+      );
+      return false;
+    }
+    try {
+      const res = await fetch(`${base}/api/graph/default`, {
+        method: "GET",
+        mode: "cors",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      bridgeOnline = res.type !== "opaque" && res.status > 0;
+    } catch (_) {
+      bridgeOnline = false;
+    }
+    window.QBPM_PAGES.bridgeOnline = bridgeOnline;
+    if (!bridgeOnline) {
+      document.body.classList.add("bridge-offline");
+      console.info(`[qbpm] API bridge offline — local-only (${base})`);
+    }
+    window.dispatchEvent(
+      new CustomEvent("qbpm-bridge-status", { detail: { online: bridgeOnline, base } }),
+    );
+    return bridgeOnline;
+  }
+
   window.QBPM_PAGES = {
     base: bakedEnv.basePath || runtimeBase,
     basePath: bakedEnv.basePath || runtimeBase,
     variant,
     staticShell,
     defaultApiBase,
+    bridgeOnline,
+    bridgeBase,
     apiBase,
     api,
     wsApi,
@@ -142,7 +187,13 @@
       if (!v || v === "off" || v === false) document.body.classList.add(`launch-off-${k}`);
       else if (v === "bridge") document.body.classList.add(`launch-bridge-${k}`);
     });
-    window.dispatchEvent(new CustomEvent("qbpm-launch-ready"));
+  }
+
+  function finishBoot() {
+    applyLaunch();
+    probeBridge().finally(() => {
+      window.dispatchEvent(new CustomEvent("qbpm-launch-ready"));
+    });
   }
 
   function mergeLaunch(remote, baked) {
@@ -168,13 +219,13 @@
         .then((remote) => {
           launchCfg = mergeLaunch(remote, baked);
           launchLoaded = true;
-          applyLaunch();
+          finishBoot();
         });
     })
     .catch(() => {
       launchCfg = { variant, label: variant, components: {} };
       launchLoaded = true;
-      applyLaunch();
+      finishBoot();
     });
 
   window.QBPM_PAGES.launchReady = () => launchLoaded;

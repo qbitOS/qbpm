@@ -8,6 +8,8 @@ export function pages() {
     variant: "desktop",
     staticShell: false,
     defaultApiBase: "",
+    bridgeOnline: true,
+    bridgeBase: "",
     apiBase() {
       return "";
     },
