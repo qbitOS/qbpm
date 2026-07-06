@@ -17,6 +17,7 @@ import { getLocalQubeClientId } from "./qube-store.js";
 import { mountInspectorCommandHelp } from "./terminal-commands.js";
 import { resolveTransport, drawNodeCycleBar } from "./node-cycle.js";
 import { getTabRuntime } from "./tab-runtime.js";
+import { createVizUserRail } from "./viz-user-rail.js";
 
 const GRAPH_NAME = "default";
 const NODE_W = 168;
@@ -67,6 +68,22 @@ let floatWorkspace = null;
 let qubeManager = null;
 let jamBridge = null;
 let lastProcessingText = "";
+let vizUserRail = null;
+const SOLO_GRAPH_KEY = "qbpm-solo-graph";
+let soloGraph = localStorage.getItem(SOLO_GRAPH_KEY) !== "0";
+
+function localOwnerId() {
+  return collab?.clientId || qubeManager?.clientId || getLocalQubeClientId();
+}
+
+function tagNodeOwner(n) {
+  if (!n.owner) n.owner = localOwnerId();
+  return n;
+}
+
+function nodesForUser(clientId) {
+  return graph.nodes.filter((n) => (n.owner || localOwnerId()) === clientId);
+}
 
 function canvasPoint(ev) {
   const r = canvas.getBoundingClientRect();
@@ -261,10 +278,12 @@ function applyQubePatch(patch) {
     else meta.viewports.push(vp);
   }
 
+  const owner = localOwnerId();
   for (const n of patch.nodes || []) {
+    if ((n.owner || owner) !== owner) continue;
     const i = graph.nodes.findIndex((x) => x.id === n.id);
     if (i >= 0) graph.nodes[i] = { ...graph.nodes[i], ...n };
-    else graph.nodes.push(n);
+    else graph.nodes.push(tagNodeOwner({ ...n }));
   }
 
   if (patch.session) {
@@ -653,18 +672,29 @@ async function runPromptSearch(q) {
 function initCollab() {
   collab = createCanvasCollab({
     graphName: GRAPH_NAME,
-    onGraphFull: (g) => {
+    onGraphFull: (g, rev, from) => {
+      if (soloGraph && from && from !== collab?.clientId) return;
       graph = g;
       ensureCanvasMeta();
+      graph.nodes.forEach(tagNodeOwner);
       collabShell?.flashSync("ok");
+      vizUserRail?.render?.();
       draw();
     },
-    onGraphPatch: (patch) => {
-      if (patch.nodes) graph.nodes = patch.nodes;
+    onGraphPatch: (patch, rev, from) => {
+      if (soloGraph && from && from !== collab?.clientId) return;
+      if (patch.nodes) {
+        for (const rn of patch.nodes) {
+          const i = graph.nodes.findIndex((x) => x.id === rn.id);
+          if (i >= 0) graph.nodes[i] = { ...graph.nodes[i], ...rn };
+          else if (!soloGraph || rn.owner === from) graph.nodes.push(tagNodeOwner({ ...rn }));
+        }
+      }
       if (patch.edges) graph.edges = patch.edges;
       if (patch.meta) graph.meta = { ...graph.meta, ...patch.meta };
       collabShell?.flashSync("ok");
       refreshCanvasTargets();
+      vizUserRail?.render?.();
       draw();
     },
     onFrameUpdate: (f, v, edges) => {
@@ -682,7 +712,15 @@ function initCollab() {
       floatWorkspace?.refreshChatRoute?.();
       refreshCanvasTargets();
       const el = document.getElementById("collab-status");
-      if (el) el.textContent = clients.length ? `● ${clients.length + 1} live` : "● solo";
+      if (el) {
+        el.textContent = clients.length
+          ? `● ${clients.length + 1}${soloGraph ? " · local" : ""}`
+          : soloGraph ? "● solo · local" : "● solo";
+        el.title = soloGraph
+          ? "Solo graph · click to enable live sync"
+          : "Live sync on · click for solo/local graph";
+      }
+      vizUserRail?.render?.();
       collabShell?.renderPeers(clients);
       floatWorkspace?.onVideoPresence?.(clients);
       ugradHud?.refresh();
@@ -713,6 +751,23 @@ function initCollab() {
     },
     onDrawOverlay: () => draw(),
   });
+
+  vizUserRail = createVizUserRail({
+    getPeers: () => collabPeers,
+    getLocalClient: () => ({
+      clientId: collab?.clientId || localOwnerId(),
+      name: localStorage.getItem("qbpm-collab-name") || "you",
+      color: localStorage.getItem("qbpm-collab-color") || "#58a6ff",
+    }),
+    getNodesForUser: nodesForUser,
+    onSelectNode: selectNode,
+    onMixOut: mixUserNodesOut,
+    onMultichannelSend: sendMultichannelToWorkArea,
+    onAiLink: aiLinkUserProject,
+    onSaveCompTree: saveUserCompTree,
+    onClearUserNodes: (uid) => { if (uid === localOwnerId()) clearLocalNodes(); },
+  });
+  vizUserRail.mount();
 
   jamBridge = createLiveJamBridge({
     getCollab: () => collab,
@@ -1113,6 +1168,13 @@ function draw() {
     ctx.fillStyle = "#8b949e";
     ctx.font = `${9 / scale}px Menlo, monospace`;
     ctx.fillText(n.type, r.x + 10, r.y + 36);
+    if (n.type?.startsWith("live.")) {
+      const urls = n.data?.urls?.length || 0;
+      const feat = n.data?.feature || n.type.split(".")[1] || "rail";
+      ctx.fillStyle = "#d29922";
+      ctx.font = `${7 / scale}px Menlo, monospace`;
+      ctx.fillText(`${feat} · ${urls} src`, r.x + 10, r.y + 48);
+    }
     const lk = nodeParamKey(n, "left");
     const rk = nodeParamKey(n, "right");
     ctx.fillStyle = "#6e7681";
@@ -1271,7 +1333,9 @@ async function loadGraph(opts = {}) {
   for (const n of graph.nodes) {
     if (!Array.isArray(n.pos)) n.pos = [80, 80];
     n.pos = [Number(n.pos[0]), Number(n.pos[1])];
+    tagNodeOwner(n);
   }
+  vizUserRail?.render?.();
   if (qubeManager) {
     await qubeManager.restore();
   } else if (graph.nodes[0]) {
@@ -1354,7 +1418,10 @@ function selectNode(id) {
   }
   document.getElementById("insp-id").value = n.id;
   document.getElementById("insp-type").value = n.type;
-  document.getElementById("insp-code").value = n.code || "";
+  const code = n.type?.startsWith("live.")
+    ? JSON.stringify(n.data || { urls: [] }, null, 2)
+    : (n.code || "");
+  document.getElementById("insp-code").value = code;
   setInspectorTab("node");
   setRightPanelTab("inspector");
   refreshCanvasTargets();
@@ -1366,25 +1433,128 @@ function syncInspector() {
   const n = graph.nodes.find((x) => x.id === selectedId);
   if (!n) return;
   n.type = document.getElementById("insp-type").value;
-  n.code = document.getElementById("insp-code").value;
-  collab?.broadcastPatch?.({ nodes: graph.nodes });
+  const raw = document.getElementById("insp-code").value;
+  if (n.type?.startsWith("live.")) {
+    try {
+      n.data = JSON.parse(raw);
+    } catch (_) {
+      n.data = { urls: [], raw };
+    }
+  } else {
+    n.code = raw;
+  }
+  tagNodeOwner(n);
+  if (!soloGraph) collab?.broadcastPatch?.({ nodes: graph.nodes });
   draw();
   qubeManager?.scheduleFlush?.("nodes");
+  vizUserRail?.render?.();
 }
 
-function addNode() {
+function deleteSelectedNode() {
+  if (!selectedId) return;
+  const id = selectedId;
+  graph.nodes = graph.nodes.filter((n) => n.id !== id);
+  graph.edges = graph.edges.filter((e) => e.from !== id && e.to !== id);
+  selectedId = null;
+  document.getElementById("insp-id").value = "";
+  if (!soloGraph) collab?.broadcastPatch?.({ nodes: graph.nodes, edges: graph.edges });
+  qubeManager?.scheduleFlush?.("nodes");
+  vizUserRail?.render?.();
+  refreshCanvasTargets();
+  draw();
+}
+
+function clearLocalNodes() {
+  const owner = localOwnerId();
+  const remove = new Set(
+    graph.nodes.filter((n) => (n.owner || owner) === owner).map((n) => n.id),
+  );
+  graph.nodes = graph.nodes.filter((n) => !remove.has(n.id));
+  graph.edges = graph.edges.filter((e) => !remove.has(e.from) && !remove.has(e.to));
+  selectedId = null;
+  document.getElementById("insp-id").value = "";
+  if (!soloGraph) collab?.broadcastPatch?.({ nodes: graph.nodes, edges: graph.edges });
+  qubeManager?.scheduleFlush?.("nodes");
+  vizUserRail?.render?.();
+  refreshCanvasTargets();
+  draw();
+  vizLog.textContent = `cleared ${remove.size} local node(s)`;
+}
+
+function addNode(type = "python.exec") {
   const id = `node-${graph.nodes.length + 1}`;
   const b = graphBounds();
   const cx = b.x + b.w / 2;
   const cy = b.y + b.h / 2;
-  graph.nodes.push({
+  graph.nodes.push(tagNodeOwner({
     id,
-    type: "python.exec",
+    type,
     pos: [cx, cy + graph.nodes.length * 24],
-    code: 'result = {"hello": "qbpm"}',
-  });
+    code: type.startsWith("live.") ? JSON.stringify({ urls: [], features: ["rail", "ingest", "pip"] }, null, 2) : 'result = {"hello": "qbpm"}',
+    data: type.startsWith("live.") ? { urls: [], features: ["rail", "ingest", "pip", "vwall"] } : undefined,
+  }));
   selectNode(id);
   refreshCanvasTargets();
+}
+
+function addLiveRailNode() {
+  addNode("live.rail");
+}
+
+function saveUserCompTree(userId) {
+  const nodes = nodesForUser(userId);
+  const ids = new Set(nodes.map((n) => n.id));
+  const edges = graph.edges.filter((e) => ids.has(e.from) && ids.has(e.to));
+  const tree = { version: 1, owner: userId, nodes, edges, meta: graph.meta, ts: Date.now() };
+  const blob = new Blob([JSON.stringify(tree, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `qbpm-comp-${userId.slice(0, 8)}-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  vizLog.textContent = `saved comp tree · ${nodes.length} nodes`;
+}
+
+function mixUserNodesOut(userId) {
+  const nodes = nodesForUser(userId);
+  const payload = {
+    musica: nodes.map((n) => n.id).join(" "),
+    bpm: liveState?.bpm || graph.meta?.cpm || 120,
+    mix: "raw",
+    nodes: nodes.map((n) => ({ id: n.id, type: n.type })),
+  };
+  window.qbpmLive?.ingest?.(payload, `mix:${userId}`);
+  vizLog.textContent = `mix out · ${nodes.length} nodes → raw`;
+}
+
+function sendMultichannelToWorkArea(userId) {
+  const frameId = ensureUserFrame(userId, `work-${userId.slice(-4)}`, "#58a6ff");
+  const frame = frames().find((f) => f.id === frameId);
+  const nodes = nodesForUser(userId);
+  if (!soloGraph) {
+    collab?.broadcastPatch?.({
+      meta: {
+        ...graph.meta,
+        multichannel: { to: userId, frameId, channels: nodes.length, ts: Date.now() },
+      },
+    });
+  }
+  vizLog.textContent = `multichannel → ${frame?.label || userId} · ${nodes.length} ch`;
+}
+
+function aiLinkUserProject(userId) {
+  const nodes = nodesForUser(userId);
+  const summary = nodes.map((n) => `${n.id}:${n.type}`).join(", ");
+  collabShell?.appendPromptOutput?.(`ai link · ${userId} · ${summary || "empty"}`);
+  if (!soloGraph) {
+    collab?.broadcastPatch?.({
+      nodes: graph.nodes,
+      edges: graph.edges,
+      meta: { ...graph.meta, sharedProject: { owner: userId, ts: Date.now() } },
+    });
+  }
+  agentPropose().catch(() => {});
 }
 
 function setPanMode(on) {
@@ -1569,7 +1739,21 @@ document.getElementById("btn-add-viewport")?.addEventListener("click", addViewpo
 document.querySelectorAll("#right-tabs button[data-tab]").forEach((btn) => {
   btn.addEventListener("click", () => setRightPanelTab(btn.dataset.tab));
 });
-document.getElementById("btn-add").addEventListener("click", addNode);
+document.getElementById("btn-add").addEventListener("click", () => addNode());
+document.getElementById("btn-add-live-rail")?.addEventListener("click", addLiveRailNode);
+document.getElementById("btn-del-node")?.addEventListener("click", deleteSelectedNode);
+document.getElementById("insp-del-node")?.addEventListener("click", deleteSelectedNode);
+document.getElementById("insp-clear-nodes")?.addEventListener("click", clearLocalNodes);
+document.getElementById("collab-status")?.addEventListener("click", () => {
+  soloGraph = !soloGraph;
+  localStorage.setItem(SOLO_GRAPH_KEY, soloGraph ? "1" : "0");
+  const el = document.getElementById("collab-status");
+  if (el) {
+    el.textContent = soloGraph ? "● solo · local" : `● ${collabPeers.length + 1} sync`;
+    el.title = soloGraph ? "Solo graph · click to enable live sync" : "Live sync on · click for solo/local";
+  }
+  vizLog.textContent = soloGraph ? "solo graph · local nodes only" : "live sync · sharing graph patches";
+});
 document.getElementById("btn-center").addEventListener("click", () => alignView(selectedId ? "node" : "graph"));
 document.getElementById("btn-save").addEventListener("click", saveGraph);
 document.getElementById("btn-run").addEventListener("click", runGraph);
@@ -1607,6 +1791,12 @@ document.getElementById("btn-viz-expand").addEventListener("click", () => {
 });
 
 window.addEventListener("keydown", (ev) => {
+  if ((ev.code === "Delete" || ev.code === "Backspace") && selectedId
+      && ev.target.tagName !== "TEXTAREA" && ev.target.tagName !== "INPUT" && !ev.target.isContentEditable) {
+    ev.preventDefault();
+    deleteSelectedNode();
+    return;
+  }
   if (ev.code === "Space" && !ev.repeat && ev.target.tagName !== "TEXTAREA" && ev.target.tagName !== "INPUT") {
     ev.preventDefault();
     spaceDown = true;
@@ -1787,7 +1977,18 @@ canvas.addEventListener("wheel", (ev) => {
 
 canvas.addEventListener("dblclick", (ev) => {
   const { wx, wy } = canvasPoint(ev);
-  if (!nodeAt(wx, wy)) addNode();
+  const hit = nodeAt(wx, wy);
+  if (hit?.type?.startsWith("live.")) {
+    const urls = hit.data?.urls || [];
+    if (urls.length) window.qbpm?.loadLiveVideos?.(urls);
+    else {
+      setRightPanelTab("inspector");
+      selectNode(hit.id);
+      vizLog.textContent = `${hit.id} · edit URLs in inspector JSON`;
+    }
+    return;
+  }
+  if (!hit) addNode();
 });
 
 canvas.addEventListener(

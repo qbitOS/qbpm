@@ -16,6 +16,7 @@ export function nodeCycleMode(n) {
   if (t === "music.score") return "steps";
   if (t.startsWith("music.")) return "beat";
   if (t === "tool.kbatch") return "beat";
+  if (t.startsWith("live.")) return "beat";
   if (n?.data?.pattern?.pads) return "steps";
   return "beat";
 }
