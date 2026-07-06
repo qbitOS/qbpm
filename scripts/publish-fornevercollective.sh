@@ -33,34 +33,30 @@ rsync -aL --delete \
 
 rsync -a "$ROOT/graphs/" "$DEST/graphs/"
 rsync -a "$ROOT/deploy/variants/" "$DEST/deploy/variants/" 2>/dev/null || true
+mkdir -p "$DEST/docs/screenshots"
 rsync -a "$ROOT/docs/screenshots/" "$DEST/docs/screenshots/" 2>/dev/null || true
+# Drop any prior docs/ build artifacts (keep screenshots only)
+if [ -d "$DEST/docs" ]; then
+  find "$DEST/docs" -mindepth 1 -maxdepth 1 ! -name screenshots -exec rm -rf {} + 2>/dev/null || true
+fi
 cp "$ROOT/README.md" "$DEST/README.md"
 
-echo "→ Building forge static shell for Pages"
+echo "→ Building forge static shell for Pages (repo root)"
 BUILD_DIR="$(mktemp -d)"
 trap 'rm -rf "$BUILD_DIR"' EXIT
 chmod +x "$ROOT/deploy/build-static.sh"
 VARIANT=forge "$ROOT/deploy/build-static.sh" Qbpm "$BUILD_DIR/out"
-mkdir -p "$DEST/docs"
-rsync -aL "$BUILD_DIR/out/" "$DEST/docs/"
-touch "$DEST/docs/.nojekyll"
+# Publish built app at repo root so GitHub Pages (main /) serves qbpm, not README via Jekyll
+rsync -aL "$BUILD_DIR/out/" "$DEST/" \
+  --exclude '.git' \
+  --exclude 'README.md' \
+  --exclude 'web' \
+  --exclude 'deploy' \
+  --exclude 'graphs' \
+  --exclude 'scripts' \
+  --exclude '.github' \
+  --exclude 'docs'
 touch "$DEST/.nojekyll"
-
-cat > "$DEST/index.html" <<'HTML'
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0; url=./docs/" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Qbpm</title>
-  <script>location.replace("./docs/");</script>
-</head>
-<body>
-  <p><a href="./docs/">Open Qbpm</a></p>
-</body>
-</html>
-HTML
 cp "$ROOT/deploy/build-static.sh" "$DEST/deploy/build-static.sh"
 cp "$ROOT/scripts/publish-fornevercollective.sh" "$DEST/scripts/publish-fornevercollective.sh"
 chmod +x "$DEST/deploy/build-static.sh" "$DEST/scripts/publish-fornevercollective.sh"
