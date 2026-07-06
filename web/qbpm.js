@@ -451,9 +451,41 @@ function initCollab() {
   floatWorkspace = createFloatWorkspace({
     onChatSend: (text) => collab?.sendChat(text),
     onPromptIngest: (url) => runPromptSearch(url),
-    onNotePlay: (n) => window.qbpmLive?.ingest?.({ musica: n.note, bpm: liveState?.bpm }, "piano"),
+    onNotePlay: (n) => window.qbpmLive?.ingest?.({ musica: n.note ?? n.hz, bpm: liveState?.bpm }, "piano"),
     getPanScale: () => ({ pan, scale }),
     getFrames: () => frames(),
+    getBpm: () => liveState?.bpm || liveState?.cpm || 120,
+    getSendTargets: () => ({
+      nodes: graph.nodes.map((n) => ({
+        id: n.id,
+        label: n.label || n.type || n.id,
+      })),
+      peers: collabPeers.map((p) => ({
+        clientId: p.clientId,
+        name: p.name || p.clientId,
+      })),
+    }),
+    onMusicSend: ({ targetType, target, payload }) => {
+      window.qbpmLive?.ingest?.(payload, `music-lab:${targetType}:${target}`);
+      if (targetType === "node" && target !== "all") {
+        const n = graph.nodes.find((x) => x.id === target);
+        if (n) {
+          n.data = { ...(n.data || {}), musica: payload.musica, pattern: payload.pattern, bpm: payload.bpm };
+          collab?.broadcastPatch({ nodes: graph.nodes });
+          selectNode(n.id);
+        }
+      } else if (targetType === "peer") {
+        collab?.sendChat?.(`♪ → ${target}: ${payload.musica || "pattern"}`);
+      } else if (targetType === "broadcast") {
+        collab?.broadcastGraph?.(graph);
+      }
+      floatWorkspace?.setProcessing?.(`sent ♪ ${payload.musica?.slice(0, 24) || "pattern"} → ${target}`);
+    },
+    onOpenGrandPiano: (payload) => {
+      window.qbpmTools?.openTool?.("piano");
+      window.qbpmTools?.openTool?.("tools");
+      collabShell?.appendPromptOutput?.(`grand piano ← ${payload?.musica?.slice(0, 40) || "pattern"}`);
+    },
   });
 
   ugradHud = createUgradHud({
