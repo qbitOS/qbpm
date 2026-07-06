@@ -45,7 +45,8 @@
       if (stored) return stored.replace(/\/$/, "");
     } catch (_) {}
     if (!staticShell) return "";
-    return (defaultApiBase || "").replace(/\/$/, "");
+    const live = window.QBPM_PAGES?.defaultApiBase || defaultApiBase || "";
+    return String(live).replace(/\/$/, "");
   }
 
   function joinBase(p) {

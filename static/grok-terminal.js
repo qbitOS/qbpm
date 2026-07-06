@@ -1,6 +1,44 @@
 (function (global) {
   "use strict";
 
+  function resolveApiUrl(path) {
+    const P = global.QBPM_PAGES;
+    const rel = String(path || "").replace(/^\//, "");
+    if (P?.api) {
+      const url = P.api(rel);
+      if (url) return url;
+    }
+    if (P?.staticShell) return null;
+    return `/${rel}`;
+  }
+
+  function grokApiEnabled() {
+    const P = global.QBPM_PAGES;
+    if (!P) return true;
+    if (!P.staticShell) return true;
+    if (!P.hasComponent?.("grok")) return false;
+    if (P.componentMode?.("grok") === "bridge") return !!P.apiBase?.();
+    return !!P.hasComponent?.("grok");
+  }
+
+  async function fetchApiJson(url, options) {
+    if (!url) return { ok: false, local: true };
+    let res;
+    try {
+      res = await fetch(url, options);
+    } catch (err) {
+      return { ok: false, local: true, error: err.message };
+    }
+    const text = await res.text();
+    if (!text) return { ok: res.ok, empty: true };
+    try {
+      const data = JSON.parse(text);
+      return { ...data, ok: res.ok };
+    } catch {
+      return { ok: false, error: "non-json" };
+    }
+  }
+
   const termOut = () => document.getElementById("grok-terminal-out");
   const termIn = () => document.getElementById("grok-terminal-in");
   let ws = null;
@@ -21,16 +59,9 @@
   }
 
   function connect() {
-    const P = typeof window !== "undefined" && window.QBPM_PAGES;
-    if (P?.staticShell) {
-      if (!P.hasComponent?.("grok")) {
-        render("grok · disabled for this launch variant");
-        return Promise.resolve();
-      }
-      if (P.componentMode?.("grok") === "bridge" && !P.apiBase?.()) {
-        render("grok · bridge mode — API base not set (api.qbitos.ai)");
-        return Promise.resolve();
-      }
+    if (!grokApiEnabled()) {
+      render("grok · static shell — set API base or use desktop");
+      return Promise.resolve();
     }
     if (ws && ws.readyState === WebSocket.OPEN) return Promise.resolve();
     return new Promise((resolve, reject) => {
@@ -73,7 +104,9 @@
       );
       return { ok: true, transport: "ws" };
     }
-    const res = await fetch("/api/grok/inject", {
+    const url = resolveApiUrl("api/grok/inject");
+    if (!url) return { ok: false, local: true };
+    const data = await fetchApiJson(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -83,20 +116,29 @@
         execute,
       }),
     });
-    const data = await res.json();
     if (data.terminalText) render(data.terminalText);
     return data;
   }
 
   async function refresh() {
-    const res = await fetch(`/api/grok/terminal?session_id=${encodeURIComponent(sessionId)}`);
-    const data = await res.json();
-    render(data.terminalText || "");
+    if (!grokApiEnabled()) {
+      render("grok · offline (static shell)");
+      return { terminalText: "", local: true };
+    }
+    const url = resolveApiUrl(`api/grok/terminal?session_id=${encodeURIComponent(sessionId)}`);
+    const data = await fetchApiJson(url);
+    if (data.terminalText) render(data.terminalText);
+    else if (!data.ok) render("grok · terminal unavailable (API bridge)");
     return data;
   }
 
   function clearTerminal() {
-    fetch("/api/grok/clear", {
+    const url = resolveApiUrl("api/grok/clear");
+    if (!url) {
+      render("");
+      return Promise.resolve();
+    }
+    return fetchApiJson(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session_id: sessionId }),
