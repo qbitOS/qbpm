@@ -16,6 +16,7 @@ import { createQubeManager } from "./qube-manager.js";
 import { getLocalQubeClientId } from "./qube-store.js";
 import { mountInspectorCommandHelp } from "./terminal-commands.js";
 import { resolveTransport, drawNodeCycleBar } from "./node-cycle.js";
+import { getTabRuntime } from "./tab-runtime.js";
 
 const GRAPH_NAME = "default";
 const NODE_W = 168;
@@ -1171,7 +1172,7 @@ function canvasNeedsAnimRedraw() {
 }
 
 function vizAnimLoop() {
-  if (document.visibilityState === "visible") {
+  if (getTabRuntime().isVisible()) {
     drawViz();
     if (canvasNeedsAnimRedraw()) draw();
   }
@@ -1370,6 +1371,12 @@ function exportGraphState() {
   window.qbpm.setRightPanelTab = setRightPanelTab;
   window.qbpm.getFrames = () => structuredClone(frames());
   window.qbpm.getViewports = () => structuredClone(viewports());
+  window.qbpm.getTabRuntime = () => getTabRuntime();
+  window.qbpm.loadLiveVideos = (urls) => {
+    floatWorkspace?.openDockPanel?.("video");
+    floatWorkspace?.getVideoFeed?.()?.loadLiveVideos?.(urls);
+  };
+  window.qbpm.clearLiveVideos = () => floatWorkspace?.getVideoFeed?.()?.getLiveRail?.()?.clearAll?.();
   window.qbpm.onTerminalCommand = async (line) => {
     const low = line.trim().toLowerCase();
     if (low === "run") await runGraph();

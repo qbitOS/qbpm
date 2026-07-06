@@ -4,6 +4,7 @@
  */
 
 import { HexBridge, parseRoomFromUrl, generateRoomId } from "./piano/hex-bridge.js";
+import { getTabRuntime } from "./tab-runtime.js";
 
 const SNAKE_LEN = 7;
 const HEX_R = 5;
@@ -131,6 +132,10 @@ export function createHeaderStage(opts = {}) {
     startHexReceive();
     resize();
     window.addEventListener("resize", resize);
+    getTabRuntime().registerVisualLoop("header-stage", {
+      start: () => loop(),
+      stop: () => { cancelAnimationFrame(raf); raf = 0; },
+    });
     loop();
   }
 
@@ -263,6 +268,7 @@ export function createHeaderStage(opts = {}) {
   function destroy() {
     stopped = true;
     cancelAnimationFrame(raf);
+    getTabRuntime().unregisterVisualLoop("header-stage");
     window.removeEventListener("resize", resize);
     hexBridge?.stopReceive();
     getVideoWall()?.unregisterFeedStrip?.(feedHost);
