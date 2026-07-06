@@ -3,6 +3,7 @@
 
   function resolveApiUrl(path) {
     const P = global.QBPM_PAGES;
+    if (P?.bridgeOnline === false) return null;
     const rel = String(path || "").replace(/^\//, "");
     if (P?.api) {
       const url = P.api(rel);
@@ -17,8 +18,30 @@
     if (!P) return true;
     if (!P.staticShell) return true;
     if (!P.hasComponent?.("grok")) return false;
-    if (P.componentMode?.("grok") === "bridge") return !!P.apiBase?.();
+    if (P.componentMode?.("grok") === "bridge") {
+      if (P.bridgeOnline === false) return false;
+      if (P.bridgeOnline == null) return false;
+      return !!(P.apiBase?.() || P.defaultApiBase);
+    }
     return !!P.hasComponent?.("grok");
+  }
+
+  function whenBridgeReady(fn) {
+    const P = global.QBPM_PAGES;
+    if (!P?.staticShell || P.bridgeOnline != null) {
+      fn();
+      return;
+    }
+    global.addEventListener("qbpm-bridge-status", () => fn(), { once: true });
+    setTimeout(fn, 10000);
+  }
+
+  function localTerminalHelp() {
+    return [
+      "grok · local shell (API bridge offline)",
+      "run · save · graph · agent · help",
+      "canvas + music work locally on this device",
+    ].join("\n");
   }
 
   async function fetchApiJson(url, options) {
@@ -58,19 +81,30 @@
     return `${proto}//${location.host}/api/grok/ws`;
   }
 
+  let wsBackoff = 0;
+  let wsTimer = null;
+
   function connect() {
     if (!grokApiEnabled()) {
-      render("grok · static shell — set API base or use desktop");
+      render(localTerminalHelp());
       return Promise.resolve();
     }
     if (ws && ws.readyState === WebSocket.OPEN) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      ws = new WebSocket(wsUrl());
+    if (ws && ws.readyState === WebSocket.CONNECTING) return Promise.resolve();
+    return new Promise((resolve) => {
+      try {
+        ws = new WebSocket(wsUrl());
+      } catch (_) {
+        render(localTerminalHelp());
+        resolve();
+        return;
+      }
       ws.onopen = () => {
+        wsBackoff = 0;
         ws.send(JSON.stringify({ type: "join", client: "qbpm-ui", role: "terminal" }));
         resolve();
       };
-      ws.onerror = () => reject(new Error("grok ws failed"));
+      ws.onerror = () => {};
       ws.onmessage = (ev) => {
         try {
           const msg = JSON.parse(ev.data);
@@ -86,7 +120,13 @@
       };
       ws.onclose = () => {
         ws = null;
+        if (!grokApiEnabled()) return;
+        wsBackoff += 1;
+        if (wsBackoff > 5) return;
+        clearTimeout(wsTimer);
+        wsTimer = setTimeout(() => connect().catch(() => {}), Math.min(30000, 2500 * wsBackoff));
       };
+      setTimeout(() => resolve(), 4000);
     });
   }
 
@@ -105,7 +145,16 @@
       return { ok: true, transport: "ws" };
     }
     const url = resolveApiUrl("api/grok/inject");
-    if (!url) return { ok: false, local: true };
+    if (!url) {
+      const line = String(text || "").trim();
+      if (line && global.qbpm?.onTerminalCommand) {
+        try { await global.qbpm.onTerminalCommand(line.replace(/\n$/, "")); } catch (_) {}
+      }
+      const cur = termOut()?.textContent || "";
+      const echo = line ? `❯ ${line}` : "";
+      render(cur ? `${cur}\n${echo}` : echo || localTerminalHelp());
+      return { ok: true, local: true };
+    }
     const data = await fetchApiJson(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -122,13 +171,13 @@
 
   async function refresh() {
     if (!grokApiEnabled()) {
-      render("grok · offline (static shell)");
+      render(localTerminalHelp());
       return { terminalText: "", local: true };
     }
     const url = resolveApiUrl(`api/grok/terminal?session_id=${encodeURIComponent(sessionId)}`);
     const data = await fetchApiJson(url);
     if (data.terminalText) render(data.terminalText);
-    else if (!data.ok) render("grok · terminal unavailable (API bridge)");
+    else if (!data.ok) render(localTerminalHelp());
     return data;
   }
 
@@ -208,8 +257,10 @@
       });
     }
 
-    refresh().catch(() => {});
-    connect().catch(() => {});
+    whenBridgeReady(() => {
+      refresh().catch(() => {});
+      connect().catch(() => {});
+    });
   }
 
   global.grokTools = {

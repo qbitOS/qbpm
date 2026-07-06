@@ -3,7 +3,15 @@
  * WS api/live/ws · POST api/live/ingest · BroadcastChannel qbpm-live
  */
 
-import { componentApiEnabled, fetchApiJson, getPages, resolveApiUrl } from "./api-bridge.js";
+import {
+  bridgeComponentEnabled,
+  fetchApiJson,
+  getPages,
+  resetBridgeReconnect,
+  resolveApiUrl,
+  scheduleBridgeReconnect,
+  waitForBridgeReady,
+} from "./api-bridge.js";
 
 const LIVE_CH = "qbpm-live";
 const KBATCH_CH = "kbatch-keyboard-data";
@@ -32,9 +40,10 @@ export function createLiveMusicBridge(opts = {}) {
   const onState = opts.onState || (() => {});
   const onEvent = opts.onEvent || (() => {});
   let ws = null;
-  let reconnectTimer = null;
+  let reconnectState = {};
   let bc = null;
   let pianoIngestTimer = null;
+  let started = false;
 
   function handlePayload(msg) {
     const state = msg.state || msg;
@@ -49,16 +58,25 @@ export function createLiveMusicBridge(opts = {}) {
   }
 
   function connect() {
-    if (!componentApiEnabled("live")) return;
+    if (!bridgeComponentEnabled("live")) {
+      onEvent({ type: "local" });
+      return;
+    }
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-    ws = new WebSocket(wsUrl());
-    ws.onopen = () => onEvent({ type: "open" });
+    try {
+      ws = new WebSocket(wsUrl());
+    } catch (_) {
+      onEvent({ type: "error", local: true });
+      return;
+    }
+    ws.onopen = () => {
+      resetBridgeReconnect(reconnectState);
+      onEvent({ type: "open" });
+    };
     ws.onclose = () => {
+      ws = null;
       onEvent({ type: "close" });
-      clearTimeout(reconnectTimer);
-      if (componentApiEnabled("live")) {
-        reconnectTimer = setTimeout(connect, 2000);
-      }
+      scheduleBridgeReconnect("live", connect, reconnectState);
     };
     ws.onerror = () => onEvent({ type: "error" });
     ws.onmessage = (ev) => {
@@ -68,6 +86,15 @@ export function createLiveMusicBridge(opts = {}) {
         /* ignore */
       }
     };
+  }
+
+  function start() {
+    if (started) return;
+    started = true;
+    waitForBridgeReady().then((ok) => {
+      if (ok) connect();
+      else onEvent({ type: "local" });
+    });
   }
 
   async function ingestNow(payload, source = "qbpm") {
@@ -127,20 +154,20 @@ export function createLiveMusicBridge(opts = {}) {
     };
   }
 
-  connect();
   listenBroadcast();
   if (typeof window !== "undefined") {
-    window.addEventListener("qbpm-launch-ready", () => connect());
+    if (window.QBPM_PAGES?.launchReady?.()) start();
+    else window.addEventListener("qbpm-launch-ready", start, { once: true });
   }
 
   return {
-    connect,
+    connect: start,
     ingest,
     get socket() {
       return ws;
     },
     close() {
-      clearTimeout(reconnectTimer);
+      clearTimeout(reconnectState.timer);
       clearTimeout(pianoIngestTimer);
       bc?.close();
       ws?.close();

@@ -29,6 +29,7 @@ import {
   setMemberPrefs,
   toggleMemberList,
 } from "./canvas-groups.js";
+import { fetchApiJson, isBridgeOnline, resolveApiUrl } from "./api-bridge.js";
 import { createLiveNodePanel, LIVE_PANEL_W, LIVE_PANEL_H } from "./live-node-panel.js";
 
 const GRAPH_NAME = "default";
@@ -1516,16 +1517,16 @@ function vizAnimLoop() {
 
 async function loadGraph(opts = {}) {
   const P = pages();
-  const api = P.api(`api/graph/${GRAPH_NAME}`);
+  const api = isBridgeOnline() ? P.api(`api/graph/${GRAPH_NAME}`) : null;
   if (api) {
-    const res = await fetch(
+    const data = await fetchApiJson(
       `${api}${opts.bust ? `?t=${Date.now()}` : ""}`,
       opts.hard ? { cache: "no-store" } : undefined,
     );
-    if (res.ok) {
-      graph = await res.json();
-    } else if (!P.staticShell) {
-      throw new Error(await res.text());
+    if (data.ok !== false && data.nodes) {
+      graph = data;
+    } else if (!P.staticShell && data.error) {
+      throw new Error(data.error);
     }
   }
   if (!graph?.nodes) {
@@ -1578,37 +1579,56 @@ async function hardRefreshCanvas() {
 
 async function saveGraph() {
   await qubeManager?.flush?.("all");
-  const api = pages().api(`api/graph/${GRAPH_NAME}`);
+  const api = resolveApiUrl(`api/graph/${GRAPH_NAME}`);
   if (!api) {
     localStorage.setItem(`qbpm-graph-${GRAPH_NAME}`, JSON.stringify(graph));
     vizLog.textContent = "saved locally · qube compartments";
     return;
   }
-  const res = await fetch(api, {
+  const data = await fetchApiJson(api, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(graph),
   });
-  const data = await res.json();
-  vizLog.textContent = `saved ${data.path}`;
+  if (data.ok === false) {
+    localStorage.setItem(`qbpm-graph-${GRAPH_NAME}`, JSON.stringify(graph));
+    vizLog.textContent = "saved locally · API offline";
+    return;
+  }
+  vizLog.textContent = `saved ${data.path || "remote"}`;
   collab?.broadcastGraph(graph);
 }
 
 async function runGraph() {
-  const res = await fetch(`/api/graph/${GRAPH_NAME}/run`, { method: "POST" });
-  lastRun = await res.json();
+  const url = resolveApiUrl(`api/graph/${GRAPH_NAME}/run`);
+  if (!url) {
+    vizLog.textContent = "run · local shell (needs API host for execution)";
+    syncFloatPanels();
+    drawViz();
+    return;
+  }
+  const data = await fetchApiJson(url, { method: "POST" });
+  if (data.ok === false) {
+    vizLog.textContent = `run · offline (${data.error || "no API"})`;
+    return;
+  }
+  lastRun = data;
   vizLog.textContent = JSON.stringify(lastRun, null, 2);
   syncFloatPanels();
   drawViz();
 }
 
 async function agentPropose() {
-  const res = await fetch("/api/agent/propose", {
+  const url = resolveApiUrl("api/agent/propose");
+  if (!url) {
+    vizLog.textContent = "agent · local shell (needs API host)";
+    return;
+  }
+  const data = await fetchApiJson(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ graph, intent: "expand" }),
   });
-  const data = await res.json();
   if (data.ok && data.diff?.op === "add") {
     graph.nodes.push(data.diff.node);
     if (data.diff.edge) graph.edges.push(data.diff.edge);
@@ -1877,9 +1897,15 @@ function initLiveMusic() {
       syncFloatPanels();
     },
     onEvent: (ev) => {
-      if (ev.type === "close" && statusEl) {
-        statusEl.textContent = "● reconnecting…";
+      if (!statusEl) return;
+      if (ev.type === "local") {
+        statusEl.textContent = "● local · offline bridge";
         statusEl.classList.remove("active");
+      } else if (ev.type === "close") {
+        statusEl.textContent = pages().bridgeOnline === false ? "● local · offline bridge" : "● reconnecting…";
+        statusEl.classList.remove("active");
+      } else if (ev.type === "open") {
+        statusEl.classList.add("active");
       }
     },
   });
@@ -2273,16 +2299,24 @@ document.getElementById("prompt-imagine")?.addEventListener("click", async () =>
   }
 });
 
-if (pages().staticShell) {
+function refreshStaticShellChrome() {
+  if (!pages().staticShell) return;
   const cs = document.getElementById("collab-status");
-  if (cs) cs.textContent = "● static shell";
+  const offline = pages().bridgeOnline === false;
+  if (cs) cs.textContent = offline ? "● solo · local" : "● static shell";
   const hint = document.getElementById("canvas-hint");
   if (hint) {
     const v = pages().variant || "pages";
-    const api = pages().apiBase?.() || pages().defaultApiBase || "api.qbitos.ai";
-    hint.textContent = `${v} · local graph · API bridge: ${api || "same-origin"} · qbpm.qbitos.ai · forge/Qbpm`;
+    if (offline) {
+      hint.textContent = `${v} · local-only · graph saved in browser · API bridge offline`;
+    } else {
+      const api = pages().apiBase?.() || pages().defaultApiBase || "api";
+      hint.textContent = `${v} · local graph · API bridge: ${api}`;
+    }
   }
 }
+refreshStaticShellChrome();
+window.addEventListener("qbpm-bridge-status", refreshStaticShellChrome);
 
 initQubeManager();
 initCollab();

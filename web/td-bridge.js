@@ -1,5 +1,12 @@
 /** TouchDesigner bridge — OSC-style WebSocket · TOP feedback · comp lane export */
 
+import {
+  bridgeComponentEnabled,
+  resetBridgeReconnect,
+  scheduleBridgeReconnect,
+  waitForBridgeReady,
+} from "./api-bridge.js";
+
 const TD_CH = "qbpm-td";
 
 function tdWsUrl() {
@@ -14,7 +21,7 @@ export function createTdBridge(opts = {}) {
 
   let ws = null;
   let enabled = localStorage.getItem("qbpm-td-enabled") === "1";
-  let reconnectTimer = null;
+  let reconnectState = {};
   const pending = [];
 
   function setStatus(t) {
@@ -22,30 +29,28 @@ export function createTdBridge(opts = {}) {
   }
 
   function connect() {
-    const P = typeof window !== "undefined" && window.QBPM_PAGES;
-    if (P?.staticShell) {
-      if (!P.hasComponent?.("td")) {
-        setStatus("td · disabled for this launch variant");
-        return;
-      }
-      if (P.componentMode?.("td") === "bridge" && !P.apiBase?.()) {
-        setStatus("td · set API base (api.qbitos.ai)");
-        return;
-      }
+    if (!bridgeComponentEnabled("td")) {
+      setStatus("td · local shell");
+      return;
     }
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-    ws = new WebSocket(tdWsUrl());
+    try {
+      ws = new WebSocket(tdWsUrl());
+    } catch (_) {
+      setStatus("td · offline");
+      return;
+    }
     ws.onopen = () => {
+      resetBridgeReconnect(reconnectState);
       setStatus("td · connected");
       flush();
     };
     ws.onclose = () => {
       setStatus("td · offline");
       ws = null;
-      clearTimeout(reconnectTimer);
-      reconnectTimer = setTimeout(connect, 2500);
+      scheduleBridgeReconnect("td", connect, reconnectState);
     };
-    ws.onerror = () => setStatus("td · ws error");
+    ws.onerror = () => setStatus("td · offline");
     ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
@@ -91,7 +96,11 @@ export function createTdBridge(opts = {}) {
     return enabled;
   }
 
-  if (enabled) connect();
+  if (enabled) {
+    waitForBridgeReady().then((ok) => {
+      if (ok) connect();
+    });
+  }
 
   return {
     connect,
@@ -101,7 +110,7 @@ export function createTdBridge(opts = {}) {
     setEnabled,
     isEnabled,
     destroy() {
-      clearTimeout(reconnectTimer);
+      clearTimeout(reconnectState.timer);
       ws?.close();
       ws = null;
     },
