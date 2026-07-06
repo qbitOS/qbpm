@@ -42,6 +42,11 @@ import {
 } from "./node-registry.js";
 import { drawNodeWaveform } from "./node-waveform.js";
 import { applyStudioPreset, drawStudioLanes } from "./studio-presets.js";
+import {
+  appendVideoLaneChain,
+  appendVideoLaneNode,
+  videoLanePickerItems,
+} from "./video-lane-presets.js";
 
 const GRAPH_NAME = "default";
 const NODE_W = 168;
@@ -1819,8 +1824,29 @@ function loadStudioPreset(presetId = "underoath-gillespie") {
   draw();
 }
 
-function addLiveRailNode() {
-  addNode("live.rail");
+function addVideoLaneChain() {
+  const b = graphBounds();
+  const origin = [b.x + 80, b.y + b.h / 2];
+  const result = appendVideoLaneChain(graph, { owner: localOwnerId(), origin, gap: 200 });
+  for (const n of result.nodes) graph.nodes.push(tagNodeOwner(n));
+  for (const e of result.edges) graph.edges.push(e);
+  if (result.firstId) selectNode(result.firstId);
+  alignView("node");
+  if (!soloGraph) collab?.broadcastPatch?.({ nodes: graph.nodes, edges: graph.edges });
+  vizLog.textContent = `video lane · chain · ${result.nodes.length} nodes`;
+  refreshCanvasTargets();
+  draw();
+}
+
+function addVideoLaneNode(type) {
+  const b = graphBounds();
+  const { node, id } = appendVideoLaneNode(graph, type, { owner: localOwnerId(), bounds: b });
+  graph.nodes.push(tagNodeOwner(node));
+  selectNode(id);
+  if (!soloGraph) collab?.broadcastPatch?.({ nodes: graph.nodes });
+  vizLog.textContent = `video lane · ${node.data?.label || type}`;
+  refreshCanvasTargets();
+  draw();
 }
 
 function saveUserCompTree(userId) {
@@ -1948,6 +1974,8 @@ function exportGraphState() {
   window.qbpm.setMobilePanel = setMobilePanel;
   window.qbpm.loadStudioPreset = loadStudioPreset;
   window.qbpm.addNode = addNode;
+  window.qbpm.addVideoLaneChain = addVideoLaneChain;
+  window.qbpm.addVideoLaneNode = addVideoLaneNode;
   window.qbpm.setRightPanelTab = setRightPanelTab;
   window.qbpm.getFrames = () => structuredClone(frames());
   window.qbpm.getViewports = () => structuredClone(viewports());
@@ -2002,6 +2030,42 @@ function initLiveMusic() {
   };
 }
 
+function initVideoLanePicker() {
+  const picker = document.getElementById("video-lane-picker");
+  const btn = document.getElementById("btn-add-video-lane");
+  if (!picker || !btn) return;
+  const items = videoLanePickerItems();
+  picker.innerHTML = items
+    .map((item, i) => {
+      const chainCls = item.kind === "chain" ? " vlp-chain" : "";
+      return `<button type="button" class="${chainCls.trim()}" data-kind="${item.kind}" data-type="${item.type || ""}">
+        <span class="dp-icon">${item.icon}</span>
+        <span>${item.label}</span>
+        <span class="dp-meta">${item.desc}</span>
+      </button>`;
+    })
+    .join("");
+  btn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    picker.classList.toggle("open");
+    btn.classList.toggle("active");
+    document.getElementById("device-picker")?.classList.remove("open");
+    document.getElementById("btn-add-device")?.classList.remove("active");
+  });
+  picker.querySelectorAll("button").forEach((b) => {
+    b.addEventListener("click", () => {
+      if (b.dataset.kind === "chain") addVideoLaneChain();
+      else if (b.dataset.type) addVideoLaneNode(b.dataset.type);
+      picker.classList.remove("open");
+      btn.classList.remove("active");
+    });
+  });
+  document.addEventListener("click", () => {
+    picker.classList.remove("open");
+    btn.classList.remove("active");
+  });
+}
+
 function initDevicePicker() {
   const picker = document.getElementById("device-picker");
   const btn = document.getElementById("btn-add-device");
@@ -2030,6 +2094,7 @@ function initDevicePicker() {
 exportGraphState();
 initLiveMusic();
 registerQbpmTools();
+initVideoLanePicker();
 initDevicePicker();
 
 document.getElementById("insp-type").addEventListener("change", syncInspector);
@@ -2071,7 +2136,7 @@ document.querySelectorAll("#right-tabs button[data-tab]").forEach((btn) => {
   btn.addEventListener("click", () => setRightPanelTab(btn.dataset.tab));
 });
 document.getElementById("btn-add").addEventListener("click", () => addNode());
-document.getElementById("btn-add-live-rail")?.addEventListener("click", addLiveRailNode);
+
 document.getElementById("btn-studio-preset")?.addEventListener("click", () => loadStudioPreset("underoath-gillespie"));
 document.getElementById("btn-del-node")?.addEventListener("click", deleteSelectedNode);
 document.getElementById("insp-del-node")?.addEventListener("click", deleteSelectedNode);
