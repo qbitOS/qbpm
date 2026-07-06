@@ -33,8 +33,34 @@ rsync -aL --delete \
 
 rsync -a "$ROOT/graphs/" "$DEST/graphs/"
 rsync -a "$ROOT/deploy/variants/" "$DEST/deploy/variants/" 2>/dev/null || true
-rsync -a "$ROOT/docs/" "$DEST/docs/" 2>/dev/null || true
+rsync -a "$ROOT/docs/screenshots/" "$DEST/docs/screenshots/" 2>/dev/null || true
 cp "$ROOT/README.md" "$DEST/README.md"
+
+echo "→ Building forge static shell for Pages"
+BUILD_DIR="$(mktemp -d)"
+trap 'rm -rf "$BUILD_DIR"' EXIT
+chmod +x "$ROOT/deploy/build-static.sh"
+VARIANT=forge "$ROOT/deploy/build-static.sh" Qbpm "$BUILD_DIR/out"
+mkdir -p "$DEST/docs"
+rsync -aL "$BUILD_DIR/out/" "$DEST/docs/"
+touch "$DEST/docs/.nojekyll"
+touch "$DEST/.nojekyll"
+
+cat > "$DEST/index.html" <<'HTML'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="refresh" content="0; url=./docs/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Qbpm</title>
+  <script>location.replace("./docs/");</script>
+</head>
+<body>
+  <p><a href="./docs/">Open Qbpm</a></p>
+</body>
+</html>
+HTML
 cp "$ROOT/deploy/build-static.sh" "$DEST/deploy/build-static.sh"
 cp "$ROOT/scripts/publish-fornevercollective.sh" "$DEST/scripts/publish-fornevercollective.sh"
 chmod +x "$DEST/deploy/build-static.sh" "$DEST/scripts/publish-fornevercollective.sh"
@@ -48,9 +74,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
@@ -59,24 +83,19 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Build static shell (forge variant)
         run: chmod +x deploy/build-static.sh && VARIANT=forge ./deploy/build-static.sh Qbpm _site
 
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
+      - name: Publish gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: _site
-
-      - id: deployment
-        uses: actions/deploy-pages@v4
-        timeout-minutes: 10
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          publish_branch: gh-pages
+          commit_message: "deploy: forge Pages from ${{ github.sha }}"
 YAML
 
 printf '_site/\n' > "$DEST/.gitignore"
