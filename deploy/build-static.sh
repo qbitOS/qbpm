@@ -55,6 +55,7 @@ rewrite_file() {
 
 rewrite_file "$OUT/index.html"
 rewrite_file "$OUT/sw.js"
+cp "$OUT/index.html" "$OUT/404.html"
 
 # Manifest for Pages
 MANIFEST="$OUT/manifest.webmanifest"

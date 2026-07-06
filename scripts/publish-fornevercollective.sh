@@ -56,6 +56,7 @@ jobs:
 
       - id: deployment
         uses: actions/deploy-pages@v4
+        timeout-minutes: 10
 YAML
 
 # README
