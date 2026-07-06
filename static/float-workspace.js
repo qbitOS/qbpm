@@ -31,6 +31,8 @@ export function createFloatWorkspace(opts = {}) {
     onOpenGrandPiano,
     getSendTargets,
     getBpm,
+    getTheory,
+    onTheoryChange,
     getLocalHandle = () => "guest",
     getPeers = () => [],
     getCollab = () => null,
@@ -156,6 +158,8 @@ export function createFloatWorkspace(opts = {}) {
         return { ...base, daws: dawLink?.listDaws?.() || [] };
       },
       getBpm,
+      getTheory,
+      onTheoryChange,
       onStateChange: () => onWorkspaceChange?.(),
     });
     musicPanes = createMusicPanes(musicCore, { onOpenGrandPiano });
@@ -216,6 +220,7 @@ export function createFloatWorkspace(opts = {}) {
     videoWall.setFloatDockOpen?.(() => floatDock.openPanel("video"));
     headerStage = createHeaderStage({
       getBpm,
+      getTheory: () => musicCore?.getTheory?.() || getTheory?.(),
       getAnalyser: () => musicCore?.getAnalyser?.(),
       getVideoWall: () => videoWall,
       getLocalHandle,
@@ -441,12 +446,16 @@ export function createFloatWorkspace(opts = {}) {
     getMusicTransport: () => {
       const core = musicCore;
       if (!core) return null;
+      const theory = core.getTheory?.() || getTheory?.() || null;
       return {
-        bpm: getBpm?.() || 120,
+        bpm: theory?.locked?.bpm ? theory.bpm : getBpm?.() || theory?.bpm || 120,
         seqOn: core.seqOn,
         seqStep: core.seqStep,
+        theory,
       };
     },
+    getTheory: () => musicCore?.getTheory?.() || getTheory?.() || null,
+    setTheory: (patch) => musicCore?.setTheory?.(patch),
     ingestWatchUrl,
     ffplayWatchUrl,
     getVideoFeed: () => videoFeed,

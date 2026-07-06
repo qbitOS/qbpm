@@ -135,6 +135,18 @@ function ensureCanvasMeta() {
       { id: "vp-main", label: "Primary", frameId: "frame-main", pan: [80, 80], scale: 1 },
     ];
   }
+  if (!graph.meta.theory || typeof graph.meta.theory !== "object") {
+    graph.meta.theory = {
+      bpm: 120,
+      locked: { bpm: false, swing: false, signature: false, structure: false },
+      timeSig: [4, 4],
+      swing: 0,
+      microtonal: { cents: 0, edo: 12 },
+      negativeHarmony: { enabled: false, axis: "C" },
+      polyrhythm: { enabled: false, ratio: [3, 4] },
+      structure: { section: "verse", marker: "" },
+    };
+  }
   if (ensuringCanvasMeta) return graph.meta;
   ensuringCanvasMeta = true;
   try {
@@ -706,7 +718,21 @@ function initCollab() {
     onNotePlay: (n) => window.qbpmLive?.ingest?.({ musica: n.note ?? n.hz, bpm: liveState?.bpm }, "piano"),
     getPanScale: () => ({ pan, scale }),
     getFrames: () => frames(),
-    getBpm: () => liveState?.bpm || liveState?.cpm || 120,
+    getBpm: () => {
+      const t = graph.meta?.theory;
+      if (t?.locked?.bpm && t.bpm) return t.bpm;
+      return liveState?.bpm || liveState?.cpm || t?.bpm || 120;
+    },
+    getTheory: () => graph.meta?.theory || null,
+    onTheoryChange: (theory) => {
+      if (!theory) return;
+      graph.meta.theory = { ...graph.meta.theory, ...theory };
+      if (theory.bpm) {
+        liveState = { ...liveState, bpm: theory.bpm, cpm: theory.bpm };
+      }
+      draw();
+      floatWorkspace?.drawNotation?.(liveState);
+    },
     getSendTargets: () => ({
       nodes: graph.nodes.map((n) => ({
         id: n.id,

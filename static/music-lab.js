@@ -7,6 +7,14 @@ import {
   PIANO_KEYS,
   STEP_COUNT,
 } from "./music-core.js";
+import {
+  TIME_SIGNATURES,
+  EDO_OPTIONS,
+  STRUCTURE_SECTIONS,
+  THEORY_PRESETS,
+  theorySummary,
+  timeSigLabel,
+} from "./music-theory.js";
 
 function drawStaff(el, notes, keys = PIANO_KEYS) {
   if (!el) return;
@@ -78,6 +86,45 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
           <button type="button" class="ml-btn ml-link" id="ml-beat" title="Beat MPC pane">beat</button>
           <button type="button" class="ml-btn ml-link" id="ml-wave" title="Waveform edit pane">∿</button>
         </div>
+        <div class="ml-theory" aria-label="Music theory · BPM · swing · signature">
+          <div class="ml-theory-row">
+            <label class="ml-theory-field" title="Time signature">
+              <span>sig</span>
+              <select id="ml-sig"></select>
+            </label>
+            <label class="ml-theory-field ml-theory-swing" title="Swing amount">
+              <span>sw</span>
+              <input id="ml-swing" type="range" min="0" max="100" value="0" />
+            </label>
+            <label class="ml-theory-field" title="BPM">
+              <span>bpm</span>
+              <input id="ml-bpm" type="number" min="20" max="320" step="1" value="120" />
+            </label>
+            <button type="button" class="ml-lock" id="ml-lock-bpm" title="Lock BPM">○</button>
+            <button type="button" class="ml-lock" id="ml-lock-swing" title="Lock swing">○</button>
+            <button type="button" class="ml-lock" id="ml-lock-sig" title="Lock signature">○</button>
+          </div>
+          <div class="ml-theory-row">
+            <label class="ml-theory-field" title="Microtonal EDO">
+              <span>edo</span>
+              <select id="ml-edo"></select>
+            </label>
+            <label class="ml-theory-field ml-theory-swing" title="Microtonal cents shift">
+              <span>¢</span>
+              <input id="ml-cents" type="range" min="-50" max="50" value="0" />
+            </label>
+            <label class="ml-theory-field" title="Song structure section">
+              <span>form</span>
+              <select id="ml-structure"></select>
+            </label>
+            <button type="button" class="ml-chip-toggle" id="ml-neg" title="Negative harmony flip">neg</button>
+            <button type="button" class="ml-chip-toggle" id="ml-poly" title="Polyrhythm overlay">poly</button>
+          </div>
+          <div class="ml-theory-presets qb-btn-group" aria-label="Arrangement presets">
+            ${Object.values(THEORY_PRESETS).map((p) => `<button type="button" class="qb-chip ml-preset" data-preset="${p.id}" title="${p.label}">${p.label}</button>`).join("")}
+          </div>
+          <div class="ml-theory-meta" id="ml-theory-meta">4/4 · verse</div>
+        </div>
         <div class="ml-strudel-row">
           <input id="ml-strudel" type="text" placeholder="GitHub repo · strudel.cc · d1 $ s 'bd sd'" spellcheck="false" autocomplete="off" aria-label="Strudel pattern or project URL" />
           <button type="button" id="ml-strudel-open" class="ml-btn qb-btn--accent qb-btn--icon" title="Open Strudel pane">()</button>
@@ -111,6 +158,7 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
     buildPads();
     buildSteps();
     buildPiano();
+    buildTheoryControls();
     bindEvents();
     refreshDawChips();
     refreshSendTargets();
@@ -145,6 +193,64 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
       b.dataset.step = String(i);
       el.appendChild(b);
     }
+  }
+
+  function buildTheoryControls() {
+    const sig = document.getElementById("ml-sig");
+    if (sig) {
+      sig.innerHTML = TIME_SIGNATURES.map(
+        (ts) => `<option value="${ts[0]}/${ts[1]}">${timeSigLabel(ts)}</option>`,
+      ).join("");
+    }
+    const edo = document.getElementById("ml-edo");
+    if (edo) {
+      edo.innerHTML = EDO_OPTIONS.map((n) => `<option value="${n}">${n}-TET</option>`).join("");
+    }
+    const sec = document.getElementById("ml-structure");
+    if (sec) {
+      sec.innerHTML = STRUCTURE_SECTIONS.map((s) => `<option value="${s}">${s}</option>`).join("");
+    }
+    syncTheoryUi();
+  }
+
+  function syncTheoryUi() {
+    const t = core.getTheory?.() || {};
+    const sig = document.getElementById("ml-sig");
+    if (sig) sig.value = timeSigLabel(t.timeSig);
+    const swing = document.getElementById("ml-swing");
+    if (swing) swing.value = String(Math.round((t.swing || 0) * 100));
+    const bpm = document.getElementById("ml-bpm");
+    if (bpm) bpm.value = String(Math.round(t.bpm || core.getBpm?.() || 120));
+    const edo = document.getElementById("ml-edo");
+    if (edo) edo.value = String(t.microtonal?.edo || 12);
+    const cents = document.getElementById("ml-cents");
+    if (cents) cents.value = String(t.microtonal?.cents || 0);
+    const structure = document.getElementById("ml-structure");
+    if (structure) structure.value = t.structure?.section || "verse";
+    document.getElementById("ml-neg")?.classList.toggle("active", !!t.negativeHarmony?.enabled);
+    document.getElementById("ml-poly")?.classList.toggle("active", !!t.polyrhythm?.enabled);
+    const lockBpm = document.getElementById("ml-lock-bpm");
+    if (lockBpm) {
+      lockBpm.classList.toggle("locked", !!t.locked?.bpm);
+      lockBpm.textContent = t.locked?.bpm ? "●" : "○";
+    }
+    const lockSwing = document.getElementById("ml-lock-swing");
+    if (lockSwing) {
+      lockSwing.classList.toggle("locked", !!t.locked?.swing);
+      lockSwing.textContent = t.locked?.swing ? "●" : "○";
+    }
+    const lockSig = document.getElementById("ml-lock-sig");
+    if (lockSig) {
+      lockSig.classList.toggle("locked", !!t.locked?.signature);
+      lockSig.textContent = t.locked?.signature ? "●" : "○";
+    }
+    const meta = document.getElementById("ml-theory-meta");
+    if (meta) meta.textContent = theorySummary(t);
+  }
+
+  function patchTheory(patch) {
+    core.setTheory?.(patch);
+    syncTheoryUi();
   }
 
   function buildPiano() {
@@ -316,6 +422,54 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
     });
     document.getElementById("ml-seq-stop")?.addEventListener("click", () => core.stopSeq());
 
+    document.getElementById("ml-sig")?.addEventListener("change", (ev) => {
+      const parts = ev.target.value.split("/").map(Number);
+      patchTheory({ timeSig: parts, locked: { signature: core.getTheory?.().locked?.signature } });
+    });
+    document.getElementById("ml-swing")?.addEventListener("input", (ev) => {
+      patchTheory({ swing: Number(ev.target.value) / 100 });
+    });
+    document.getElementById("ml-bpm")?.addEventListener("change", (ev) => {
+      const bpm = Math.max(20, Math.min(320, Number(ev.target.value) || 120));
+      patchTheory({ bpm });
+    });
+    document.getElementById("ml-edo")?.addEventListener("change", (ev) => {
+      patchTheory({ microtonal: { edo: Number(ev.target.value) } });
+    });
+    document.getElementById("ml-cents")?.addEventListener("input", (ev) => {
+      patchTheory({ microtonal: { cents: Number(ev.target.value) } });
+    });
+    document.getElementById("ml-structure")?.addEventListener("change", (ev) => {
+      patchTheory({ structure: { section: ev.target.value } });
+    });
+    document.getElementById("ml-neg")?.addEventListener("click", (ev) => {
+      const on = !core.getTheory?.().negativeHarmony?.enabled;
+      patchTheory({ negativeHarmony: { enabled: on } });
+      ev.currentTarget.classList.toggle("active", on);
+    });
+    document.getElementById("ml-poly")?.addEventListener("click", (ev) => {
+      const on = !core.getTheory?.().polyrhythm?.enabled;
+      patchTheory({ polyrhythm: { enabled: on } });
+      ev.currentTarget.classList.toggle("active", on);
+    });
+    const toggleLock = (key, btnId) => {
+      document.getElementById(btnId)?.addEventListener("click", () => {
+        const t = core.getTheory?.() || {};
+        const locked = { ...t.locked, [key]: !t.locked?.[key] };
+        patchTheory({ locked });
+      });
+    };
+    toggleLock("bpm", "ml-lock-bpm");
+    toggleLock("swing", "ml-lock-swing");
+    toggleLock("signature", "ml-lock-sig");
+    document.querySelectorAll(".ml-preset").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const preset = THEORY_PRESETS[btn.dataset.preset];
+        if (!preset) return;
+        patchTheory({ ...preset.theory, preset: preset.id });
+      });
+    });
+
     document.getElementById("ml-send-btn")?.addEventListener("click", () => {
       core.sendPattern(document.getElementById("ml-send-target")?.value);
     });
@@ -386,15 +540,17 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
   }
 
   function drawNotation(live) {
-    const bpm = live?.bpm || live?.cpm || core.getBpm() || 120;
+    const t = core.getTheory?.() || {};
+    const bpm = t.locked?.bpm ? t.bpm : live?.bpm || live?.cpm || core.getBpm() || 120;
     const lbl = document.getElementById("ml-bpm-lbl");
-    if (lbl) lbl.textContent = `${bpm} bpm`;
+    if (lbl) lbl.textContent = `${Math.round(bpm)} bpm · ${timeSigLabel(t.timeSig)}`;
+    syncTheoryUi();
     const meta = document.getElementById("ml-meta");
     const musica = live?.musica || live?.flow || "";
     if (meta) {
       meta.textContent = musica
-        ? `${musica.slice(0, 32)} · ${bpm} bpm`
-        : `pads · ${STEP_COUNT} steps · 2 oct`;
+        ? `${musica.slice(0, 32)} · ${theorySummary(t)}`
+        : `${theorySummary(t)} · ${STEP_COUNT} steps`;
     }
     if (musica) {
       const parsed = [];

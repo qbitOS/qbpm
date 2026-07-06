@@ -5,6 +5,7 @@
 
 import { HexBridge, parseRoomFromUrl, generateRoomId } from "./piano/hex-bridge.js";
 import { getTabRuntime } from "./tab-runtime.js";
+import { barPhase, cycleBeatsFromSig, timeSigLabel } from "./music-theory.js";
 
 const SNAKE_LEN = 7;
 const HEX_R = 5;
@@ -34,11 +35,11 @@ function drawHexCell(ctx, cx, cy, r, fill, stroke) {
   }
 }
 
-function drawHexSnake(ctx, w, h, bpm, beatPhase, spectrum) {
+function drawHexSnake(ctx, w, h, bpm, barPhaseVal, spectrum, timeSig, swing) {
   const step = HEX_R * 1.65;
   const cols = Math.max(8, Math.floor((w - 56) / step));
   const cy = h / 2;
-  const head = beatPhase * cols;
+  const head = barPhaseVal * cols;
 
   for (let i = 0; i < cols; i++) {
     const cx = 8 + i * step + HEX_R;
@@ -60,13 +61,16 @@ function drawHexSnake(ctx, w, h, bpm, beatPhase, spectrum) {
   ctx.font = "9px Menlo, monospace";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  ctx.fillText(`${Math.round(bpm)} bpm`, w - 6, cy);
+  const sig = timeSig ? timeSigLabel(timeSig) : "4/4";
+  const sw = swing ? ` · ${Math.round(swing * 100)}%` : "";
+  ctx.fillText(`${sig} · ${Math.round(bpm)}${sw}`, w - 6, cy);
   ctx.textAlign = "left";
 }
 
 export function createHeaderStage(opts = {}) {
   const {
     getBpm = () => 120,
+    getTheory = () => null,
     getAnalyser = () => null,
     getVideoWall = () => null,
     getLocalHandle = () => "guest",
@@ -245,11 +249,13 @@ export function createHeaderStage(opts = {}) {
       const w = snakeCanvas.width / dpr;
       const h = snakeCanvas.height / dpr;
       ctx.clearRect(0, 0, w, h);
-      const bpm = Math.max(20, getBpm() || 120);
+      const theory = getTheory?.() || {};
+      const bpm = Math.max(20, theory.locked?.bpm ? theory.bpm : getBpm() || theory.bpm || 120);
       const beatMs = 60000 / bpm;
-      const beatPhase = (performance.now() % beatMs) / beatMs;
+      const cycleBeats = cycleBeatsFromSig(theory.timeSig);
+      const barPhaseVal = barPhase(performance.now(), beatMs, cycleBeats, theory.swing || 0);
       const spec = spectrumBins(getAnalyser?.());
-      drawHexSnake(ctx, w, h, bpm, beatPhase, spec);
+      drawHexSnake(ctx, w, h, bpm, barPhaseVal, spec, theory.timeSig, theory.swing);
     }
     updateVwallCap();
     raf = requestAnimationFrame(loop);
