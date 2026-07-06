@@ -1,4 +1,4 @@
-/** Viewport edge dock — collapsible panels, canvas never blocked */
+/** Viewport edge dock — collapsible panels, canvas center kept clear */
 
 import { moveLayer } from "./gpu-loop.js";
 
@@ -6,6 +6,7 @@ const RAIL_W = 46;
 const EDGE = 8;
 const TOP = 52;
 const BOTTOM_PAD = 8;
+const GAP = 8;
 const STORAGE = "qbpm-dock-v1";
 
 const DEFAULT_OPEN = {
@@ -25,23 +26,24 @@ function clamp(n, lo, hi) {
 }
 
 function fitPanel(el, x, y, ww, wh, opts = {}) {
-  if (!el) return { x, y };
+  if (!el) return { x, y, w: 0, h: 0 };
   const minTop = opts.minTop ?? TOP;
-  const minW = opts.minW ?? 200;
-  const maxW = Math.min(el.offsetWidth || opts.fallbackW || 340, ww - RAIL_W - EDGE * 2);
+  const minW = opts.minW ?? 180;
+  const maxW = opts.maxW ?? Math.min(el.offsetWidth || opts.fallbackW || 320, Math.floor(ww * 0.32));
   const availH = wh - minTop - BOTTOM_PAD;
   const wantH = opts.maxH ?? availH;
-  const maxH = clamp(Math.floor(wantH), 120, availH);
+  const maxH = clamp(Math.floor(wantH), 100, availH);
 
+  el.style.width = opts.width ? `${opts.width}px` : "";
   el.style.maxWidth = `${Math.max(minW, maxW)}px`;
   el.style.maxHeight = `${maxH}px`;
 
   const w = el.offsetWidth || maxW;
-  const h = Math.min(el.scrollHeight, maxH);
+  const h = Math.min(el.scrollHeight || maxH, maxH);
   const cx = clamp(x, RAIL_W + EDGE, Math.max(RAIL_W + EDGE, ww - w - EDGE));
   const cy = clamp(y, minTop, Math.max(minTop, wh - h - BOTTOM_PAD));
 
-  return { x: cx, y: cy, maxH };
+  return { x: cx, y: cy, w, h, maxH };
 }
 
 export function createFloatDock() {
@@ -135,12 +137,42 @@ export function createFloatDock() {
     moveLayer(el, x, y);
   }
 
+  /** Stack open panels top→bottom in a column; returns bottom Y. */
+  function stackColumn(entries, x, y0, maxBottom, ww, wh) {
+    let y = y0;
+    for (const entry of entries) {
+      const el = entry.el;
+      if (!entry.isOpen) {
+        hidePanel(el);
+        continue;
+      }
+      const remaining = maxBottom - y;
+      if (remaining < 100) {
+        hidePanel(el);
+        continue;
+      }
+      const p = fitPanel(el, x, y, ww, wh, {
+        ...entry.fit,
+        maxH: Math.min(entry.fit?.maxH ?? remaining, remaining),
+        maxW: entry.fit?.maxW,
+      });
+      showPanel(el, p.x, y);
+      const measured = Math.min(el.offsetHeight || p.h || 120, remaining);
+      y += measured + GAP;
+    }
+    return y;
+  }
+
   function layoutPanels() {
     const wrap = document.getElementById("canvas-wrap");
     if (!wrap) return;
     const ww = wrap.clientWidth;
     const wh = wrap.clientHeight;
     const availH = wh - TOP - BOTTOM_PAD;
+    const leftColW = Math.min(300, Math.floor(ww * 0.28));
+    const rightColW = Math.min(340, Math.floor(ww * 0.3));
+    const leftX = RAIL_W + EDGE;
+    const rightX = Math.max(leftX + leftColW + GAP, ww - rightColW - EDGE);
 
     const video = document.getElementById("float-panel-video");
     const chat = document.getElementById("float-panel-tr");
@@ -152,86 +184,84 @@ export function createFloatDock() {
     const strudel = document.getElementById("float-panel-strudel");
     const proc = document.getElementById("float-panel-br");
 
-    if (!open.video) hidePanel(video);
-    else {
-      const p = fitPanel(video, RAIL_W + EDGE, TOP + 2, ww, wh, { maxH: availH * 0.72 });
-      showPanel(video, p.x, p.y);
-    }
+    const musicH = open.music ? Math.min(400, Math.floor(availH * 0.42)) : 0;
+    const musicY = wh - musicH - BOTTOM_PAD;
+    const leftStackBottom = open.music ? musicY - GAP : wh - BOTTOM_PAD;
+    const rightStackBottom = wh - BOTTOM_PAD;
 
-    if (!open.chat) hidePanel(chat);
-    else {
-      const cw = chat?.offsetWidth || 340;
-      const p = fitPanel(chat, ww - cw - EDGE, TOP, ww, wh, { maxH: availH * 0.75, fallbackW: 340 });
-      showPanel(chat, p.x, p.y);
-    }
+    stackColumn(
+      [
+        {
+          el: video,
+          isOpen: open.video,
+          fit: { maxH: Math.min(280, Math.floor(availH * 0.38)), maxW: leftColW, fallbackW: leftColW },
+        },
+        {
+          el: grand,
+          isOpen: open.grand,
+          fit: { maxH: Math.min(260, Math.floor(availH * 0.34)), maxW: leftColW, fallbackW: leftColW },
+        },
+        {
+          el: mpc,
+          isOpen: open.mpc,
+          fit: { maxH: Math.min(220, Math.floor(availH * 0.28)), maxW: leftColW, fallbackW: leftColW },
+        },
+        {
+          el: beat,
+          isOpen: open.beat,
+          fit: { maxH: Math.min(240, Math.floor(availH * 0.3)), maxW: leftColW, fallbackW: leftColW },
+        },
+        {
+          el: wave,
+          isOpen: open.wave,
+          fit: { maxH: Math.min(220, Math.floor(availH * 0.28)), maxW: leftColW, fallbackW: leftColW },
+        },
+      ],
+      leftX,
+      TOP + EDGE,
+      leftStackBottom,
+      ww,
+      wh,
+    );
 
     if (!open.music) hidePanel(music);
     else {
-      const mh = Math.min(380, Math.floor(availH * 0.48));
-      const p = fitPanel(music, RAIL_W + EDGE, wh - mh - BOTTOM_PAD - 28, ww, wh, { maxH: mh });
-      showPanel(music, p.x, p.y);
-    }
-
-    const midX = Math.floor(ww * 0.5);
-    const stackY = TOP + EDGE;
-
-    if (!open.grand) hidePanel(grand);
-    else {
-      const gw = grand?.offsetWidth || 420;
-      const p = fitPanel(grand, Math.max(RAIL_W + EDGE, midX - gw - EDGE), stackY, ww, wh, {
-        maxH: availH * 0.55,
+      const p = fitPanel(music, leftX, musicY, ww, wh, {
+        maxH: musicH,
+        maxW: leftColW,
+        fallbackW: leftColW,
       });
-      showPanel(grand, p.x, p.y);
+      showPanel(music, p.x, musicY);
     }
 
-    if (!open.mpc) hidePanel(mpc);
-    else {
-      const mw = mpc?.offsetWidth || 300;
-      const p = fitPanel(mpc, Math.max(RAIL_W + EDGE, midX - Math.floor(mw / 2)), stackY + 12, ww, wh, {
-        maxH: availH * 0.5,
-      });
-      showPanel(mpc, p.x, p.y);
-    }
-
-    if (!open.beat) hidePanel(beat);
-    else {
-      const bw = beat?.offsetWidth || 380;
-      const by = Math.min(Math.floor(wh * 0.28), wh - 200);
-      const p = fitPanel(beat, Math.max(RAIL_W + EDGE, midX - Math.floor(bw / 2)), by, ww, wh, {
-        maxH: availH * 0.52,
-      });
-      showPanel(beat, p.x, p.y);
-    }
-
-    if (!open.wave) hidePanel(wave);
-    else {
-      const wvw = wave?.offsetWidth || 360;
-      const wy = Math.min(Math.floor(wh * 0.48), wh - 180);
-      const p = fitPanel(wave, Math.max(RAIL_W + EDGE, midX - Math.floor(wvw / 2)), wy, ww, wh, {
-        maxH: availH * 0.42,
-      });
-      showPanel(wave, p.x, p.y);
-    }
-
-    if (!open.strudel) hidePanel(strudel);
-    else {
-      const sw = strudel?.offsetWidth || 420;
-      const p = fitPanel(strudel, Math.max(RAIL_W + EDGE, ww - sw - EDGE), TOP + 56, ww, wh, {
-        maxH: availH * 0.88,
-      });
-      showPanel(strudel, p.x, p.y);
-    }
-
-    if (!open.proc) hidePanel(proc);
-    else {
-      const pw = proc?.offsetWidth || 340;
-      const procH = Math.floor(availH * 0.92);
-      const p = fitPanel(proc, Math.max(RAIL_W + EDGE, ww - pw - EDGE), TOP + EDGE, ww, wh, { maxH: procH });
-      const py = clamp(wh - procH - BOTTOM_PAD, TOP + EDGE, p.y);
-      showPanel(proc, p.x, py);
-    }
+    stackColumn(
+      [
+        {
+          el: chat,
+          isOpen: open.chat,
+          fit: { maxH: Math.min(300, Math.floor(availH * 0.4)), maxW: rightColW, fallbackW: rightColW },
+        },
+        {
+          el: strudel,
+          isOpen: open.strudel,
+          fit: { maxH: Math.min(360, Math.floor(availH * 0.55)), maxW: rightColW, fallbackW: rightColW },
+        },
+        {
+          el: proc,
+          isOpen: open.proc,
+          fit: { maxH: Math.min(320, Math.floor(availH * 0.45)), maxW: rightColW, fallbackW: rightColW },
+        },
+      ],
+      rightX,
+      TOP + EDGE,
+      rightStackBottom,
+      ww,
+      wh,
+    );
 
     syncRail();
+    wrap.dataset.dockLeft = String(leftX + leftColW);
+    wrap.dataset.dockRight = String(rightX);
   }
 
   function openPanel(key) {

@@ -238,7 +238,10 @@ export function createFloatWorkspace(opts = {}) {
     });
     videoFeed.mount(document.getElementById("float-video-host"));
     refreshChatRoute();
-    requestAnimationFrame(() => floatDock.layoutPanels());
+    requestAnimationFrame(() => {
+      floatDock.layoutPanels();
+      window.dispatchEvent(new Event("resize"));
+    });
   }
 
   function refreshChatRoute() {
