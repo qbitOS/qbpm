@@ -103,7 +103,7 @@ function bindTabs() {
       $$('.tab').forEach((t) => t.classList.remove('active'));
       $$('.panel').forEach((p) => p.classList.remove('active'));
       tab.classList.add('active');
-      $(`#panel-${tab.dataset.panel}`).classList.add('active');
+      $(`#panel-${tab.dataset.panel}`)?.classList.add('active');
       if (tab.dataset.panel === 'camera' || tab.dataset.panel === 'live') startCamera();
       else stopCamera();
     });
@@ -1219,22 +1219,27 @@ function setSpeedMultiplier(mult) {
 }
 
 // ─── Controls ──────────────────────────────────────────────────────────────────
+function safeBind(sel, event, fn) {
+  const el = $(sel);
+  if (el) el.addEventListener(event, fn);
+}
+
 function bindControls() {
-  $('#play-btn').addEventListener('click', togglePlayback);
-  $('#dock-play-btn').addEventListener('click', togglePlayback);
-  $('#restart-btn').addEventListener('click', restartPlayback);
-  $('#dock-restart-btn').addEventListener('click', restartPlayback);
+  safeBind('#play-btn', 'click', togglePlayback);
+  safeBind('#dock-play-btn', 'click', togglePlayback);
+  safeBind('#restart-btn', 'click', restartPlayback);
+  safeBind('#dock-restart-btn', 'click', restartPlayback);
 
   const prevM = () => seekMeasure(-1);
   const nextM = () => seekMeasure(1);
-  $('#measure-prev-btn')?.addEventListener('click', prevM);
-  $('#measure-next-btn')?.addEventListener('click', nextM);
-  $('#dock-measure-prev')?.addEventListener('click', prevM);
-  $('#dock-measure-next')?.addEventListener('click', nextM);
+  safeBind('#measure-prev-btn', 'click', prevM);
+  safeBind('#measure-next-btn', 'click', nextM);
+  safeBind('#dock-measure-prev', 'click', prevM);
+  safeBind('#dock-measure-next', 'click', nextM);
 
-  $('#mirror-btn').addEventListener('click', openMirror);
-  $('#dock-mirror-btn').addEventListener('click', openMirror);
-  $('#mirror-close').addEventListener('click', closeMirror);
+  safeBind('#mirror-btn', 'click', openMirror);
+  safeBind('#dock-mirror-btn', 'click', openMirror);
+  safeBind('#mirror-close', 'click', closeMirror);
 
   $('#dock-flip-btn')?.addEventListener('click', () => {
     state.dockFlipH = !state.dockFlipH;
@@ -1255,23 +1260,28 @@ function bindControls() {
     applyDockView();
   });
 
-  $('#tempo-slider').addEventListener('input', (e) => {
-    const wasPlaying = state.playing;
-    const beat = state.beat;
-    if (wasPlaying) pausePlayback();
-    state.song.tempo = parseInt(e.target.value, 10);
-    $('#tempo-val').textContent = effectiveTempo();
-    if (wasPlaying) startPlayback(beat);
-  });
-  $('#tempo-val').textContent = effectiveTempo();
-  $('#tempo-slider').value = state.song.tempo;
+  const tempoSlider = $('#tempo-slider');
+  if (tempoSlider) {
+    tempoSlider.addEventListener('input', (e) => {
+      const wasPlaying = state.playing;
+      const beat = state.beat;
+      if (wasPlaying) pausePlayback();
+      state.song.tempo = parseInt(e.target.value, 10);
+      const tv = $('#tempo-val');
+      if (tv) tv.textContent = effectiveTempo();
+      if (wasPlaying) startPlayback(beat);
+    });
+    tempoSlider.value = state.song.tempo;
+  }
+  const tempoVal = $('#tempo-val');
+  if (tempoVal) tempoVal.textContent = effectiveTempo();
 
   $$('.speed-chip').forEach((chip) => {
     chip.classList.toggle('active', parseFloat(chip.dataset.mult) === state.tempoMultiplier);
     chip.addEventListener('click', () => setSpeedMultiplier(parseFloat(chip.dataset.mult)));
   });
 
-  $('#celebrate-dismiss').addEventListener('click', () => $('#celebrate').classList.remove('active'));
+  safeBind('#celebrate-dismiss', 'click', () => $('#celebrate')?.classList.remove('active'));
   $('#camera-placeholder')?.addEventListener('click', startCamera);
 
   $('#album-filter')?.addEventListener('change', (e) => {
@@ -1290,10 +1300,10 @@ function bindControls() {
 
 // ─── Share / family game ───────────────────────────────────────────────────────
 function bindShare() {
-  $('#role-grandma').addEventListener('click', () => setRole('grandma'));
-  $('#role-kid').addEventListener('click', () => setRole('kid'));
+  safeBind('#role-grandma', 'click', () => setRole('grandma'));
+  safeBind('#role-kid', 'click', () => setRole('kid'));
 
-  $('#share-lesson').addEventListener('click', () => {
+  safeBind('#share-lesson', 'click', () => {
     const msg = $('#lesson-message').value.trim();
     const payload = {
       title: state.song.title,
@@ -1311,7 +1321,7 @@ function bindShare() {
     $('#share-status').textContent = 'Link copied! Send to your kid 💌';
   });
 
-  $('#send-stars').addEventListener('click', () => {
+  safeBind('#send-stars', 'click', () => {
     const count = state.stars[state.song.id] || 0;
     const payload = { type: 'stars', song: state.song.title, stars: count, from: 'Player' };
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
@@ -1367,13 +1377,13 @@ function loadSharedLesson() {
 const builderNotes = [];
 
 function bindBuilder() {
-  $('#builder-clear').addEventListener('click', () => {
+  safeBind('#builder-clear', 'click', () => {
     builderNotes.length = 0;
     renderBuilderNotes();
     drawMiniKeyboard();
   });
 
-  $('#builder-save').addEventListener('click', () => {
+  safeBind('#builder-save', 'click', () => {
     const title = $('#builder-title').value.trim() || 'Grandma\'s Song';
     const lesson = {
       id: 'custom-' + Date.now(),

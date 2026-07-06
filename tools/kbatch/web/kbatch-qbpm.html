@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0d1117">
+    <title>kbatch — qbpm live</title>
+    <link rel="stylesheet" href="quantum-theme.css">
+    <link rel="stylesheet" href="lib/kbatch-qbpm-panel.css">
+</head>
+<body class="qbpm-embed">
+    <div id="kbatch-qbpm-app">
+        <div class="kbatch-qbpm-bar">
+            <span class="brand">kbatch · qbpm</span>
+            <div class="stats">
+                <span>WPM <b id="s-wpm">0</b></span>
+                <span>Eff <b id="s-eff" class="stat-eff">0%</b></span>
+                <span>BPM <b id="s-heartbeat">—</b></span>
+                <span>Layout <b id="s-layout">QWERTY</b></span>
+                <span>Bench <b id="s-bench">—</b></span>
+            </div>
+        </div>
+
+        <section class="kbatch-qbpm-flow" aria-label="Pattern flow">
+            <div class="viz-title">Pattern Flow · Contrails</div>
+            <div class="viz-canvas-wrap"><canvas id="cv-contrails"></canvas></div>
+        </section>
+
+        <div id="s-live-intel" class="kbatch-qbpm-vars" aria-live="polite">flow · musica · encoder</div>
+
+        <section class="kbatch-qbpm-keyboard" aria-label="Keyboard visualizations">
+            <div class="viz-panel">
+                <div class="viz-title" style="color:#f0883e;">Thermal</div>
+                <div class="viz-canvas-wrap"><canvas id="cv-thermal"></canvas></div>
+            </div>
+            <div class="viz-panel">
+                <div class="viz-title" style="color:#d2a8ff;">Pattern</div>
+                <div class="viz-canvas-wrap"><canvas id="cv-geometric"></canvas></div>
+            </div>
+        </section>
+
+        <section class="kbatch-qbpm-input">
+            <input type="text" id="typing-input" placeholder="Live code / music typing → qbpm graph…" autocomplete="off" spellcheck="false">
+            <div class="hint">Enter analyzes · ingests to <code>/api/live/ingest</code> · <span class="layout-badge" id="active-layout-badge">QWERTY</span></div>
+        </section>
+    </div>
+
+    <!-- Compatibility stubs for kbatch-main.js (hidden) -->
+    <div id="kbatch-stubs" hidden aria-hidden="true">
+        <span id="s-cpx">0%</span><span id="s-strain">0%</span><span id="s-keys">0</span>
+        <span id="s-dist">0</span><span id="s-words">0</span><span id="s-hapax">0</span>
+        <span id="s-tone">—</span><span id="s-stack">qbpm</span><span id="s-t5">browser</span><span id="s-stream">live-fast</span>
+        <canvas id="cv-3d"></canvas><canvas id="cv-layout"></canvas><canvas id="cv-quantum"></canvas>
+        <div id="layout-list"></div>
+        <select id="layout-compare-select"></select><select id="train-layout"></select>
+        <span id="li-name"></span><span id="li-script"></span><span id="li-region"></span><span id="li-dir"></span>
+        <span id="compare-result"></span>
+        <input id="dict-input"><button id="dict-search-btn"></button><div id="dict-results"></div>
+        <button id="qp-build"></button><button id="qp-run"></button><button id="qp-export"></button>
+        <select id="qp-source"><option value="prefix">prefix</option></select>
+        <select id="qp-backend"><option value="local">local</option></select>
+        <input id="qp-token"><input id="qp-shots" value="1024">
+        <pre id="qp-circuit"></pre><span id="qp-status"></span>
+        <button id="train-new"></button><input id="train-input"><select id="train-drill"></select>
+        <div id="train-prompt"></div><span id="train-best"></span><div id="train-history"></div>
+        <span id="train-session-count"></span><span id="train-wpm"></span><span id="train-acc"></span>
+        <span id="train-prog"></span><span id="train-err"></span>
+        <button id="train-export-ai"></button><button id="train-export-json"></button>
+        <button id="train-search-push"></button><button id="train-quantum-loopback"></button>
+        <span id="musica-bpm">0</span><span id="musica-qbpm">0</span><span id="musica-qhzns"></span>
+        <span id="musica-notes">—</span><span id="musica-flow">—</span><span id="musica-style">—</span>
+        <span id="musica-profile">qbpm</span><span id="musica-daw">—</span>
+    </div>
+
+    <script src="quantum-prefixes.js"></script>
+    <script src="classify-confidence.js"></script>
+    <script src="classify-tensor.js"></script>
+    <script src="classify-adam.js"></script>
+    <script src="qbit-dac.js"></script>
+    <script src="qbit-preflight.js"></script>
+    <script src="capsule-embed.js"></script>
+    <script src="qbit-steno.js"></script>
+    <script src="history-search-engine.js"></script>
+    <script src="ugrad-game-registry.js"></script>
+    <script src="plan-corpus-indexer.js"></script>
+    <script src="kbatch-capsules.generated.js"></script>
+    <script src="kbatch-live-capsules.js"></script>
+    <script src="lib/kbatch-live-pipeline.js"></script>
+    <script src="lib/kbatch-contrails-fast.js"></script>
+    <script src="lib/kbatch-qbpm-bridge.js"></script>
+    <script src="kbatch-main.js"></script>
+    <script src="lib/kbatch-live-patch.js"></script>
+    <script src="lib/kbatch-caption-bridge.js"></script>
+    <script src="lib/kbatch-qbpm-shell.js"></script>
+</body>
+</html>

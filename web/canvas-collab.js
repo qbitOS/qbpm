@@ -82,7 +82,7 @@ export function createCanvasCollab(opts) {
       }
       if (msg.type === "frame.update" && msg.rev > lastRev) {
         lastRev = msg.rev;
-        onFrameUpdate?.(msg.frames, msg.viewports, msg.rev, msg.from);
+        onFrameUpdate?.(msg.frames, msg.viewports, msg.frameEdges, msg.rev, msg.from);
       }
     };
     ws.onclose = () => {
@@ -135,9 +135,9 @@ export function createCanvasCollab(opts) {
     ws.send(JSON.stringify({ type: "graph.patch", patch }));
   }
 
-  function broadcastFrames(frames, viewports) {
+  function broadcastFrames(frames, viewports, frameEdges) {
     if (!ws || ws.readyState !== 1) return;
-    ws.send(JSON.stringify({ type: "frame.update", frames, viewports }));
+    ws.send(JSON.stringify({ type: "frame.update", frames, viewports, frameEdges: frameEdges || [] }));
   }
 
   function drawPeers(ctx, pan, scale) {

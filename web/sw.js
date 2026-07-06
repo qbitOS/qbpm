@@ -1,4 +1,4 @@
-const CACHE = "qbpm-v7";
+const CACHE = "qbpm-v8";
 const SHELL = [
   "/",
   "/static/qbpm.css",
@@ -7,6 +7,7 @@ const SHELL = [
   "/static/collab-shell.js",
   "/static/ugrad-hud.js",
   "/static/ugrad-hud.css",
+  "/static/device-presets.js",
   "/static/live-music-bridge.js",
   "/static/grok-terminal.js",
   "/static/piano/panel.html",

@@ -22,6 +22,7 @@ def test_discover_kbatch_tool():
     assert "kbatch" in ids
     kbatch = next(t for t in tools if t["id"] == "kbatch")
     assert kbatch["url"] == "/tools/kbatch/kbatch.html"
+    assert kbatch["embed"] == "/tools/kbatch/kbatch-qbpm.html?qbpm=1"
     assert "jax" in kbatch.get("stack", [])
 
 

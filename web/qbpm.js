@@ -1,13 +1,16 @@
 import { createCanvasCollab } from "./canvas-collab.js";
 import { createCollabShell } from "./collab-shell.js";
 import { createLiveMusicBridge } from "./live-music-bridge.js";
+import { ensureKbatchPanel, initKbatchLoader } from "./kbatch-loader.js";
 import { createUgradHud } from "./ugrad-hud.js";
 import { ensurePianoPanel } from "./piano/piano-loader.js";
+import { DEVICE_PRESETS, presetById, presetColor, nextDeviceFrameRect } from "./device-presets.js";
 
 const GRAPH_NAME = "default";
 const NODE_W = 168;
 const NODE_H = 64;
 const PORT_R = 7;
+const FRAME_PORT_R = 8;
 const NODE_BTN_GAP = 3;
 const NODE_BTN_PAD = 8;
 const NODE_CTRL = ["+", "-", "0"];
@@ -92,9 +95,17 @@ function ensureCanvasMeta() {
   if (!graph.meta || typeof graph.meta !== "object") graph.meta = {};
   if (!Array.isArray(graph.meta.frames)) {
     graph.meta.frames = [
-      { id: "frame-main", label: "Main", rect: [-400, -300, 2400, 1800], color: "#58a6ff33" },
+      {
+        id: "frame-main",
+        label: "Main",
+        rect: [-400, -300, 2400, 1800],
+        color: "#58a6ff33",
+        device: "desktop",
+        cluster: "local",
+      },
     ];
   }
+  if (!Array.isArray(graph.meta.frameEdges)) graph.meta.frameEdges = [];
   if (!Array.isArray(graph.meta.viewports)) {
     graph.meta.viewports = [
       { id: "vp-main", label: "Primary", frameId: "frame-main", pan: [80, 80], scale: 1 },
@@ -113,9 +124,25 @@ function viewports() {
   return ensureCanvasMeta().viewports;
 }
 
+function frameEdges() {
+  return ensureCanvasMeta().frameEdges;
+}
+
 function frameRect(f) {
   const [x, y, w, h] = f.rect;
   return { x, y, w, h };
+}
+
+function frameAt(wx, wy) {
+  for (let i = frames().length - 1; i >= 0; i--) {
+    const r = frameRect(frames()[i]);
+    if (wx >= r.x && wx <= r.x + r.w && wy >= r.y && wy <= r.y + r.h) return frames()[i];
+  }
+  return null;
+}
+
+function broadcastCanvasLayout() {
+  collab?.broadcastFrames(frames(), viewports(), frameEdges());
 }
 
 function updateCanvasResolutionLabel() {
@@ -134,7 +161,78 @@ function updateCanvasResolutionLabel() {
   el.textContent = `${Math.round(cw)}×${Math.round(ch)}@${dpr.toFixed(1)}x · world ${Math.round(wx0)},${Math.round(wy0)}→${Math.round(wx1)},${Math.round(wy1)} · ${frame?.label || "canvas"}${peers}`;
 }
 
+function framePortPositions(f) {
+  const r = frameRect(f);
+  return [
+    { id: "in", side: "in", label: "in", x: r.x, y: r.y },
+    { id: "out-top", side: "out", label: "out↑", x: r.x + r.w, y: r.y },
+    { id: "out-bottom", side: "out", label: "out↓", x: r.x + r.w, y: r.y + r.h },
+  ];
+}
+
+function framePortAt(wx, wy) {
+  for (let i = frames().length - 1; i >= 0; i--) {
+    const f = frames()[i];
+    for (const p of framePortPositions(f)) {
+      const dx = wx - p.x;
+      const dy = wy - p.y;
+      if (dx * dx + dy * dy <= (FRAME_PORT_R * 2.4) ** 2) {
+        return { frame: f, port: p.id, side: p.side, x: p.x, y: p.y };
+      }
+    }
+  }
+  return null;
+}
+
+function drawFrameBusEdges() {
+  for (const e of frameEdges()) {
+    const a = frames().find((f) => f.id === e.from);
+    const b = frames().find((f) => f.id === e.to);
+    if (!a || !b) continue;
+    const ap = framePortPositions(a).find((p) => p.id === (e.fromPort || "out-top"));
+    const bp = framePortPositions(b).find((p) => p.id === (e.toPort || "in"));
+    if (!ap || !bp) continue;
+    ctx.strokeStyle = e.bus === "collab" ? "#bc8cff" : "#58a6ff88";
+    ctx.lineWidth = 2 / scale;
+    ctx.setLineDash(e.bus === "collab" ? [6 / scale, 4 / scale] : []);
+    ctx.beginPath();
+    ctx.moveTo(ap.x, ap.y);
+    ctx.lineTo(bp.x, bp.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (e.bus) {
+      const mx = (ap.x + bp.x) / 2;
+      const my = (ap.y + bp.y) / 2;
+      ctx.fillStyle = "#6e7681";
+      ctx.font = `${8 / scale}px Menlo, monospace`;
+      ctx.fillText(e.bus, mx + 4 / scale, my - 4 / scale);
+    }
+  }
+}
+
+function drawFramePorts(f, active) {
+  for (const p of framePortPositions(f)) {
+    const hover =
+      linking?.kind === "frame" &&
+      linking.fromId === f.id &&
+      linking.fromPort === p.id;
+    ctx.fillStyle = p.side === "in" ? "#3fb950" : "#d29922";
+    if (hover) ctx.fillStyle = "#58a6ff";
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, FRAME_PORT_R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = active ? "#c9d1d9" : "#30363d";
+    ctx.lineWidth = 1 / scale;
+    ctx.stroke();
+    ctx.fillStyle = "#8b949e";
+    ctx.font = `${7 / scale}px Menlo, monospace`;
+    const lx = p.side === "in" ? p.x + 10 / scale : p.x - 28 / scale;
+    ctx.fillText(p.label, lx, p.y - 10 / scale);
+  }
+}
+
 function drawFrames() {
+  drawFrameBusEdges();
   for (const f of frames()) {
     const r = frameRect(f);
     const active = f.id === activeFrameId;
@@ -147,7 +245,15 @@ function drawFrames() {
     ctx.setLineDash([]);
     ctx.fillStyle = active ? "#58a6ff" : "#6e7681";
     ctx.font = `${11 / scale}px Menlo, monospace`;
-    ctx.fillText(f.label || f.id, r.x + 8 / scale, r.y + 16 / scale);
+    const title = f.label || f.id;
+    ctx.fillText(title, r.x + 8 / scale, r.y + 16 / scale);
+    if (f.device || f.owner) {
+      ctx.fillStyle = "#6e7681";
+      ctx.font = `${8 / scale}px Menlo, monospace`;
+      const sub = [f.device, f.cluster, f.owner].filter(Boolean).join(" · ");
+      ctx.fillText(sub, r.x + 8 / scale, r.y + 28 / scale);
+    }
+    drawFramePorts(f, active);
   }
   for (const vp of viewports()) {
     if (vp.id === activeWindowId) continue;
@@ -183,8 +289,34 @@ function addCanvasFrame() {
     color: "#3fb95022",
   });
   activeFrameId = id;
-  collab?.broadcastFrames(frames(), viewports());
+  broadcastCanvasLayout();
   draw();
+}
+
+function addDeviceFrame(presetId) {
+  const preset = presetById(presetId);
+  const main = frames().find((f) => f.id === "frame-main");
+  const origin = main
+    ? { x: main.rect[0] + main.rect[2] + 100, y: main.rect[1] }
+    : { x: 200, y: 120 };
+  const rect = nextDeviceFrameRect(preset, frames(), origin);
+  const owner = localStorage.getItem("qbpm-collab-name") || collab?.clientId || "guest";
+  const n = frames().filter((f) => f.device === preset.id).length + 1;
+  const id = `frame-${preset.id}-${n}`;
+  frames().push({
+    id,
+    label: `${preset.icon} ${preset.label}`,
+    rect,
+    color: presetColor(preset.id),
+    device: preset.id,
+    cluster: preset.cluster,
+    owner,
+  });
+  activeFrameId = id;
+  broadcastCanvasLayout();
+  draw();
+  collabShell?.positionOverlays?.();
+  vizLog.textContent = `frame ${id} · ${preset.w}×${preset.h} · ${preset.cluster}`;
 }
 
 function addViewportWindow() {
@@ -197,7 +329,7 @@ function addViewportWindow() {
     scale,
   });
   activeWindowId = id;
-  collab?.broadcastFrames(frames(), viewports());
+  broadcastCanvasLayout();
   draw();
 }
 
@@ -280,9 +412,10 @@ function initCollab() {
       collabShell?.flashSync("ok");
       draw();
     },
-    onFrameUpdate: (f, v) => {
+    onFrameUpdate: (f, v, edges) => {
       if (f) graph.meta.frames = f;
       if (v) graph.meta.viewports = v;
+      if (edges) graph.meta.frameEdges = edges;
       draw();
       collabShell?.positionOverlays?.();
     },
@@ -321,12 +454,15 @@ function initCollab() {
     getPanScale: () => ({ pan, scale }),
     getFrames: () => frames(),
     getActiveWindowId: () => activeWindowId,
+    getLocalHandle: () => localStorage.getItem("qbpm-collab-name") || "guest",
+    getLocalClientId: () => collab?.clientId || "local",
+    getLocalColor: () => localStorage.getItem("qbpm-collab-color") || "#58a6ff",
     onHopViewport: hopToViewport,
     onPromptSearch: runPromptSearch,
     onSyncPush: () => {
       saveGraph().catch(() => {});
       collab?.broadcastGraph(graph);
-      collab?.broadcastFrames(frames(), viewports());
+      broadcastCanvasLayout();
     },
   });
 }
@@ -526,17 +662,26 @@ function draw() {
   }
 
   if (linking) {
-    const src = graph.nodes.find((n) => n.id === linking.fromId);
-    if (src && linking.sx != null) {
-      const ar = nodeRect(src);
-      ctx.strokeStyle = "#58a6ff";
-      ctx.setLineDash([6 / scale, 4 / scale]);
-      ctx.beginPath();
-      ctx.moveTo(ar.x + ar.w, ar.y + ar.h / 2);
-      ctx.lineTo(linking.wx, linking.wy);
-      ctx.stroke();
-      ctx.setLineDash([]);
+    ctx.strokeStyle = "#58a6ff";
+    ctx.setLineDash([6 / scale, 4 / scale]);
+    ctx.beginPath();
+    if (linking.kind === "frame") {
+      const fr = frames().find((f) => f.id === linking.fromId);
+      const fp = fr && framePortPositions(fr).find((p) => p.id === linking.fromPort);
+      if (fp) {
+        ctx.moveTo(fp.x, fp.y);
+        ctx.lineTo(linking.wx, linking.wy);
+      }
+    } else {
+      const src = graph.nodes.find((n) => n.id === linking.fromId);
+      if (src && linking.sx != null) {
+        const ar = nodeRect(src);
+        ctx.moveTo(ar.x + ar.w, ar.y + ar.h / 2);
+        ctx.lineTo(linking.wx, linking.wy);
+      }
     }
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   for (const n of graph.nodes) {
@@ -798,10 +943,13 @@ function setRightPanelTab(tab) {
   document.querySelectorAll("#right-panel-body .panel-block").forEach((blk) => {
     blk.classList.toggle("active", blk.dataset.panel === panel);
   });
-  if (tab === "piano") ensurePianoPanel().catch((err) => {
-    const body = document.getElementById("piano-panel-body");
-    if (body) body.textContent = `piano error: ${err}`;
-  });
+  if (tab === "piano") {
+    ensurePianoPanel().catch((err) => {
+      const body = document.getElementById("piano-panel-body");
+      if (body) body.textContent = `piano error: ${err}`;
+    });
+  }
+  if (tab === "kbatch") ensureKbatchPanel();
   workspace.classList.toggle("right-piano", tab === "piano");
   workspace.classList.toggle("right-kbatch", tab === "kbatch");
   try { localStorage.setItem(RIGHT_TAB_KEY, tab); } catch (_) {}
@@ -848,7 +996,7 @@ function exportGraphState() {
   };
 }
 function initLiveMusic() {
-  const statusEl = document.getElementById("live-status");
+  const statusEl = document.getElementById("kbatch-status");
   liveBridge = createLiveMusicBridge({
     onState: (state) => {
       liveState = state;
@@ -875,8 +1023,35 @@ function initLiveMusic() {
   };
 }
 
+function initDevicePicker() {
+  const picker = document.getElementById("device-picker");
+  const btn = document.getElementById("btn-add-device");
+  if (!picker || !btn) return;
+  picker.innerHTML = DEVICE_PRESETS.map(
+    (p) => `<button type="button" data-preset="${p.id}"><span class="dp-icon">${p.icon}</span><span>${p.label}</span><span class="dp-meta">${p.w}×${p.h}</span></button>`
+  ).join("");
+  btn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    picker.classList.toggle("open");
+    btn.classList.toggle("active");
+  });
+  picker.querySelectorAll("button").forEach((b) => {
+    b.addEventListener("click", () => {
+      addDeviceFrame(b.dataset.preset);
+      picker.classList.remove("open");
+      btn.classList.remove("active");
+    });
+  });
+  document.addEventListener("click", () => {
+    picker.classList.remove("open");
+    btn.classList.remove("active");
+  });
+}
+
 exportGraphState();
 initLiveMusic();
+initKbatchLoader();
+initDevicePicker();
 
 document.getElementById("insp-type").addEventListener("change", syncInspector);
 document.getElementById("insp-code").addEventListener("input", syncInspector);
@@ -943,7 +1118,8 @@ function onPointerDown(ev) {
     return;
   }
   canvas.setPointerCapture(ev.pointerId);
-  const port = ev.shiftKey ? portAt(wx, wy) : null;
+  const fport = ev.shiftKey ? framePortAt(wx, wy) : null;
+  const port = ev.shiftKey && !fport ? portAt(wx, wy) : null;
 
   if (spaceDown || touchPanMode || ev.button === 1) {
     panning = true;
@@ -952,8 +1128,15 @@ function onPointerDown(ev) {
     return;
   }
 
+  if (fport && fport.side === "out") {
+    linking = { kind: "frame", fromId: fport.frame.id, fromPort: fport.port, wx, wy, sx, sy };
+    activeFrameId = fport.frame.id;
+    draw();
+    return;
+  }
+
   if (port && port.side === "out") {
-    linking = { fromId: port.node.id, wx, wy, sx, sy };
+    linking = { kind: "node", fromId: port.node.id, wx, wy, sx, sy };
     selectNode(port.node.id);
     return;
   }
@@ -963,11 +1146,21 @@ function onPointerDown(ev) {
     dragging = { id: hit.id, offX: wx - hit.pos[0], offY: wy - hit.pos[1] };
     selectNode(hit.id);
     canvas.classList.add("drag-node");
-  } else {
+    return;
+  }
+
+  const fhit = frameAt(wx, wy);
+  if (fhit) {
+    activeFrameId = fhit.id;
     selectedId = null;
     document.getElementById("insp-id").value = "";
     draw();
+    return;
   }
+
+  selectedId = null;
+  document.getElementById("insp-id").value = "";
+  draw();
 }
 
 function onPointerMove(ev) {
@@ -1007,10 +1200,29 @@ function onPointerUp(ev) {
   const { wx, wy } = canvasPoint(ev);
   const wasDragging = dragging;
   if (linking) {
-    const port = portAt(wx, wy);
-    if (port && port.side === "in" && port.node.id !== linking.fromId) {
-      const exists = graph.edges.some((e) => e.from === linking.fromId && e.to === port.node.id);
-      if (!exists) graph.edges.push({ from: linking.fromId, to: port.node.id, port: "data" });
+    if (linking.kind === "frame") {
+      const tgt = framePortAt(wx, wy);
+      if (tgt && tgt.side === "in" && tgt.frame.id !== linking.fromId) {
+        const exists = frameEdges().some(
+          (e) => e.from === linking.fromId && e.fromPort === linking.fromPort && e.to === tgt.frame.id
+        );
+        if (!exists) {
+          frameEdges().push({
+            from: linking.fromId,
+            fromPort: linking.fromPort,
+            to: tgt.frame.id,
+            toPort: tgt.port,
+            bus: ev.altKey ? "collab" : "bus",
+          });
+          broadcastCanvasLayout();
+        }
+      }
+    } else {
+      const port = portAt(wx, wy);
+      if (port && port.side === "in" && port.node.id !== linking.fromId) {
+        const exists = graph.edges.some((e) => e.from === linking.fromId && e.to === port.node.id);
+        if (!exists) graph.edges.push({ from: linking.fromId, to: port.node.id, port: "data" });
+      }
     }
     linking = null;
     draw();

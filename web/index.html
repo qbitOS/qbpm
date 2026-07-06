@@ -58,10 +58,12 @@
         <button id="btn-add" type="button" title="Add node">+</button>
         <button id="btn-center" type="button" title="Center view">◎</button>
         <button id="btn-add-frame" type="button" title="Add canvas frame">▢</button>
+        <button id="btn-add-device" type="button" title="Add device frame (phone, AR, server…)">📐</button>
         <button id="btn-add-viewport" type="button" title="Add viewport window">⊞</button>
+        <div id="device-picker" class="device-picker" aria-label="Device frames"></div>
         <button id="btn-pan-mode" type="button" title="Pan mode (mobile)" class="mobile-only" aria-pressed="false">✥</button>
       </div>
-      <div id="canvas-hint" class="hide-mobile">space+drag pan · ±0 node sides · shift+port wire · frames ⊞ multi-user</div>
+      <div id="canvas-hint" class="hide-mobile">space+drag pan · shift+port wire · frame in↖ out↗↘ · 📐 device frames · alt+collab bus</div>
       <div id="canvas-resolution" class="canvas-resolution" aria-live="polite">—</div>
       <canvas id="canvas"></canvas>
     </section>
@@ -116,9 +118,14 @@
         <section id="kbatch-panel" class="panel-block" data-panel="kbatch">
           <div class="panel-head">
             <h2>kbatch live</h2>
-            <span id="live-status" class="live-status">● idle</span>
+            <div class="kbatch-toolbar">
+              <span id="kbatch-status" class="live-status">● idle</span>
+              <button id="btn-kbatch-focus" type="button" title="Focus input">⌨</button>
+              <button id="btn-kbatch-reload" type="button" title="Reload">↻</button>
+              <button id="btn-kbatch-full" type="button" title="Open full kbatch">⤢</button>
+            </div>
           </div>
-          <iframe id="kbatch-frame" class="kbatch-frame" title="kbatch" src="/tools/kbatch/kbatch.html?qbpm=1" loading="lazy"></iframe>
+          <iframe id="kbatch-frame" class="kbatch-frame" title="kbatch live tool" loading="lazy"></iframe>
         </section>
 
         <section id="grok-terminal" class="panel-block" data-panel="terminal">

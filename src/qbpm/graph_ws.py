@@ -225,6 +225,7 @@ async def graph_ws_loop(
                         "from": client.client_id,
                         "frames": msg.get("frames", []),
                         "viewports": msg.get("viewports", []),
+                        "frameEdges": msg.get("frameEdges", []),
                     },
                 )
                 continue

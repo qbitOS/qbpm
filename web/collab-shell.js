@@ -1,4 +1,4 @@
-/** Collaborative shell — floating user toolbar, window chat, frame video tiles, prompt bridge */
+/** Collaborative shell — frame-anchored user badge, dock chat, frame video tiles */
 
 export function createCollabShell(opts) {
   const {
@@ -6,6 +6,9 @@ export function createCollabShell(opts) {
     getPanScale,
     getFrames,
     getActiveWindowId,
+    getLocalHandle = () => "guest",
+    getLocalColor = () => "#58a6ff",
+    getLocalClientId = () => "local",
     onHopViewport,
     onPromptSearch,
     onSyncPush,
@@ -21,14 +24,15 @@ export function createCollabShell(opts) {
     const wrap = document.getElementById("canvas-wrap");
     if (!wrap) return {};
 
-    let toolbar = document.getElementById("user-window-toolbar");
-    if (!toolbar) {
-      toolbar = document.createElement("div");
-      toolbar.id = "user-window-toolbar";
-      toolbar.innerHTML = `
-        <div class="uwt-handle">
-          <span class="uwt-dot" id="uwt-sync-dot" title="sync">●</span>
+    let badge = document.getElementById("user-frame-badge");
+    if (!badge) {
+      badge = document.createElement("div");
+      badge.id = "user-frame-badge";
+      badge.innerHTML = `
+        <div class="ufb-id" title="Your session id">
+          <span class="ufb-dot" id="uwt-sync-dot">●</span>
           <input id="uwt-handle" type="text" maxlength="24" placeholder="handle" aria-label="User handle" />
+          <span class="ufb-cid" id="ufb-client-id"></span>
         </div>
         <div class="uwt-peers" id="uwt-peers"></div>
         <div class="uwt-actions">
@@ -36,7 +40,7 @@ export function createCollabShell(opts) {
           <button type="button" id="uwt-video" title="Toggle video">📷</button>
         </div>
       `;
-      wrap.appendChild(toolbar);
+      wrap.appendChild(badge);
     }
 
     let chat = document.getElementById("window-chat-strip");
@@ -58,7 +62,17 @@ export function createCollabShell(opts) {
       wrap.appendChild(overlays);
     }
 
-    return { toolbar, chat, overlays, handle: toolbar.querySelector("#uwt-handle"), peers: toolbar.querySelector("#uwt-peers"), syncDot: toolbar.querySelector("#uwt-sync-dot"), messages: chat.querySelector("#wcs-messages"), chatInput: chat.querySelector("#wcs-input") };
+    return {
+      badge,
+      chat,
+      overlays,
+      handle: badge.querySelector("#uwt-handle"),
+      peers: badge.querySelector("#uwt-peers"),
+      syncDot: badge.querySelector("#uwt-sync-dot"),
+      clientIdEl: badge.querySelector("#ufb-client-id"),
+      messages: chat.querySelector("#wcs-messages"),
+      chatInput: chat.querySelector("#wcs-input"),
+    };
   }
 
   function loadHandle() {
@@ -218,7 +232,29 @@ export function createCollabShell(opts) {
     return { x: pan.x + wx * scale, y: pan.y + wy * scale };
   }
 
+  function positionUserBadge() {
+    const badge = els.badge;
+    if (!badge) return;
+    const { pan, scale } = getPanScale?.() || { pan: { x: 0, y: 0 }, scale: 1 };
+    const frameList = getFrames?.() || [];
+    const mainFrame = frameList.find((f) => f.id === "frame-main") || frameList[0];
+    const cid = getLocalClientId?.() || "local";
+    if (els.clientIdEl) els.clientIdEl.textContent = cid.slice(-6);
+    if (els.clientIdEl) els.clientIdEl.style.color = getLocalColor?.() || "#58a6ff";
+    if (!mainFrame) {
+      badge.style.left = "10px";
+      badge.style.top = "48px";
+      return;
+    }
+    const [fx, fy] = mainFrame.rect;
+    const scr = worldToScreen(fx, fy, pan, scale);
+    const bw = badge.offsetWidth || 180;
+    badge.style.left = `${Math.max(8, scr.x - bw - 6)}px`;
+    badge.style.top = `${Math.max(48, scr.y - 4)}px`;
+  }
+
   function positionOverlays() {
+    positionUserBadge();
     const { pan, scale } = getPanScale?.() || { pan: { x: 0, y: 0 }, scale: 1 };
     const frameList = getFrames?.() || [];
     const mainFrame = frameList.find((f) => f.id === "frame-main") || frameList[0];
@@ -249,6 +285,7 @@ export function createCollabShell(opts) {
     appendPromptOutput,
     onRemoteVideo,
     positionOverlays,
+    positionUserBadge,
     flashSync,
   };
 }

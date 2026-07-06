@@ -31,7 +31,12 @@ def discover_tools(root: Path) -> list[dict[str, Any]]:
             if html.exists():
                 manifest["web"] = str(html.relative_to(root))
                 manifest["url"] = f"/tools/{child.name}/{html.name}"
-                manifest["embed"] = f"/tools/{child.name}/{html.name}?qbpm=1"
+                embed_name = "kbatch-qbpm.html" if child.name == "kbatch" else html.name
+                embed_html = web / embed_name
+                if embed_html.exists():
+                    manifest["embed"] = f"/tools/{child.name}/{embed_name}?qbpm=1"
+                else:
+                    manifest["embed"] = f"/tools/{child.name}/{html.name}?qbpm=1"
         roles = {
             "kbatch": {
                 "role": "keyboard-live",

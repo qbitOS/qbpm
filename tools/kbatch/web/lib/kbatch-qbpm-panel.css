@@ -1,0 +1,147 @@
+/* kbatch qbpm embed — Pattern Flow top · keyboard + vars · input bottom */
+html, body.qbpm-embed {
+    height: 100%;
+    overflow: hidden;
+}
+body.qbpm-embed {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--qp-bg, #0d1117);
+}
+body.qbpm-embed #kbatch-qbpm-app {
+    flex: 1;
+    display: grid;
+    grid-template-rows: minmax(88px, 22vh) auto minmax(72px, 1fr) auto;
+    min-height: 0;
+    gap: 1px;
+    background: #21262d;
+}
+.kbatch-qbpm-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 8px;
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    font-size: 0.625rem;
+    flex-shrink: 0;
+}
+.kbatch-qbpm-bar .brand {
+    font-weight: 700;
+    color: #f0883e;
+}
+.kbatch-qbpm-bar .stats {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    color: #8b949e;
+}
+.kbatch-qbpm-bar .stats b {
+    color: #c9d1d9;
+    font-weight: 700;
+}
+.kbatch-qbpm-flow {
+    background: #0d1117;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.kbatch-qbpm-flow .viz-title {
+    padding: 3px 8px;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    color: #58a6ff;
+    background: #161b22;
+    border-bottom: 1px solid #21262d;
+}
+.kbatch-qbpm-flow .viz-canvas-wrap {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+}
+.kbatch-qbpm-flow canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.kbatch-qbpm-vars {
+    padding: 4px 8px;
+    font-size: 0.625rem;
+    font-family: ui-monospace, Menlo, monospace;
+    background: #0d1117;
+    border-top: 1px solid #21262d;
+    border-bottom: 1px solid #21262d;
+    color: #8b949e;
+    min-height: 20px;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+.kbatch-qbpm-keyboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: #21262d;
+    min-height: 0;
+}
+.kbatch-qbpm-keyboard .viz-panel {
+    background: #0d1117;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.kbatch-qbpm-keyboard .viz-title {
+    padding: 3px 8px;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    background: #161b22;
+    border-bottom: 1px solid #21262d;
+}
+.kbatch-qbpm-keyboard .viz-canvas-wrap {
+    flex: 1;
+    position: relative;
+    min-height: 48px;
+}
+.kbatch-qbpm-keyboard canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.kbatch-qbpm-input {
+    padding: 6px 8px 8px;
+    background: #161b22;
+    border-top: 1px solid #30363d;
+}
+.kbatch-qbpm-input input {
+    width: 100%;
+    padding: 8px 10px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    color: #c9d1d9;
+    font-family: inherit;
+    font-size: 0.8125rem;
+    outline: none;
+}
+.kbatch-qbpm-input input:focus {
+    border-color: #f0883e;
+}
+.kbatch-qbpm-input .hint {
+    margin-top: 4px;
+    font-size: 0.5625rem;
+    color: #484f58;
+}
+#kbatch-stubs {
+    display: none !important;
+}
+@media (max-width: 520px) {
+    .kbatch-qbpm-keyboard {
+        grid-template-columns: 1fr;
+    }
+    body.qbpm-embed #kbatch-qbpm-app {
+        grid-template-rows: minmax(72px, 18vh) auto 1fr auto;
+    }
+}
