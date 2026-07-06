@@ -1,4 +1,4 @@
-const CACHE = "qbpm-v30";
+const CACHE = "qbpm-v31";
 const SHELL = [
   "./",
   "./static/pages-boot.js",
