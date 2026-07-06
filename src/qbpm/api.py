@@ -7,7 +7,7 @@ from typing import Any
 import yaml
 from fastapi import FastAPI, HTTPException, Query, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -17,10 +17,18 @@ from qbpm.graph_ws import GraphCollabHub, graph_ws_loop
 from qbpm.grok_ws import grok_ws_loop
 from qbpm.live_bus import get_bus
 from qbpm.live_ws import LiveMusicHub, live_ws_loop
+from qbpm.td_ws import TouchDesignerHub, td_ws_loop
 from qbpm.terminal import TerminalHub, parse_grok_command
 from qbpm.imagine_api import get_slug, list_slugs
 from qbpm.tools_registry import discover_tools
-from qbpm.video_api import commands_for, list_tools as video_tools, resolve_url
+from qbpm.video_api import (
+    commands_for,
+    list_tools as video_tools,
+    proxy_play_stream,
+    proxy_segment,
+    resolve_url,
+    spawn_ffplay,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
@@ -29,14 +37,21 @@ TOOLS = ROOT / "tools"
 CONFIG = ROOT / "configs" / "default.yaml"
 
 app = FastAPI(title="qbpm", version="0.2.0")
+_CORS_ORIGINS = [
+    "http://127.0.0.1:8795",
+    "http://localhost:8795",
+    "http://127.0.0.1:8796",
+    "http://localhost:8796",
+    "https://qbitos.github.io",
+    "https://fornevercollective.github.io",
+    "https://qbpm.qbitos.ai",
+    "https://qbitos.ai",
+    "https://www.qbitos.ai",
+    "https://api.qbitos.ai",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:8795",
-        "http://localhost:8795",
-        "http://127.0.0.1:8796",
-        "http://localhost:8796",
-    ],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,6 +59,7 @@ app.add_middleware(
 hub = TerminalHub()
 collab = GraphCollabHub()
 live_hub = LiveMusicHub()
+td_hub = TouchDesignerHub()
 _active_graph = "default"
 
 
@@ -193,6 +209,7 @@ def health() -> dict[str, Any]:
         "port": cfg.get("port", 8796),
         "grok": {"inject": "/api/grok/inject", "ws": "/api/grok/ws"},
         "collab": {"ws": "/api/graph/ws"},
+        "touchdesigner": {"ws": "/api/td/ws"},
         "video": {"resolve": "/api/video/resolve", "tools": "/api/video/tools"},
         "imagine": {"slugs": "/api/imagine/slugs", "slug": "/api/imagine/slug/{slug}"},
         "foundation": str(ROOT / "foundation"),
@@ -220,6 +237,31 @@ def api_video_tools() -> dict[str, Any]:
 @app.post("/api/video/resolve")
 def api_video_resolve(req: VideoResolveRequest) -> dict[str, Any]:
     return resolve_url(req.url)
+
+
+@app.get("/api/video/play/{play_id}")
+def api_video_play(play_id: str) -> Response:
+    return proxy_play_stream(play_id)
+
+
+@app.head("/api/video/play/{play_id}")
+def api_video_play_head(play_id: str) -> Response:
+    return proxy_play_stream(play_id, head=True)
+
+
+@app.get("/api/video/proxy")
+def api_video_proxy(u: str) -> Response:
+    return proxy_segment(u)
+
+
+@app.head("/api/video/proxy")
+def api_video_proxy_head(u: str) -> Response:
+    return proxy_segment(u)
+
+
+@app.post("/api/video/ffplay")
+def api_video_ffplay(req: VideoResolveRequest) -> dict[str, Any]:
+    return spawn_ffplay(req.url)
 
 
 @app.get("/api/video/commands")
@@ -361,6 +403,12 @@ async def graph_websocket(websocket: WebSocket, graph: str = "default") -> None:
 @app.websocket("/api/live/ws")
 async def live_websocket(websocket: WebSocket) -> None:
     await live_ws_loop(websocket, live_hub, get_bus())
+
+
+@app.websocket("/api/td/ws")
+async def td_websocket(websocket: WebSocket) -> None:
+    """TouchDesigner WebSocket DAT — JSON OSC-style messages."""
+    await td_ws_loop(websocket, td_hub)
 
 
 @app.get("/manifest.webmanifest")

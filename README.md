@@ -65,32 +65,47 @@ Canvas overlay (like [go-ugrad](https://mueee.qbitos.ai/go-ugrad.html)):
 
 ## Deploy
 
-### GitHub Pages (static shell)
+| Variant | Host | Build | API |
+|---|---|---|---|
+| **desktop** | `127.0.0.1:8796` | `./start.sh` | same origin |
+| **pages** | `qbitos.github.io/qbpm/` | `VARIANT=pages make pages` | bridge → `api.qbitos.ai` |
+| **forge** | `fornevercollective.github.io/Qbpm/` | `VARIANT=forge make forge` | bridge → `api.qbitos.ai` |
+| **cloudflare** | `qbpm.qbitos.ai` | `VARIANT=cloudflare make cf` | bridge → `api.qbitos.ai` |
+| **cloud** | `qbitos.ai` | `./start.sh` + nginx | same origin |
 
-1. Push to `https://github.com/qbitOS/qbpm`
-2. **Settings → Pages → Source:** GitHub Actions
-3. Workflow `.github/workflows/deploy-pages.yml` → **https://qbitos.github.io/qbpm/**
+Variant configs: `deploy/variants/*.env` · launch components: `web/launch-config.json` · runtime: `web/pages-boot.js` reads baked `static/env-config.json`.
 
-### fornevercollective/Qbpm Pages
+### Auto-deploy (GitHub Actions on `main`)
 
-Live: **https://fornevercollective.github.io/Qbpm/**
+| Workflow | Target |
+|---|---|
+| `deploy-pages.yml` | qbitOS Pages → **https://qbitos.github.io/qbpm/** |
+| `sync-fornevercollective.yml` | mirrors `web/` → **fornevercollective/Qbpm** (needs `FORNEVER_DEPLOY_TOKEN`) |
+| `deploy-cloudflare-pages.yml` | **https://qbpm.qbitos.ai** (needs `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) |
+| `ci.yml` | pytest + static builds for all variants |
+
+### Cloudflare setup
+
+1. Create Pages project `qbpm` · custom domain `qbpm.qbitos.ai`
+2. Add repo secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
+3. Push `main` — workflow builds `VARIANT=cloudflare` and deploys `_site`
+4. `deploy/cloudflare/_redirects` + `_headers` ship with the build
+
+### Forge / Cursor sync
 
 ```bash
-chmod +x scripts/publish-fornevercollective.sh deploy/build-static.sh
-./scripts/publish-fornevercollective.sh   # sync web → Qbpm/ and push
+make sync-forge   # local · uses Qbpm/ clone
 ```
 
-In **fornevercollective/Qbpm**: **Settings → Pages → Source:** GitHub Actions. Base path `/Qbpm/` — static graph JSON, music lab, collab UI (solo); point API host at qbitos.ai for full stack.
+CI uses `FORNEVER_DEPLOY_TOKEN` (PAT with `contents:write` on `fornevercollective/Qbpm`).
 
-### Full stack on qbitos.ai
-
-`qbitos.ai` CNAME points at `qbitOS.github.io` (org landing). Run the API on your host:
+### Full stack API (qbitos.ai)
 
 ```bash
 ./start.sh   # port 8796
 ```
 
-Reverse-proxy with `deploy/nginx-qbitos.conf.example` — e.g. `qbitos.ai/qbpm` or a dedicated subdomain → **8796**.
+Reverse-proxy with `deploy/nginx-qbitos.conf.example` — API at `api.qbitos.ai` or path `/api` on `qbitos.ai`. CORS allows Pages, forge, and `qbpm.qbitos.ai` origins.
 
 ## Mobile & PWA
 

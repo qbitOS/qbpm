@@ -1,4 +1,6 @@
-/** Processing wing — Bloch sphere, vector scope, 12-band EQ, multi-channel mixer */
+/** Processing wing — Bloch sphere, vector scope, 12-band EQ, TD TOP/OSC bridge */
+
+import { createTdBridge, createTdTop } from "./td-bridge.js";
 
 const EQ_BANDS = [
   { f: 32, label: "32" },
@@ -40,8 +42,14 @@ export function createProcessingWing(opts = {}) {
 
   let blochCanvas = null;
   let scopeCanvas = null;
+  let chopCanvas = null;
+  let tdTopCanvas = null;
   let blochCtx = null;
   let scopeCtx = null;
+  let chopCtx = null;
+  let tdTop = null;
+  let tdBridge = null;
+  let tdTick = 0;
 
   const channels = [];
   let channelSeq = 0;
@@ -174,6 +182,19 @@ export function createProcessingWing(opts = {}) {
     host.innerHTML = `
       <div class="proc-wing">
         <pre class="proc-status">idle</pre>
+        <div class="proc-td-row">
+          <div class="proc-td-top-wrap">
+            <span class="proc-viz-lbl">TOP · feedback</span>
+            <canvas class="proc-td-top" width="160" height="96" aria-label="TouchDesigner-style TOP"></canvas>
+            <canvas class="proc-chop-strip" width="160" height="28" aria-label="CHOP waveform strip"></canvas>
+          </div>
+          <div class="proc-td-ctrl">
+            <span class="proc-viz-lbl">touchdesigner</span>
+            <button type="button" class="proc-btn proc-td-toggle" title="Stream OSC to TD">TD stream</button>
+            <button type="button" class="proc-btn proc-td-connect" title="Reconnect WS">↻</button>
+            <pre class="proc-td-log" id="proc-td-log">/api/td/ws</pre>
+          </div>
+        </div>
         <div class="proc-viz-row">
           <div class="proc-viz-box">
             <span class="proc-viz-lbl">bloch</span>
@@ -217,8 +238,26 @@ export function createProcessingWing(opts = {}) {
 
     blochCanvas = host.querySelector(".proc-bloch");
     scopeCanvas = host.querySelector(".proc-vectorscope");
+    chopCanvas = host.querySelector(".proc-chop-strip");
+    tdTopCanvas = host.querySelector(".proc-td-top");
     blochCtx = blochCanvas?.getContext("2d");
     scopeCtx = scopeCanvas?.getContext("2d");
+    chopCtx = chopCanvas?.getContext("2d");
+
+    tdBridge = createTdBridge({
+      onStatus: (t) => {
+        const el = host.querySelector("#proc-td-log");
+        if (el) el.textContent = t;
+      },
+    });
+    tdTop = createTdTop(tdTopCanvas, () => {
+      if (!analyserL) return 0;
+      const buf = new Float32Array(128);
+      analyserL.getFloatTimeDomainData(buf);
+      let e = 0;
+      for (let i = 0; i < buf.length; i++) e += buf[i] ** 2;
+      return Math.sqrt(e / buf.length);
+    });
 
     createChannel("L");
     createChannel("R");
@@ -248,6 +287,16 @@ export function createProcessingWing(opts = {}) {
 
     host.querySelector(".proc-osc-toggle")?.addEventListener("click", toggleOsc);
     host.querySelector(".proc-mic-toggle")?.addEventListener("click", toggleMic);
+
+    const tdBtn = host.querySelector(".proc-td-toggle");
+    tdBtn?.classList.toggle("active", tdBridge?.isEnabled?.());
+    tdBtn?.addEventListener("click", () => {
+      const on = !tdBridge?.isEnabled?.();
+      tdBridge?.setEnabled?.(on);
+      tdBtn.classList.toggle("active", on);
+      setStatus(on ? "TD stream · bloch/scope/eq" : "TD paused");
+    });
+    host.querySelector(".proc-td-connect")?.addEventListener("click", () => tdBridge?.connect?.());
 
     host.querySelector(".proc-osc-freq")?.addEventListener("input", (ev) => {
       const hz = ev.target.value;
@@ -499,6 +548,51 @@ export function createProcessingWing(opts = {}) {
 
     drawBloch(state.bloch.theta, state.bloch.phi);
     drawVectorScope(bufL, bufR);
+    drawChopStrip(bufL);
+    streamTd(bufL, bufR);
+  }
+
+  function drawChopStrip(bufL) {
+    if (!chopCtx || !chopCanvas) return;
+    const w = chopCanvas.width;
+    const h = chopCanvas.height;
+    chopCtx.fillStyle = "#010409";
+    chopCtx.fillRect(0, 0, w, h);
+    chopCtx.strokeStyle = "#58a6ff";
+    chopCtx.lineWidth = 1;
+    chopCtx.beginPath();
+    const step = Math.max(1, Math.floor(bufL.length / w));
+    for (let x = 0; x < w; x++) {
+      const i = x * step;
+      const y = h / 2 - bufL[i] * (h * 0.42);
+      if (x === 0) chopCtx.moveTo(x, y);
+      else chopCtx.lineTo(x, y);
+    }
+    chopCtx.stroke();
+  }
+
+  function streamTd(bufL, bufR) {
+    if (!tdBridge?.isEnabled?.()) return;
+    tdTick += 1;
+    if (tdTick % 3 !== 0) return;
+    let peak = 0;
+    for (let i = 0; i < bufL.length; i += 8) {
+      peak = Math.max(peak, Math.abs(bufL[i]), Math.abs(bufR[i]));
+    }
+    const eq = eqFilters.map((f) => f.gain.value);
+    tdBridge.sendViz({
+      bloch_theta: state.bloch.theta,
+      bloch_phi: state.bloch.phi,
+      scope_corr: state.scope.correlation,
+      scope_pol: state.scope.polarity,
+      peak,
+      channels: channels.length,
+    });
+    tdBridge.sendOsc("/qbpm/bloch/theta", state.bloch.theta);
+    tdBridge.sendOsc("/qbpm/bloch/phi", state.bloch.phi);
+    tdBridge.sendOsc("/qbpm/scope/corr", state.scope.correlation);
+    tdBridge.sendOsc("/qbpm/audio/peak", peak);
+    eq.forEach((g, i) => tdBridge.sendOsc(`/qbpm/eq/${EQ_BANDS[i].label}`, g));
   }
 
   function startVizLoop() {
@@ -517,6 +611,8 @@ export function createProcessingWing(opts = {}) {
 
   function destroy() {
     cancelAnimationFrame(raf);
+    tdTop?.destroy?.();
+    tdBridge?.destroy?.();
     if (oscNode) try { oscNode.stop(); } catch (_) {}
     if (micStream) micStream.getTracks().forEach((t) => t.stop());
     if (audioCtx) audioCtx.close();
@@ -524,5 +620,5 @@ export function createProcessingWing(opts = {}) {
     channels.length = 0;
   }
 
-  return { mount, setStatus, destroy };
+  return { mount, setStatus, destroy, getTdBridge: () => tdBridge };
 }

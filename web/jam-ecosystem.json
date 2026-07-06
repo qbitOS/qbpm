@@ -35,6 +35,7 @@
     { "id": "lilypalooza", "label": "lilypalooza", "repo": "https://github.com/ales-tsurko/lilypalooza", "role": "notation" },
     { "id": "echos", "label": "echos", "repo": "https://github.com/Linzwcs/echos", "role": "notation" },
     { "id": "strudel", "label": "Strudel", "repo": "https://strudel.cc", "role": "livecode", "pattern": "d1 $ s 'bd sd'" },
+    { "id": "failsafe", "label": "Fail-safe", "repo": "https://github.com/algorave-dave/Fail-safe", "role": "livecode", "pattern": "blockArrange · algorave" },
     { "id": "overview-vfl", "label": "overview Video Feeds Lab", "repo": "https://fornevercollective.github.io/overview/", "role": "video-lab" },
     { "id": "touchdesigner", "label": "TouchDesigner", "repo": "https://derivative.ca", "role": "vfx", "note": "OSC/MIDI bridge via qbpm comp lanes" }
   ]

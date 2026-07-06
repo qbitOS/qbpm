@@ -10,4 +10,5 @@ uv.lock
 media/blank/downloads/*
 media/blank/snapshots/*
 !media/blank/downloads/.gitkeep
-!media/blank/snapshots/.gitkeep
+!media/blank/snapshots/.gitkeep_site/
+_site-*/

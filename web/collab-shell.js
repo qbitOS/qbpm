@@ -10,13 +10,13 @@ export function createCollabShell(opts) {
     getLocalColor = () => "#58a6ff",
     getLocalClientId = () => "local",
     getFloatWorkspace,
+    getVideoWall,
     onHopViewport,
+    onHopFrame,
     onPromptSearch,
     onSyncPush,
   } = opts;
 
-  const videoStreams = new Map();
-  let localVideo = null;
   let lastPeerList = [];
 
   const els = ensureDom();
@@ -101,6 +101,10 @@ export function createCollabShell(opts) {
       );
       if (match) {
         if (match.viewport?.pan) onHopViewport?.(match.viewport);
+        else {
+          const frame = getFrames?.()?.find((f) => f.clientId === match.clientId);
+          if (frame) onHopFrame?.(frame);
+        }
         getCollab?.()?.requestHop?.(match.clientId);
       }
     };
@@ -154,6 +158,10 @@ export function createCollabShell(opts) {
       btn.textContent = (p.name || p.clientId).slice(0, 8);
       btn.addEventListener("click", () => {
         if (p.viewport?.pan) onHopViewport?.(p.viewport);
+        else {
+          const frame = getFrames?.()?.find((f) => f.clientId === p.clientId);
+          if (frame) onHopFrame?.(frame);
+        }
         getCollab?.()?.requestHop?.(p.clientId);
       });
       els.peers.appendChild(btn);
@@ -181,33 +189,43 @@ export function createCollabShell(opts) {
   }
 
   async function toggleLocalVideo() {
-    if (localVideo) {
-      localVideo.getTracks().forEach((t) => t.stop());
-      localVideo = null;
-      getCollab?.()?.sendVideo({ active: false });
+    const vw = getVideoWall?.();
+    if (!vw) {
+      appendPromptOutput("video wall not ready");
       return;
     }
     try {
-      localVideo = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      getCollab?.()?.sendVideo({ active: true, roomId: getActiveWindowId?.() || "main" });
-      attachLocalVideoToFrame(localVideo);
+      const on = await vw.toggleLocal();
+      getFloatWorkspace?.()?.openDockPanel?.("video");
+      if (on) attachLocalVideoToFrame(vw.getLocalStream());
+      else detachFrameTiles();
+      const report = vw.capacityReport?.();
+      if (report) {
+        appendPromptOutput(`vwall ${report.lag.text} · ${report.total.toFixed(1)}/${report.max} cap`);
+      }
     } catch (err) {
       appendPromptOutput(`video error: ${err.message}`);
     }
   }
 
   function attachLocalVideoToFrame(stream) {
+    if (!stream) return;
     const frameId = getFrames?.()?.find((f) => f.id)?.id || "frame-main";
-    let tile = document.querySelector(`[data-video-tile="${frameId}-local"]`);
+    const localId = getLocalClientId?.() || "local";
+    let tile = document.querySelector(`[data-video-tile="${localId}"]`);
     if (!tile) {
       tile = document.createElement("div");
       tile.className = "frame-video-tile local";
-      tile.dataset.videoTile = `${frameId}-local`;
+      tile.dataset.videoTile = localId;
       const vid = document.createElement("video");
       vid.autoplay = true;
       vid.muted = true;
       vid.playsInline = true;
       tile.appendChild(vid);
+      const lbl = document.createElement("span");
+      lbl.className = "fvt-label";
+      lbl.textContent = getLocalHandle?.() || "you";
+      tile.appendChild(lbl);
       els.overlays?.appendChild(tile);
     }
     const vid = tile.querySelector("video");
@@ -215,22 +233,42 @@ export function createCollabShell(opts) {
     positionOverlays();
   }
 
+  function detachFrameTiles() {
+    const localId = getLocalClientId?.() || "local";
+    document.querySelector(`[data-video-tile="${localId}"]`)?.remove();
+    positionOverlays();
+  }
+
   function onRemoteVideo(msg) {
+    getVideoWall?.()?.onRemoteVideo?.(msg);
     if (!msg.active) {
-      const tile = document.querySelector(`[data-video-tile="${msg.clientId}"]`);
-      tile?.remove();
-      videoStreams.delete(msg.clientId);
+      document.querySelector(`[data-video-tile="${msg.clientId}"]`)?.remove();
+      positionOverlays();
       return;
     }
-    videoStreams.set(msg.clientId, msg);
     let tile = document.querySelector(`[data-video-tile="${msg.clientId}"]`);
     if (!tile) {
       tile = document.createElement("div");
       tile.className = "frame-video-tile remote";
       tile.dataset.videoTile = msg.clientId;
-      tile.innerHTML = `<span class="fvt-label">${msg.name || msg.clientId}</span><div class="fvt-placeholder">📹 ${msg.name || "peer"}</div>`;
+      tile.innerHTML = `
+        <video muted playsinline autoplay></video>
+        <span class="fvt-label">${escapeHtml(msg.name || msg.clientId)}</span>
+        <div class="fvt-placeholder">📹 ${escapeHtml(msg.name || "peer")}</div>
+        <span class="fvt-cap">⚡${Number(msg.capacity || 1).toFixed(1)} · ${msg.width || "?"}×${msg.height || "?"}</span>`;
       els.overlays?.appendChild(tile);
     }
+    const vw = getVideoWall?.();
+    const stream = vw?.getStreamForPeer?.(msg.clientId);
+    const vid = tile.querySelector("video");
+    const ph = tile.querySelector(".fvt-placeholder");
+    if (stream && vid) {
+      vid.srcObject = stream;
+      vid.style.display = "block";
+      if (ph) ph.style.display = "none";
+    }
+    const cap = tile.querySelector(".fvt-cap");
+    if (cap) cap.textContent = `⚡${Number(msg.capacity || 1).toFixed(1)} · ${msg.width || "?"}×${msg.height || "?"}`;
     positionOverlays();
   }
 
@@ -267,6 +305,10 @@ export function createCollabShell(opts) {
       tile.style.top = `${scr.y}px`;
       tile.style.width = `${tw}px`;
       tile.style.height = `${th}px`;
+      const vid = tile.querySelector("video");
+      const peerId = tile.dataset.videoTile;
+      const stream = getVideoWall?.()?.getStreamForPeer?.(peerId);
+      if (stream && vid && vid.srcObject !== stream) vid.srcObject = stream;
     });
   }
 

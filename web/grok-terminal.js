@@ -14,14 +14,23 @@
   }
 
   function wsUrl() {
+    const P = typeof window !== "undefined" && window.QBPM_PAGES;
+    if (P?.wsApi) return P.wsApi("api/grok/ws");
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     return `${proto}//${location.host}/api/grok/ws`;
   }
 
   function connect() {
-    if (typeof window !== "undefined" && window.QBPM_PAGES?.staticShell) {
-      render("static shell — grok WS needs API host (qbitos.ai)");
-      return Promise.resolve();
+    const P = typeof window !== "undefined" && window.QBPM_PAGES;
+    if (P?.staticShell) {
+      if (!P.hasComponent?.("grok")) {
+        render("grok · disabled for this launch variant");
+        return Promise.resolve();
+      }
+      if (P.componentMode?.("grok") === "bridge" && !P.apiBase?.()) {
+        render("grok · bridge mode — API base not set (api.qbitos.ai)");
+        return Promise.resolve();
+      }
     }
     if (ws && ws.readyState === WebSocket.OPEN) return Promise.resolve();
     return new Promise((resolve, reject) => {

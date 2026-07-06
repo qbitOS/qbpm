@@ -10,8 +10,11 @@ import { DEVICE_PRESETS, presetById, presetColor, nextDeviceFrameRect } from "./
 import { framePipelinePorts, VFX, compFillForDevice } from "./vfx-palette.js";
 import { drawCompGrid, drawCompWindow, drawBusEdge } from "./vfx-compositor.js";
 import { pages } from "./pages.js";
+import { formatResolveSummary, isWatchUrl } from "./video-ingest.js";
+import { isStrudelUrl } from "./strudel-pane.js";
 import { createQubeManager } from "./qube-manager.js";
 import { getLocalQubeClientId } from "./qube-store.js";
+import { mountInspectorCommandHelp } from "./terminal-commands.js";
 
 const GRAPH_NAME = "default";
 const NODE_W = 168;
@@ -35,6 +38,7 @@ const workspace = document.getElementById("workspace");
 
 let graph = { version: 1, meta: {}, nodes: [], edges: [] };
 let selectedId = null;
+let selectedFrameId = null;
 let pan = { x: 80, y: 80 };
 let scale = 1;
 let dragging = null;
@@ -250,7 +254,15 @@ function initQubeManager() {
 function ensureUserFrame(clientId, name, color) {
   if (!clientId) return null;
   const id = `frame-user-${clientId}`;
-  if (frames().some((f) => f.id === id)) return id;
+  const existing = frames().find((f) => f.id === id);
+  if (existing) {
+    if (name) {
+      existing.label = name;
+      existing.owner = name;
+    }
+    if (color) existing.userColor = color;
+    return id;
+  }
   const preset = presetById("desktop");
   const main = frames().find((f) => f.id === "frame-main");
   const n = frames().filter((f) => f.cluster === "user").length;
@@ -351,7 +363,7 @@ function drawFrames() {
     drawBusEdge(ctx, e, frames(), framePortPositions, scale);
   }
   for (const f of frames()) {
-    drawCompWindow(ctx, f, frameRect(f), f.id === activeFrameId, scale, linking);
+    drawCompWindow(ctx, f, frameRect(f), f.id === activeFrameId || f.id === selectedFrameId, scale, linking);
   }
   for (const vp of viewports()) {
     if (vp.id === activeWindowId) continue;
@@ -449,8 +461,11 @@ function scheduleViewportBroadcast() {
 
 function hopToViewport(vp) {
   if (!vp?.pan) return;
-  pan.x = vp.pan[0];
-  pan.y = vp.pan[1];
+  const px = Array.isArray(vp.pan) ? vp.pan[0] : vp.pan.x;
+  const py = Array.isArray(vp.pan) ? vp.pan[1] : vp.pan.y;
+  if (px == null || py == null) return;
+  pan.x = px;
+  pan.y = py;
   if (vp.scale) scale = vp.scale;
   if (vp.frameId) activeFrameId = vp.frameId;
   if (vp.windowId) activeWindowId = vp.windowId;
@@ -459,20 +474,94 @@ function hopToViewport(vp) {
   collabShell?.positionOverlays?.();
 }
 
+function hopToFrame(frame) {
+  if (!frame?.rect) return;
+  const [fx, fy, fw, fh] = frame.rect;
+  const wrap = document.getElementById("canvas-wrap");
+  if (!wrap) return;
+  const cw = wrap.clientWidth;
+  const ch = wrap.clientHeight;
+  scale = Math.min(cw / Math.max(fw, 120), ch / Math.max(fh, 80)) * 0.82;
+  pan.x = cw / 2 - (fx + fw / 2) * scale;
+  pan.y = ch / 2 - (fy + fh / 2) * scale;
+  activeFrameId = frame.id;
+  selectedFrameId = frame.id;
+  selectFrame(frame);
+  scheduleViewportBroadcast();
+  draw();
+  collabShell?.positionOverlays?.();
+}
+
+function refreshCanvasTargets() {
+  floatWorkspace?.refreshSendTargets?.();
+}
+
+function setInspectorTab(tab) {
+  document.querySelectorAll(".insp-tab").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.insp === tab);
+  });
+  document.getElementById("insp-node-panel")?.classList.toggle("active", tab === "node");
+  document.getElementById("insp-user-panel")?.classList.toggle("active", tab === "user");
+}
+
+function selectFrame(frame) {
+  if (!frame) {
+    selectedFrameId = null;
+    document.getElementById("insp-frame-id").value = "";
+    document.getElementById("insp-user-name").value = "";
+    document.getElementById("insp-user-cid").value = "";
+    draw();
+    return;
+  }
+  selectedFrameId = frame.id;
+  selectedId = null;
+  activeFrameId = frame.id;
+  document.getElementById("insp-frame-id").value = frame.id;
+  document.getElementById("insp-user-name").value = frame.owner || frame.label || "—";
+  document.getElementById("insp-user-cid").value = frame.clientId || "—";
+  document.getElementById("insp-id").value = "";
+  setInspectorTab(frame.cluster === "user" ? "user" : "node");
+  setRightPanelTab("inspector");
+  draw();
+}
+
+async function ingestWatchUrl(url, opts = {}) {
+  const q = String(url || "").trim();
+  if (!isWatchUrl(q)) return null;
+  try {
+    const data = await floatWorkspace?.ingestWatchUrl?.(q, opts);
+    if (opts.verbose && data) collabShell?.appendPromptOutput(JSON.stringify(data, null, 2));
+    return data;
+  } catch (err) {
+    collabShell?.appendPromptOutput(`ingest error: ${err.message || err}`);
+    return null;
+  }
+}
+
 async function runPromptSearch(q) {
   collabShell?.appendPromptOutput(`> ${q}`);
   const low = q.toLowerCase();
-  if (/^https?:\/\//.test(q)) {
+  if (isWatchUrl(q)) {
+    await ingestWatchUrl(q, { verbose: true });
+    return;
+  }
+  if (isStrudelUrl(q) || low === "strudel" || low === "failsafe" || low === "fail-safe") {
+    const target =
+      low === "failsafe" || low === "fail-safe"
+        ? "https://github.com/algorave-dave/Fail-safe"
+        : low === "strudel"
+          ? "https://strudel.cc/"
+          : q;
     try {
-      const res = await fetch("/api/video/resolve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: q }),
-      });
-      const data = await res.json();
-      collabShell?.appendPromptOutput(JSON.stringify(data, null, 2));
+      if (low === "failsafe" || low === "fail-safe") {
+        await floatWorkspace?.getStrudelPane?.()?.loadAndPlay?.("https://github.com/algorave-dave/Fail-safe");
+      } else {
+        await floatWorkspace?.loadStrudelFrom?.(target);
+        await floatWorkspace?.playStrudelCode?.();
+      }
+      collabShell?.appendPromptOutput(`strudel · ${target.slice(0, 72)}`);
     } catch (err) {
-      collabShell?.appendPromptOutput(`ingest error: ${err}`);
+      collabShell?.appendPromptOutput(`strudel error: ${err.message || err}`);
     }
     return;
   }
@@ -514,6 +603,7 @@ function initCollab() {
       if (patch.edges) graph.edges = patch.edges;
       if (patch.meta) graph.meta = { ...graph.meta, ...patch.meta };
       collabShell?.flashSync("ok");
+      refreshCanvasTargets();
       draw();
     },
     onFrameUpdate: (f, v, edges) => {
@@ -529,10 +619,16 @@ function initCollab() {
         ensureUserFrame(p.clientId, p.name, p.color);
       }
       floatWorkspace?.refreshChatRoute?.();
+      refreshCanvasTargets();
       const el = document.getElementById("collab-status");
       if (el) el.textContent = clients.length ? `● ${clients.length + 1} live` : "● solo";
       collabShell?.renderPeers(clients);
+      floatWorkspace?.onVideoPresence?.(clients);
       ugradHud?.refresh();
+      if (selectedFrameId) {
+        const f = frames().find((x) => x.id === selectedFrameId);
+        if (f) selectFrame(f);
+      }
       draw();
     },
     onChat: (msg) => {
@@ -542,7 +638,11 @@ function initCollab() {
       if (msg.viewport) hopToViewport(msg.viewport);
       collabShell?.appendPromptOutput(`hop ← ${msg.fromName || msg.from}`);
     },
-    onVideo: (msg) => collabShell?.onRemoteVideo(msg),
+    onVideo: (msg) => {
+      floatWorkspace?.onRemoteVideo?.(msg);
+      collabShell?.onRemoteVideo(msg);
+    },
+    onVideoSignal: (msg) => floatWorkspace?.onVideoSignal?.(msg),
     onJam: (msg) => {
       const p = msg.pattern || {};
       if (p.musica) liveState = { ...liveState, musica: p.musica, bpm: p.bpm };
@@ -563,6 +663,10 @@ function initCollab() {
   });
 
   floatWorkspace = createFloatWorkspace({
+    getCollab: () => collab,
+    getLocalClientId: () => collab?.clientId || "local",
+    getLocalColor: () => localStorage.getItem("qbpm-collab-color") || "#58a6ff",
+    getActiveWindowId: () => activeWindowId || "main",
     onChatSend: (msg) => {
       if (collab) {
         collab.sendChat(msg.text, { to: msg.to, toName: msg.toName });
@@ -575,7 +679,12 @@ function initCollab() {
       });
     },
     getPeers: () => collabPeers,
-    onPromptIngest: (url) => runPromptSearch(url),
+    onPromptIngest: (url, data) => {
+      if (data) collabShell?.appendPromptOutput(`♪ ingest · ${formatResolveSummary(data)}`);
+      else if (isWatchUrl(url)) ingestWatchUrl(url);
+      else runPromptSearch(url);
+    },
+    onIngestStatus: (t) => collabShell?.appendPromptOutput(t),
     onNotePlay: (n) => window.qbpmLive?.ingest?.({ musica: n.note ?? n.hz, bpm: liveState?.bpm }, "piano"),
     getPanScale: () => ({ pan, scale }),
     getFrames: () => frames(),
@@ -589,10 +698,20 @@ function initCollab() {
         clientId: p.clientId,
         name: p.name || p.clientId,
       })),
+      users: frames()
+        .filter((f) => f.cluster === "user" && f.clientId)
+        .map((f) => ({
+          clientId: f.clientId,
+          name: f.owner || f.label || f.clientId,
+          frameId: f.id,
+        })),
     }),
     onMusicSend: ({ targetType, target, payload }) => {
       window.qbpmLive?.ingest?.(payload, `music-lab:${targetType}:${target}`);
-      if (targetType === "node" && target !== "all") {
+      if (targetType === "daw") {
+        floatWorkspace?.getDawLink?.()?.sendToDaw?.(target, payload);
+        collabShell?.appendPromptOutput?.(`♪ → daw:${target} · ${payload.musica?.slice(0, 32) || "pattern"}`);
+      } else if (targetType === "node" && target !== "all") {
         const n = graph.nodes.find((x) => x.id === target);
         if (n) {
           n.data = { ...(n.data || {}), musica: payload.musica, pattern: payload.pattern, bpm: payload.bpm };
@@ -608,12 +727,17 @@ function initCollab() {
       floatWorkspace?.setProcessing?.(`sent ♪ ${payload.musica?.slice(0, 24) || "pattern"} → ${target}`);
     },
     onOpenGrandPiano: (payload) => {
+      floatWorkspace?.openDockPanel?.("grand");
       window.qbpmTools?.openTool?.("piano");
-      floatWorkspace?.openDockPanel?.("music");
       collabShell?.appendPromptOutput?.(`grand piano ← ${payload?.musica?.slice(0, 40) || "pattern"}`);
     },
     onJamEval: (src, bpm) => {
       const p = jamBridge?.evalAndPlay?.(src, bpm);
+      const fullStrudel = /stack\s*\(|setcps\s*\(|samples\s*\(|\bs\s*\(|^\s*d\d+\s*\$/im.test(src);
+      if (fullStrudel) {
+        floatWorkspace?.setProcessing?.(`strudel · ${src.slice(0, 40)}`);
+        return;
+      }
       floatWorkspace?.openDockPanel?.("music");
       floatWorkspace?.setProcessing?.(`() ${p?.musica?.slice(0, 36) || src.slice(0, 36)}`);
     },
@@ -637,7 +761,10 @@ function initCollab() {
     getLocalClientId: () => collab?.clientId || "local",
     getLocalColor: () => localStorage.getItem("qbpm-collab-color") || "#58a6ff",
     getFloatWorkspace: () => floatWorkspace,
+    getVideoWall: () => floatWorkspace?.getVideoWall?.(),
     onHopViewport: hopToViewport,
+    onHopFrame: hopToFrame,
+    getPeers: () => collabPeers,
     onPromptSearch: runPromptSearch,
     onSyncPush: () => {
       qubeManager?.flush?.("all").then(() => {
@@ -980,6 +1107,39 @@ function drawViz() {
       vizCtx.fillRect(pad + i * barW + 1, h - pad - bh, Math.max(2, barW - 2), bh);
     });
   }
+
+  const vw = floatWorkspace?.getVideoWall?.();
+  const vwReport = vw?.capacityReport?.();
+  const pins = vw?.getPinnedEntries?.() || [];
+  if (vwReport?.users?.length || pins.length) {
+    vizCtx.fillStyle = "#6e7681";
+    vizCtx.font = `${9 * dpr}px Menlo, monospace`;
+    const pinTxt = pins.map((p) => `${p.role.slice(0, 3)}${p.active ? "●" : "○"}`).join(" ");
+    vizCtx.fillText(
+      `vwall ${vwReport?.users?.length || 0} live · ${(vwReport?.total || 0).toFixed(1)}/${vwReport?.max || 16} · ${vwReport?.lag?.text || "—"} · ${pinTxt}`,
+      pad,
+      pad + 10 * dpr,
+    );
+  }
+
+  const thumbX = pad;
+  let thumbY = h - pad - 36 * dpr;
+  pins.forEach((p) => {
+    const sz = 32 * dpr;
+    vizCtx.fillStyle = p.active ? "#161b22" : "#0d1117";
+    vizCtx.fillRect(thumbX, thumbY, sz, sz);
+    vizCtx.strokeStyle = p.color || "#484f58";
+    vizCtx.lineWidth = 1 * dpr;
+    vizCtx.strokeRect(thumbX + 0.5 * dpr, thumbY + 0.5 * dpr, sz - dpr, sz - dpr);
+    vizCtx.fillStyle = p.color || "#6e7681";
+    vizCtx.font = `${10 * dpr}px Menlo, monospace`;
+    vizCtx.textAlign = "center";
+    vizCtx.fillText(p.role === "moderator" ? "M" : "♪", thumbX + sz / 2, thumbY + sz / 2 + 3 * dpr);
+    vizCtx.textAlign = "left";
+    vizCtx.font = `${7 * dpr}px Menlo, monospace`;
+    vizCtx.fillText(p.role.slice(0, 3), thumbX, thumbY + sz + 8 * dpr);
+    thumbY -= sz + 14 * dpr;
+  });
 }
 
 function vizAnimLoop() {
@@ -1023,6 +1183,7 @@ async function loadGraph(opts = {}) {
   } else if (graph.nodes[0]) {
     selectNode(graph.nodes[0].id);
   }
+  refreshCanvasTargets();
   alignView("graph");
   qubeManager?.scheduleFlush?.("all");
 }
@@ -1098,6 +1259,7 @@ async function agentPropose() {
 
 function selectNode(id) {
   selectedId = id;
+  selectedFrameId = null;
   const n = graph.nodes.find((x) => x.id === id);
   if (!n) {
     document.getElementById("insp-id").value = "";
@@ -1107,6 +1269,9 @@ function selectNode(id) {
   document.getElementById("insp-id").value = n.id;
   document.getElementById("insp-type").value = n.type;
   document.getElementById("insp-code").value = n.code || "";
+  setInspectorTab("node");
+  setRightPanelTab("inspector");
+  refreshCanvasTargets();
   draw();
   qubeManager?.scheduleFlush?.("nodes");
 }
@@ -1116,6 +1281,7 @@ function syncInspector() {
   if (!n) return;
   n.type = document.getElementById("insp-type").value;
   n.code = document.getElementById("insp-code").value;
+  collab?.broadcastPatch?.({ nodes: graph.nodes });
   draw();
   qubeManager?.scheduleFlush?.("nodes");
 }
@@ -1132,6 +1298,7 @@ function addNode() {
     code: 'result = {"hello": "qbpm"}',
   });
   selectNode(id);
+  refreshCanvasTargets();
 }
 
 function setPanMode(on) {
@@ -1253,6 +1420,32 @@ initDevicePicker();
 
 document.getElementById("insp-type").addEventListener("change", syncInspector);
 document.getElementById("insp-code").addEventListener("input", syncInspector);
+document.querySelectorAll(".insp-tab").forEach((btn) => {
+  btn.addEventListener("click", () => setInspectorTab(btn.dataset.insp));
+});
+document.getElementById("insp-run-node")?.addEventListener("click", () => runGraph());
+document.getElementById("insp-align-node")?.addEventListener("click", () => alignView("node"));
+document.getElementById("insp-hop-user")?.addEventListener("click", () => {
+  const f = frames().find((x) => x.id === selectedFrameId);
+  if (f) hopToFrame(f);
+  else if (selectedFrameId) {
+    const peer = collabPeers.find((p) => `frame-user-${p.clientId}` === selectedFrameId);
+    if (peer?.viewport?.pan) hopToViewport(peer.viewport);
+    else collab?.requestHop?.(peer?.clientId);
+  }
+});
+document.getElementById("insp-send-user")?.addEventListener("click", () => {
+  const f = frames().find((x) => x.id === selectedFrameId);
+  const cid = f?.clientId;
+  if (!cid) return;
+  const sel = document.getElementById("ml-send-target");
+  if (sel) {
+    const val = `peer:${cid}`;
+    if ([...sel.options].some((o) => o.value === val)) sel.value = val;
+  }
+  floatWorkspace?.openDockPanel?.("music");
+});
+mountInspectorCommandHelp();
 document.getElementById("btn-refresh").addEventListener("click", () => {
   hardRefreshCanvas().catch((err) => {
     vizLog.textContent = `refresh error: ${err}`;
@@ -1349,13 +1542,12 @@ function onPointerDown(ev) {
 
   const fhit = frameAt(wx, wy);
   if (fhit) {
-    activeFrameId = fhit.id;
-    selectedId = null;
-    document.getElementById("insp-id").value = "";
-    draw();
+    selectFrame(fhit);
   } else {
     selectedId = null;
+    selectedFrameId = null;
     document.getElementById("insp-id").value = "";
+    draw();
   }
   panning = true;
   panStart = { x: ev.clientX, y: ev.clientY, pan: { ...pan } };
@@ -1544,7 +1736,9 @@ if (pages().staticShell) {
   if (cs) cs.textContent = "● static shell";
   const hint = document.getElementById("canvas-hint");
   if (hint) {
-    hint.textContent = "GitHub Pages · local graph · full API: qbitos.ai · fornevercollective/Qbpm";
+    const v = pages().variant || "pages";
+    const api = pages().apiBase?.() || pages().defaultApiBase || "api.qbitos.ai";
+    hint.textContent = `${v} · local graph · API bridge: ${api || "same-origin"} · qbpm.qbitos.ai · forge/Qbpm`;
   }
 }
 

@@ -15,6 +15,7 @@
   <script src="/static/pages-boot.js"></script>
   <link rel="stylesheet" href="/static/qbpm.css" />
   <link rel="stylesheet" href="/static/ugrad-hud.css" />
+  <link rel="stylesheet" href="/static/ui-buttons.css" />
   <link rel="stylesheet" href="/static/float-workspace.css" />
   <link rel="stylesheet" href="/static/piano/piano-panel.css" />
 </head>
@@ -34,6 +35,9 @@
       <button id="btn-agent" type="button" class="hide-mobile">agent</button>
     </div>
   </header>
+
+  <div id="video-float-bar" class="video-float-bar" aria-label="Moderator and musician video pins"></div>
+  <div id="header-waveform" class="header-waveform" aria-label="Live audio spectrum"></div>
 
   <nav id="mobile-tabs" class="mobile-only" aria-label="Panels">
     <button type="button" data-panel="canvas" class="active">graph</button>
@@ -76,28 +80,52 @@
             <button id="btn-viz-expand" type="button" title="Expand">⤢</button>
           </div>
           <canvas id="viz-canvas"></canvas>
+          <div id="viz-stream-strip" class="viz-stream-strip" aria-label="Live stream thumbnails"></div>
           <pre id="viz-log">idle</pre>
         </section>
 
         <section id="inspector" class="panel-block" data-panel="inspector">
-          <h2>inspector</h2>
-          <label>id <input id="insp-id" readonly /></label>
-          <label>type
-            <select id="insp-type">
-              <option value="core.clock">core.clock</option>
-              <option value="python.exec">python.exec</option>
-              <option value="python.jax">python.jax</option>
-              <option value="kernel.cuda">kernel.cuda</option>
-              <option value="agent.mutator">agent.mutator</option>
-              <option value="core.output">core.output</option>
-              <option value="music.score">music.score</option>
-              <option value="music.clock">music.clock</option>
-              <option value="tool.kbatch">tool.kbatch</option>
-              <option value="wasm.classify">wasm.classify</option>
-              <option value="repel.play">repel.play</option>
-            </select>
-          </label>
-          <label>code<textarea id="insp-code" rows="8" spellcheck="false"></textarea></label>
+          <h2>edit</h2>
+          <nav class="insp-tabs" aria-label="Edit target">
+            <button type="button" class="insp-tab active" data-insp="node">node</button>
+            <button type="button" class="insp-tab" data-insp="user">user</button>
+          </nav>
+          <div id="insp-node-panel" class="insp-panel active">
+            <label>id <input id="insp-id" readonly /></label>
+            <label>type
+              <select id="insp-type">
+                <option value="core.clock">core.clock</option>
+                <option value="python.exec">python.exec</option>
+                <option value="python.jax">python.jax</option>
+                <option value="kernel.cuda">kernel.cuda</option>
+                <option value="agent.mutator">agent.mutator</option>
+                <option value="core.output">core.output</option>
+                <option value="music.score">music.score</option>
+                <option value="music.clock">music.clock</option>
+                <option value="tool.kbatch">tool.kbatch</option>
+                <option value="wasm.classify">wasm.classify</option>
+                <option value="repel.play">repel.play</option>
+              </select>
+            </label>
+            <label>code<textarea id="insp-code" rows="8" spellcheck="false"></textarea></label>
+            <div class="insp-actions">
+              <button type="button" id="insp-run-node" class="insp-btn" title="Run graph">run</button>
+              <button type="button" id="insp-align-node" class="insp-btn" title="Align to node">◎ node</button>
+            </div>
+          </div>
+          <div id="insp-user-panel" class="insp-panel">
+            <label>frame <input id="insp-frame-id" readonly /></label>
+            <label>user <input id="insp-user-name" readonly /></label>
+            <label>client <input id="insp-user-cid" readonly /></label>
+            <div class="insp-actions">
+              <button type="button" id="insp-hop-user" class="insp-btn" title="Hop to user frame">◎ hop</button>
+              <button type="button" id="insp-send-user" class="insp-btn" title="Set music send target">♪ send</button>
+            </div>
+          </div>
+          <details id="insp-cmd-help" class="insp-cmd-help">
+            <summary>terminal commands</summary>
+            <div id="insp-cmd-help-body" class="insp-cmd-help-body"></div>
+          </details>
         </section>
 
         <section id="kbatch-panel" class="panel-block" data-panel="kbatch">
@@ -159,7 +187,7 @@
   <section id="prompt-bar" class="prompt-bar grok-prompt-bar" aria-label="Main prompt">
     <div class="prompt-search-row">
       <span id="prompt-char" class="prompt-char" title="qbpm prompt">qbpm&gt;</span>
-      <input id="prompt-search-in" type="search" placeholder="prompt · run · agent · ingest URL · imagine · kbatch…" autocomplete="off" spellcheck="false" />
+      <input id="prompt-search-in" type="search" placeholder="prompt · strudel · Fail-safe · ingest URL · imagine…" autocomplete="off" spellcheck="false" />
       <button id="prompt-search-go" type="button" title="Search / run">↵</button>
       <button id="prompt-video-ingest" type="button" title="Video ingest (yt-dlp)" class="hide-mobile">▶ ingest</button>
       <button id="prompt-imagine" type="button" title="Imagine presets" class="hide-mobile">✦ imagine</button>

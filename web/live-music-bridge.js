@@ -7,6 +7,8 @@ const LIVE_CH = "qbpm-live";
 const KBATCH_CH = "kbatch-keyboard-data";
 
 function wsUrl() {
+  const P = typeof window !== "undefined" && window.QBPM_PAGES;
+  if (P?.wsApi) return P.wsApi("api/live/ws");
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${location.host}/api/live/ws`;
 }
@@ -31,7 +33,11 @@ export function createLiveMusicBridge(opts = {}) {
   }
 
   function connect() {
-    if (typeof window !== "undefined" && window.QBPM_PAGES?.staticShell) return;
+    const P = typeof window !== "undefined" && window.QBPM_PAGES;
+    if (P?.staticShell) {
+      if (!P.hasComponent?.("live")) return;
+      if (P.componentMode?.("live") === "bridge" && !P.apiBase?.()) return;
+    }
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
     ws = new WebSocket(wsUrl());
     ws.onopen = () => onEvent({ type: "open" });

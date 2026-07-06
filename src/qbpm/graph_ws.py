@@ -267,13 +267,13 @@ async def graph_ws_loop(
             if mtype == "hop.request":
                 target_id = str(msg.get("targetId", ""))
                 target = hub.room(graph_name).get(target_id)
-                if target:
-                    await target.ws.send_json(
+                if target and target.viewport:
+                    await client.ws.send_json(
                         {
                             "type": "hop",
-                            "from": client.client_id,
-                            "fromName": client.name,
-                            "viewport": client.viewport,
+                            "from": target.client_id,
+                            "fromName": target.name,
+                            "viewport": target.viewport,
                         }
                     )
                 continue
@@ -285,11 +285,30 @@ async def graph_ws_loop(
                         "type": "video",
                         "clientId": client.client_id,
                         "name": client.name,
+                        "color": client.color,
                         "active": bool(msg.get("active")),
                         "roomId": msg.get("roomId"),
+                        "width": msg.get("width"),
+                        "height": msg.get("height"),
+                        "capacity": msg.get("capacity"),
                     },
                     skip=client.client_id,
                 )
+                continue
+
+            if mtype == "video.signal":
+                target_id = str(msg.get("to", ""))
+                target = hub.room(graph_name).get(target_id)
+                if target:
+                    await target.ws.send_json(
+                        {
+                            "type": "video.signal",
+                            "from": client.client_id,
+                            "signalType": msg.get("signalType"),
+                            "sdp": msg.get("sdp"),
+                            "candidate": msg.get("candidate"),
+                        }
+                    )
                 continue
 
     except WebSocketDisconnect:

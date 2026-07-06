@@ -1,0 +1,15 @@
+{
+  "name": "qbpm",
+  "private": true,
+  "description": "qbitOS node process manager — deploy tooling",
+  "scripts": {
+    "build:pages": "VARIANT=pages ./deploy/build-static.sh qbpm _site",
+    "build:forge": "VARIANT=forge ./deploy/build-static.sh Qbpm _site",
+    "build:cf": "VARIANT=cloudflare ./deploy/build-static.sh",
+    "deploy:cf": "npm run build:cf && wrangler pages deploy _site --project-name=qbpm",
+    "screenshots": "node scripts/capture-readme-screenshots.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^3.99.0"
+  }
+}

@@ -1,0 +1,12 @@
+# Cloudflare Pages — qbpm.qbitos.ai
+# Deploy: npx wrangler pages deploy _site --project-name qbpm
+# Secrets (GitHub Actions): CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+
+name = "qbpm"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "_site"
+
+[vars]
+QBPM_VARIANT = "cloudflare"
+QBPM_ORIGIN = "https://qbpm.qbitos.ai/"
+QBPM_API_BASE = "https://api.qbitos.ai"

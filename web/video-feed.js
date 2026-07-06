@@ -1,4 +1,6 @@
-/** Video feed wing — transport, timeline, display, source handling */
+/** Video feed wing — transport, timeline, display, yt-dlp ingest */
+
+import { spawnFfplay } from "./video-ingest.js";
 
 function fmtTime(s) {
   if (!Number.isFinite(s) || s < 0) return "0:00";
@@ -12,7 +14,7 @@ function clamp(v, lo, hi) {
 }
 
 export function createVideoFeed(opts = {}) {
-  const { onIngestUrl, onStatus, onSnapshot } = opts;
+  const { onIngestUrl, onStatus, onSnapshot, videoWall } = opts;
 
   let host = null;
   let video = null;
@@ -37,6 +39,11 @@ export function createVideoFeed(opts = {}) {
     host = el;
     host.innerHTML = `
       <div class="vid-wing">
+        <div class="vid-vwall-hd">
+          <span>vwall · group stream</span>
+          <button type="button" class="vid-btn vid-vwall-live" title="Join group stream">📡 live</button>
+        </div>
+        <div id="vid-vwall-host" class="vid-vwall-host" aria-label="Video wall"></div>
         <pre class="vid-status">no source</pre>
         <div class="vid-stage">
           <video class="vid-el" playsinline></video>
@@ -66,7 +73,8 @@ export function createVideoFeed(opts = {}) {
           <input type="url" class="vid-url" placeholder="paste URL · yt-dlp ingest" autocomplete="off" />
           <div class="vid-src-btns">
             <button type="button" class="vid-btn vid-cam" title="Camera">📷</button>
-            <button type="button" class="vid-btn vid-ingest" title="Ingest URL">▶</button>
+            <button type="button" class="vid-btn vid-ingest" title="yt-dlp resolve + play">▶</button>
+            <button type="button" class="vid-btn vid-ffplay" title="ffplay stream (desktop)">⏵</button>
             <button type="button" class="vid-btn vid-file" title="Open file">📁</button>
             <button type="button" class="vid-btn vid-snap" title="Snapshot frame">📸</button>
           </div>
@@ -96,6 +104,7 @@ export function createVideoFeed(opts = {}) {
       </div>`;
 
     video = host.querySelector(".vid-el");
+    videoWall?.mountWall?.(document.getElementById("vid-vwall-host"));
     applyDisplay();
     bindEvents();
     tickTime();
@@ -110,11 +119,24 @@ export function createVideoFeed(opts = {}) {
     host.querySelector(".vid-step-fwd")?.addEventListener("click", () => stepFrame(1));
     host.querySelector(".vid-cam")?.addEventListener("click", toggleCamera);
     host.querySelector(".vid-ingest")?.addEventListener("click", ingestUrl);
+    host.querySelector(".vid-ffplay")?.addEventListener("click", ffplayUrl);
     host.querySelector(".vid-file")?.addEventListener("click", openFile);
     host.querySelector(".vid-snap")?.addEventListener("click", snapshot);
     host.querySelector(".vid-pip")?.addEventListener("click", enterPip);
     host.querySelector(".vid-fs")?.addEventListener("click", enterFullscreen);
     host.querySelector(".vid-eject")?.addEventListener("click", clearSource);
+    host.querySelector(".vid-vwall-live")?.addEventListener("click", async () => {
+      const btn = host.querySelector(".vid-vwall-live");
+      const on = await videoWall?.toggleLocal?.();
+      btn?.classList.toggle("active", !!on);
+      btn.textContent = on ? "📡 on" : "📡 live";
+      if (on) {
+        const stream = videoWall?.getLocalStream?.();
+        if (stream) loadStream(stream, { fromVwall: true });
+      } else if (localStream === videoWall?.getLocalStream?.()) {
+        clearSource(true);
+      }
+    });
 
     host.querySelector(".vid-mute")?.addEventListener("click", toggleMute);
     host.querySelector(".vid-mirror-h")?.addEventListener("click", () => toggleMirror("h"));
@@ -188,8 +210,8 @@ export function createVideoFeed(opts = {}) {
     updateMeta();
   }
 
-  function loadStream(stream) {
-    clearSource(false);
+  function loadStream(stream, opts = {}) {
+    if (!opts.fromVwall) clearSource(false);
     localStream = stream;
     if (!video) return;
     video.srcObject = stream;
@@ -236,7 +258,7 @@ export function createVideoFeed(opts = {}) {
         video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
-      loadStream(stream);
+      loadStream(stream, { fromVwall: false });
       btn?.classList.add("active");
     } catch (err) {
       setStatus(`camera: ${err.message}`);
@@ -250,8 +272,24 @@ export function createVideoFeed(opts = {}) {
       loadUrl(url, "url");
       return;
     }
-    onIngestUrl?.(url);
-    setStatus(`ingest → ${url.slice(0, 40)}…`);
+    if (/^https?:\/\//i.test(url)) {
+      onIngestUrl?.(url);
+      setStatus(`ingest → ${url.slice(0, 40)}…`);
+      return;
+    }
+    setStatus("paste a watch URL (TikTok, YouTube, …)");
+  }
+
+  async function ffplayUrl() {
+    const url = host.querySelector(".vid-url")?.value?.trim();
+    if (!url) return;
+    try {
+      setStatus("ffplay…");
+      await spawnFfplay(url);
+      setStatus(`ffplay · ${url.slice(0, 40)}`);
+    } catch (err) {
+      setStatus(`ffplay: ${err.message || err}`);
+    }
   }
 
   function openFile() {

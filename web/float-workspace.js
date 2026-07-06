@@ -1,9 +1,22 @@
 /** Floating workspace — music lab, oscillator, blank-style video, frame-anchored chat */
 
+import { createMusicCore } from "./music-core.js";
 import { createMusicLab } from "./music-lab.js";
+import { createMusicPanes } from "./music-panes.js";
+import { createHeaderWaveform } from "./header-waveform.js";
 import { createFloatDock } from "./float-dock.js";
 import { createProcessingWing } from "./processing-wing.js";
 import { createVideoFeed } from "./video-feed.js";
+import { createVideoWall } from "./video-wall.js";
+import {
+  formatResolveSummary,
+  playUrlForResolved,
+  resolveWatchUrl,
+  spawnFfplay,
+} from "./video-ingest.js";
+import { createStrudelPane } from "./strudel-pane.js";
+import { createDawLink } from "./daw-link.js";
+import { createVideoFloatBar } from "./video-float-bar.js";
 
 const floatDock = createFloatDock();
 
@@ -11,6 +24,7 @@ export function createFloatWorkspace(opts = {}) {
   const {
     onChatSend,
     onPromptIngest,
+    onIngestStatus,
     onNotePlay,
     onMusicSend,
     onOpenGrandPiano,
@@ -18,6 +32,10 @@ export function createFloatWorkspace(opts = {}) {
     getBpm,
     getLocalHandle = () => "guest",
     getPeers = () => [],
+    getCollab = () => null,
+    getLocalClientId = () => "local",
+    getLocalColor = () => "#58a6ff",
+    getActiveWindowId = () => "main",
     getPanScale,
     getFrames,
     onJamEval,
@@ -26,9 +44,16 @@ export function createFloatWorkspace(opts = {}) {
 
   let chatToId = "all";
 
+  let musicCore = null;
   let musicLab = null;
+  let musicPanes = null;
+  let headerWaveform = null;
   let processingWing = null;
   let videoFeed = null;
+  let videoWall = null;
+  let strudelPane = null;
+  let dawLink = null;
+  let videoFloatBar = null;
   const chatHistory = [];
 
   const wrap = document.getElementById("canvas-wrap");
@@ -38,7 +63,13 @@ export function createFloatWorkspace(opts = {}) {
   bindEvents();
 
   function stub() {
-    return { setPeerChats() {}, positionFramePanels() {}, getLeftDockLayout() {}, destroy() {} };
+    return {
+      setPeerChats() {},
+      positionFramePanels() {},
+      getLeftDockLayout() {},
+      getVideoWall() { return null; },
+      destroy() {},
+    };
   }
 
   function positionFramePanels() {
@@ -73,11 +104,31 @@ export function createFloatWorkspace(opts = {}) {
         </div>
       </aside>
       <aside id="float-panel-bl" class="float-panel float-bl" aria-label="Music lab">
-        <div class="float-hd">music lab · notation</div>
+        <div class="float-hd">music lab · overview</div>
         <div id="float-music-lab-host"></div>
       </aside>
+      <aside id="float-panel-grand" class="float-panel float-grand" aria-label="Grand piano">
+        <div class="float-hd">grand piano · staff</div>
+        <div id="float-grand-host"></div>
+      </aside>
+      <aside id="float-panel-mpc" class="float-panel float-mpc" aria-label="MPC pads">
+        <div class="float-hd">mpc pads · 16</div>
+        <div id="float-mpc-host"></div>
+      </aside>
+      <aside id="float-panel-beat" class="float-panel float-beat" aria-label="Beat MPC">
+        <div class="float-hd">beat mpc · step map</div>
+        <div id="float-beat-host"></div>
+      </aside>
+      <aside id="float-panel-wave" class="float-panel float-wave" aria-label="Waveform edit">
+        <div class="float-hd">waveform · edit</div>
+        <div id="float-wave-host"></div>
+      </aside>
+      <aside id="float-panel-strudel" class="float-panel float-strudel" aria-label="Strudel live code">
+        <div class="float-hd">strudel · live code · projects</div>
+        <div id="float-strudel-host"></div>
+      </aside>
       <aside id="float-panel-br" class="float-panel float-br" aria-label="Processing wing">
-        <div class="float-hd">processing · bloch · eq · bus</div>
+        <div class="float-hd">processing · TD · bloch · eq · bus</div>
         <div id="float-processing-host"></div>
       </aside>
       <aside id="float-panel-video" class="float-panel float-video" aria-label="Video feed">
@@ -89,18 +140,92 @@ export function createFloatWorkspace(opts = {}) {
     parent.appendChild(root);
     floatDock.ensureRail(parent);
     floatDock.layoutPanels();
-    musicLab = createMusicLab({
+    dawLink = createDawLink({
+      onStatus: (t) => processingWing?.setStatus?.(t),
+      ingestLive: (payload, src) => window.qbpmLive?.ingest?.(payload, src),
+      getTdBridge: () => processingWing?.getTdBridge?.(),
+    });
+    musicCore = createMusicCore({
       onNotePlay,
       onSend: onMusicSend,
-      onOpenGrandPiano,
       onJamEval,
-      getSendTargets,
+      onDawSend: (id, payload) => dawLink?.sendToDaw?.(id, payload),
+      getSendTargets: () => {
+        const base = getSendTargets?.() || {};
+        return { ...base, daws: dawLink?.listDaws?.() || [] };
+      },
+      getBpm,
+      onStateChange: () => onWorkspaceChange?.(),
+    });
+    musicPanes = createMusicPanes(musicCore, { onOpenGrandPiano });
+    strudelPane = createStrudelPane({
+      onStatus: (t) => {
+        processingWing?.setStatus?.(`strudel · ${t}`);
+        onWorkspaceChange?.();
+      },
+      onJamEval,
       getBpm,
     });
+    strudelPane.mount(document.getElementById("float-strudel-host"));
+    musicLab = createMusicLab(musicCore, {
+      onOpenGrandPiano,
+      onOpenPane: (k) => floatDock.openPanel(k),
+      onOpenStrudel: () => floatDock.openPanel("strudel"),
+      onStrudelLoad: (url) => {
+        floatDock.openPanel("strudel");
+        return strudelPane.loadFrom(url);
+      },
+      onStrudelPlay: (code) => {
+        floatDock.openPanel("strudel");
+        return strudelPane.playCode(code);
+      },
+      onJamEval,
+      onDawLink: (id) => {
+        const was = dawLink?.isLinked?.(id);
+        return dawLink?.linkDaw?.(id, !was);
+      },
+      onDawOpen: (id) => dawLink?.openDawRepo?.(id),
+    });
     musicLab.mount(document.getElementById("float-music-lab-host"));
+    dawLink.init().then(() => {
+      musicLab?.refreshDawChips?.();
+      musicLab?.refreshSendTargets?.();
+    });
+    musicPanes.mountGrand(document.getElementById("float-grand-host"));
+    musicPanes.mountMpc(document.getElementById("float-mpc-host"));
+    musicPanes.mountBeat(document.getElementById("float-beat-host"));
+    musicPanes.mountWave(document.getElementById("float-wave-host"));
+    headerWaveform = createHeaderWaveform(musicCore);
+    headerWaveform.mount();
     processingWing = createProcessingWing();
     processingWing.mount(document.getElementById("float-processing-host"));
-    videoFeed = createVideoFeed({ onIngestUrl: onPromptIngest });
+    videoWall = createVideoWall({
+      getCollab,
+      getPeers,
+      getLocalClientId,
+      getLocalHandle,
+      getLocalColor,
+      getRoomId: getActiveWindowId,
+      onStatus: (t) => videoFeed?.setStatus?.(t),
+      onCapacityChange: (report) => {
+        videoFeed?.setStatus?.(`vwall ${report.lag.text} · ${report.total.toFixed(1)}/${report.max}`);
+      },
+    });
+    videoWall.mountThumbStrip(document.getElementById("viz-stream-strip"));
+    videoWall.setFloatDockOpen?.(() => floatDock.openPanel("video"));
+    videoFloatBar = createVideoFloatBar({
+      getVideoWall: () => videoWall,
+      onPinClick: (entry) => {
+        processingWing?.setStatus?.(`pin · ${entry?.role || "?"} · ${entry?.active ? entry.name : "placeholder"}`);
+      },
+      onOpenVideo: () => floatDock.openPanel("video"),
+    });
+    videoFloatBar.mount(document.getElementById("video-float-bar"));
+    videoFeed = createVideoFeed({
+      videoWall,
+      onIngestUrl: (url) => ingestWatchUrl(url),
+      onStatus: (t) => onIngestStatus?.(t),
+    });
     videoFeed.mount(document.getElementById("float-video-host"));
     refreshChatRoute();
     requestAnimationFrame(() => floatDock.layoutPanels());
@@ -181,12 +306,14 @@ export function createFloatWorkspace(opts = {}) {
       chatHistory: chatHistory.slice(-48),
       chatToId,
       musicLab: musicLab?.getState?.(),
+      strudel: strudelPane?.getState?.(),
     };
   }
 
   function importState(s) {
     if (!s) return;
     if (s.musicLab) musicLab?.setState?.(s.musicLab);
+    if (s.strudel) strudelPane?.setState?.(s.strudel);
     if (s.dock) {
       try {
         localStorage.setItem("qbpm-dock-v1", JSON.stringify(s.dock));
@@ -220,6 +347,7 @@ export function createFloatWorkspace(opts = {}) {
 
   function drawNotation(live) {
     musicLab?.drawNotation?.(live);
+    musicPanes?.drawNotation?.(live);
   }
 
   function setPeerChats() {
@@ -239,10 +367,55 @@ export function createFloatWorkspace(opts = {}) {
     return videoFeed?.getVideoElement?.() || null;
   }
 
+  async function ingestWatchUrl(url, opts = {}) {
+    const watch = String(url || "").trim();
+    if (!watch) return null;
+    try {
+      onIngestStatus?.(`resolving · ${watch.slice(0, 48)}…`);
+      const data = await resolveWatchUrl(watch);
+      const playSrc = playUrlForResolved(data);
+      onIngestStatus?.(formatResolveSummary(data));
+      if (playSrc && opts.play !== false) {
+        floatDock.openPanel("video");
+        videoFeed?.loadUrl?.(playSrc, data.streamKind === "hls" ? "hls" : "ytdlp");
+        const inp = document.querySelector("#float-video-host .vid-url");
+        if (inp) inp.value = watch;
+      }
+      return data;
+    } catch (err) {
+      onIngestStatus?.(`ingest error: ${err.message || err}`);
+      throw err;
+    }
+  }
+
+  async function ffplayWatchUrl(url) {
+    const data = await spawnFfplay(url);
+    onIngestStatus?.(`ffplay · ${data.streamUrl?.slice(0, 40) || "stream"}…`);
+    return data;
+  }
+
   function destroy() {
+    headerWaveform?.destroy?.();
     musicLab?.destroy?.();
+    musicPanes?.destroy?.();
+    musicCore?.destroy?.();
     processingWing?.destroy?.();
+    videoWall?.destroy?.();
     videoFeed?.destroy?.();
+    videoFloatBar?.destroy?.();
+    dawLink?.destroy?.();
+    strudelPane?.destroy?.();
+  }
+
+  function loadStrudelFrom(url) {
+    floatDock.openPanel("strudel");
+    return strudelPane?.loadFrom?.(url);
+  }
+
+  function playStrudelCode(code) {
+    floatDock.openPanel("strudel");
+    if (code) return strudelPane?.playCode?.(code);
+    return strudelPane?.play?.();
   }
 
   return {
@@ -256,8 +429,20 @@ export function createFloatWorkspace(opts = {}) {
     positionFramePanels,
     getLeftDockLayout,
     getVideoElement,
+    getVideoWall: () => videoWall,
+    getDawLink: () => dawLink,
+    ingestWatchUrl,
+    ffplayWatchUrl,
+    getVideoFeed: () => videoFeed,
+    onRemoteVideo: (msg) => videoWall?.onRemoteVideo?.(msg),
+    onVideoSignal: (msg) => videoWall?.handleSignal?.(msg),
+    onVideoPresence: (peers) => videoWall?.onPresence?.(peers),
+    refreshSendTargets: () => musicLab?.refreshSendTargets?.(),
     openDockPanel: (k) => floatDock.openPanel(k),
     collapseDock: () => floatDock.collapseAll(),
+    loadStrudelFrom,
+    playStrudelCode,
+    getStrudelPane: () => strudelPane,
     destroy,
   };
 }

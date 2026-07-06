@@ -7,6 +7,12 @@ body {
   display: flex;
   flex-direction: column;
 }
+body.launch-off-agent #btn-agent,
+body.launch-off-grok #btn-grok-terminal,
+body.launch-off-kbatch [data-tab="kbatch"],
+body.launch-off-kbatch #mobile-tabs button[data-panel="kbatch"] {
+  display: none !important;
+}
 #header {
   display: flex;
   justify-content: space-between;
@@ -16,6 +22,18 @@ body {
   border-bottom: 1px solid #30363d;
   background: #161b22;
   flex-shrink: 0;
+}
+.header-waveform {
+  flex-shrink: 0;
+  height: 32px;
+  background: #0a0d12;
+  border-bottom: 1px solid #21262d;
+  overflow: hidden;
+}
+#header-waveform-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .header-dock {
   flex: 1;
@@ -515,6 +533,186 @@ body {
 #workspace.viz-full #viz-canvas {
   height: min(42vh, 360px);
 }
+.viz-stream-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px;
+  min-height: 44px;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: 4px;
+  align-items: flex-start;
+}
+.viz-thumb-empty {
+  font-size: 0.55rem;
+  color: #484f58;
+}
+.viz-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 40px;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  padding: 2px;
+  background: #161b22;
+}
+.viz-thumb-canvas {
+  width: 32px;
+  height: 32px;
+  display: block;
+  border-radius: 2px;
+  background: #010409;
+  image-rendering: pixelated;
+}
+.viz-thumb-cap {
+  font-size: 0.42rem;
+  color: #d29922;
+  line-height: 1;
+}
+.viz-thumb-name {
+  font-size: 0.4rem;
+  color: #6e7681;
+  max-width: 36px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1;
+}
+.viz-thumb-pinned {
+  border-style: dashed;
+  box-shadow: 0 0 0 1px rgba(88, 166, 255, 0.15);
+}
+.viz-thumb-pinned.live {
+  border-style: solid;
+  box-shadow: 0 0 6px rgba(63, 185, 80, 0.25);
+}
+.viz-thumb-pinned.offline .viz-thumb-canvas {
+  opacity: 0.72;
+}
+.viz-thumb-pinned.offline .viz-thumb-name {
+  color: #d29922;
+  text-transform: uppercase;
+  font-size: 0.38rem;
+  letter-spacing: 0.04em;
+}
+
+.video-float-bar {
+  position: relative;
+  height: 44px;
+  z-index: 120;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(13, 17, 23, 0.92), rgba(13, 17, 23, 0.55));
+  border-bottom: 1px solid #21262d;
+}
+.video-float-bar .vfb-inner {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: rgba(22, 27, 34, 0.94);
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  touch-action: none;
+}
+.video-float-bar .vfb-inner.dragging {
+  border-color: #58a6ff;
+  cursor: grabbing;
+}
+.vfb-drag {
+  background: transparent;
+  border: none;
+  color: #6e7681;
+  cursor: grab;
+  font-size: 0.85rem;
+  padding: 2px 4px;
+  line-height: 1;
+}
+.vfb-pins {
+  display: flex;
+  gap: 8px;
+}
+.vfb-pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  background: #0d1117;
+  border: 1px dashed #484f58;
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 40px;
+}
+.vfb-pin.live {
+  border-style: solid;
+  border-color: var(--pin-color, #3fb950);
+  box-shadow: 0 0 8px rgba(63, 185, 80, 0.2);
+}
+.vfb-pin.offline {
+  opacity: 0.85;
+}
+.vfb-pin-canvas {
+  width: 32px;
+  height: 32px;
+  display: block;
+  border-radius: 3px;
+  image-rendering: pixelated;
+  background: #010409;
+}
+.vfb-pin-lbl {
+  font-size: 0.45rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.vfb-hint {
+  font-size: 0.5rem;
+  color: #484f58;
+  white-space: nowrap;
+}
+
+.ml-daw-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0;
+  min-height: 22px;
+}
+.ml-daw-ph {
+  font-size: 0.55rem;
+  color: #484f58;
+}
+.ml-daw-chip.linked {
+  border-color: #3fb950;
+  color: #3fb950;
+}
+.ml-audio-tools {
+  margin-top: 4px;
+}
+.ml-audio-tools .qb-chip.active,
+#ml-autotune.active {
+  border-color: #d29922;
+  color: #d29922;
+  background: rgba(210, 153, 34, 0.12);
+}
+.frame-video-tile .fvt-cap {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  font-size: 0.42rem;
+  color: #d29922;
+  z-index: 1;
+  text-shadow: 0 1px 2px #000;
+}
 #viz-log {
   margin-top: 8px;
   padding: 8px;
@@ -545,6 +743,99 @@ body {
   font-size: 0.72rem;
 }
 #insp-code { resize: vertical; min-height: 100px; }
+
+.insp-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.insp-tab {
+  flex: 1;
+  min-height: 28px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #161b22;
+  color: #8b949e;
+  font: 600 0.62rem Menlo, monospace;
+  cursor: pointer;
+}
+.insp-tab.active,
+.insp-tab:hover {
+  border-color: #58a6ff;
+  color: #c9d1d9;
+}
+.insp-panel { display: none; }
+.insp-panel.active { display: block; }
+.insp-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.insp-btn {
+  flex: 1;
+  min-height: 30px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #21262d;
+  color: #c9d1d9;
+  font: 600 0.64rem Menlo, monospace;
+  cursor: pointer;
+}
+.insp-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.insp-cmd-help {
+  margin-top: 10px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #0d1117;
+}
+.insp-cmd-help > summary {
+  padding: 8px 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #8b949e;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+.insp-cmd-help > summary::-webkit-details-marker { display: none; }
+.insp-cmd-help > summary::before {
+  content: "▸ ";
+  color: #58a6ff;
+}
+.insp-cmd-help[open] > summary::before { content: "▾ "; }
+.insp-cmd-help-body {
+  max-height: 220px;
+  overflow: auto;
+  padding: 0 10px 10px;
+  border-top: 1px solid #21262d;
+}
+.insp-cmd-group { margin-top: 8px; }
+.insp-cmd-group-hd {
+  font-size: 0.58rem;
+  color: #6e7681;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.insp-cmd-list {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+.insp-cmd-list dt {
+  margin: 0;
+  font-size: 0.62rem;
+}
+.insp-cmd-list dt code {
+  color: #e3b341;
+  font-size: 0.62rem;
+}
+.insp-cmd-list dd {
+  margin: 0 0 4px 0;
+  font-size: 0.58rem;
+  color: #8b949e;
+  line-height: 1.35;
+}
 
 /* Grok terminal */
 #grok-terminal-out {

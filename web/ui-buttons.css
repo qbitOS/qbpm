@@ -1,0 +1,208 @@
+/** qbpm button system — crisp targets, consistent chrome */
+
+.qb-btn,
+.ml-btn,
+.vid-btn,
+.proc-btn,
+.float-dock-rail button,
+#prompt-search-go,
+#prompt-video-ingest,
+#prompt-imagine,
+#btn-refresh,
+.actions button,
+#btn-viz-expand,
+#float-chat-send,
+.float-chat-send,
+.mp-toolbar .ml-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  min-width: 34px;
+  padding: 7px 12px;
+  border: 1px solid rgba(48, 54, 61, 0.95);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(42, 49, 58, 0.98) 0%, rgba(22, 27, 34, 0.98) 100%);
+  color: #c9d1d9;
+  font: 600 0.72rem/1.15 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 1px 2px rgba(0, 0, 0, 0.45);
+  transition:
+    border-color 0.14s ease,
+    color 0.14s ease,
+    background 0.14s ease,
+    box-shadow 0.14s ease,
+    transform 0.1s ease;
+}
+
+.qb-btn:hover,
+.ml-btn:hover,
+.vid-btn:hover,
+.proc-btn:hover,
+.float-dock-rail button:hover,
+#prompt-search-go:hover,
+#prompt-video-ingest:hover,
+#prompt-imagine:hover,
+#btn-refresh:hover,
+.actions button:hover,
+#btn-viz-expand:hover,
+#float-chat-send:hover {
+  border-color: #58a6ff;
+  color: #e6edf3;
+  box-shadow:
+    0 0 0 1px rgba(88, 166, 255, 0.22),
+    0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.qb-btn:active,
+.ml-btn:active,
+.vid-btn:active,
+.float-dock-rail button:active,
+#prompt-search-go:active,
+.actions button:active {
+  transform: scale(0.96);
+}
+
+.qb-btn.active,
+.ml-btn.active,
+.vid-btn.active,
+.proc-btn.active,
+.float-dock-rail button.active {
+  border-color: #58a6ff;
+  color: #58a6ff;
+  background: linear-gradient(180deg, rgba(33, 43, 56, 0.98) 0%, rgba(17, 22, 29, 0.98) 100%);
+  box-shadow: 0 0 0 1px rgba(88, 166, 255, 0.35);
+}
+
+.qb-btn:focus-visible,
+.ml-btn:focus-visible,
+.vid-btn:focus-visible,
+.float-dock-rail button:focus-visible {
+  outline: 2px solid #58a6ff;
+  outline-offset: 2px;
+}
+
+.qb-btn--sm,
+.ml-btn.ml-link,
+.vid-btn.vid-btn-sm {
+  min-height: 30px;
+  min-width: 30px;
+  padding: 5px 9px;
+  font-size: 0.64rem;
+  border-radius: 7px;
+}
+
+.qb-btn--icon {
+  min-width: 38px;
+  padding: 7px 8px;
+}
+
+.qb-btn--play,
+.ml-btn#ml-seq-play.active,
+#sp-play.active {
+  color: #3fb950;
+  border-color: rgba(35, 134, 54, 0.85);
+}
+
+.qb-btn--play:hover {
+  color: #56d364;
+  border-color: #3fb950;
+}
+
+.qb-btn--stop,
+.qb-btn--danger {
+  color: #f85149;
+  border-color: rgba(218, 54, 51, 0.7);
+}
+
+.qb-btn--accent,
+.ml-btn#ml-strudel-go,
+#ml-strudel-go {
+  color: #e3b341;
+  border-color: rgba(110, 76, 26, 0.9);
+}
+
+.qb-btn--ghost {
+  background: rgba(13, 17, 23, 0.55);
+  border-color: rgba(48, 54, 61, 0.65);
+}
+
+.float-dock-rail {
+  width: 46px;
+  padding: 6px 5px 8px;
+  gap: 4px;
+}
+
+.float-dock-rail button {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  min-width: 36px;
+  padding: 0;
+  font-size: 0.95rem;
+  border-radius: 9px;
+}
+
+.float-dock-rail .dock-focus {
+  color: #3fb950;
+  border-color: rgba(35, 134, 54, 0.55);
+}
+
+#prompt-search-go,
+#prompt-video-ingest,
+#prompt-imagine {
+  min-height: 36px;
+  padding: 8px 14px;
+  font-size: 0.7rem;
+  border-radius: 8px;
+}
+
+#btn-refresh {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  font-size: 1.05rem;
+}
+
+.actions button {
+  min-height: 34px;
+  padding: 7px 14px;
+  font-size: 0.74rem;
+}
+
+.qb-btn-group {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.qb-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #30363d;
+  background: rgba(22, 27, 34, 0.9);
+  color: #8b949e;
+  font: 600 0.62rem Menlo, monospace;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.qb-chip:hover,
+.qb-chip.active {
+  border-color: #58a6ff;
+  color: #c9d1d9;
+}

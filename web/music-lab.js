@@ -1,82 +1,69 @@
-/** Music lab — 2-oct piano, FL step grid, MPC pads, VFL waveform, send-to routing */
+/** Music lab — compact overview: piano, pads, beat, strudel, send-to */
 
-const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const STEP_COUNT = 16;
+import {
+  createMusicCore,
+  drawSpectrum,
+  midiToName,
+  PIANO_KEYS,
+  STEP_COUNT,
+} from "./music-core.js";
 
-const MPC_PADS = [
-  { id: 0, label: "Kick", kind: "kick" },
-  { id: 1, label: "Snare", kind: "snare" },
-  { id: 2, label: "Clap", kind: "clap" },
-  { id: 3, label: "Hat", kind: "hat" },
-  { id: 4, label: "Tom", kind: "tom" },
-  { id: 5, label: "Rim", kind: "rim" },
-  { id: 6, label: "Sub", kind: "sub" },
-  { id: 7, label: "Perc", kind: "perc" },
-  { id: 8, label: "Pad1", kind: "pad", midi: 60 },
-  { id: 9, label: "Pad2", kind: "pad", midi: 63 },
-  { id: 10, label: "Pad3", kind: "pad", midi: 67 },
-  { id: 11, label: "Pad4", kind: "pad", midi: 72 },
-  { id: 12, label: "Bass", kind: "pad", midi: 48 },
-  { id: 13, label: "Lead", kind: "pad", midi: 76 },
-  { id: 14, label: "Chd", kind: "pad", midi: 64 },
-  { id: 15, label: "Fx", kind: "noise" },
-];
-
-function midiToFreq(m) {
-  return 440 * 2 ** ((m - 69) / 12);
-}
-
-function midiToName(m) {
-  const oct = Math.floor(m / 12) - 1;
-  return `${NOTE_NAMES[m % 12]}${oct}`;
-}
-
-function buildTwoOctaveKeys() {
-  const keys = [];
-  let whitePos = 0;
-  for (let m = 48; m <= 72; m++) {
-    const name = midiToName(m);
-    const black = name.includes("#");
-    const w = black ? null : whitePos * 11;
-    if (!black) whitePos++;
-    keys.push({ n: name, midi: m, f: midiToFreq(m), w: w ?? 0, black });
+function drawStaff(el, notes, keys = PIANO_KEYS) {
+  if (!el) return;
+  el.innerHTML = "";
+  if (typeof Vex === "undefined") {
+    el.textContent = "staff…";
+    return;
   }
-  let blackIdx = 0;
-  const blackOffsets = [8, 19, 30, 50, 61, 72, 83, 94, 114, 125];
-  keys.filter((k) => k.black).forEach((k, i) => {
-    k.w = blackOffsets[i] ?? blackIdx * 11 + 8;
-    blackIdx++;
-  });
-  return keys;
+  if (!notes?.length) {
+    el.innerHTML = '<span class="ml-staff-ph">staff · play or sequence notes</span>';
+    return;
+  }
+  try {
+    const { Renderer, Stave, StaveNote, Voice, Formatter } = Vex.Flow;
+    const w = el.clientWidth || 240;
+    const h = 52;
+    const renderer = new Renderer(el, Renderer.Backends.SVG);
+    renderer.resize(w, h);
+    const ctx = renderer.getContext();
+    const stave = new Stave(4, 8, w - 8);
+    stave.addClef("treble").setContext(ctx).draw();
+    const tickables = notes.map((n) => {
+      const m = keys.find((k) => k.n === n.note)?.midi ?? 60;
+      const nm = midiToName(m);
+      const letter = nm.replace(/\d/, "");
+      const oct = nm.match(/\d/)?.[0] || "4";
+      const base = letter.replace("#", "");
+      const sn = new StaveNote({ clef: "treble", keys: [`${base}/${oct}`], duration: "8" });
+      if (letter.includes("#")) sn.addModifier(new Vex.Flow.Accidental("#"), 0);
+      return sn;
+    });
+    const voice = new Voice({ num_beats: tickables.length, beat_value: 8 });
+    voice.setStrict(false);
+    voice.addTickables(tickables);
+    new Formatter().joinVoices([voice]).format([voice], w - 20);
+    voice.draw(ctx, stave);
+  } catch (_) {
+    el.textContent = notes.map((n) => n.note).join(" ");
+  }
 }
 
-const PIANO_KEYS = buildTwoOctaveKeys();
-
-function emptySteps() {
-  return Array.from({ length: STEP_COUNT }, () => false);
-}
-
-export function createMusicLab(opts = {}) {
+export function createMusicLab(coreOrOpts, maybeOpts) {
+  const core = coreOrOpts?.playPad ? coreOrOpts : createMusicCore(coreOrOpts || {});
+  const opts = coreOrOpts?.playPad ? maybeOpts || {} : maybeOpts || coreOrOpts || {};
   const {
-    onNotePlay,
-    onSend,
     onOpenGrandPiano,
-    onJamEval,
-    getSendTargets = () => ({ nodes: [], peers: [] }),
-    getBpm = () => 120,
+    onOpenPane,
+    onOpenStrudel,
+    onStrudelLoad,
+    onStrudelPlay,
+    onJamEval = core.onJamEval,
+    onDawLink,
+    onDawOpen,
   } = opts;
 
-  let audioCtx = null;
-  let analyser = null;
-  let masterGain = null;
   let wfRaf = 0;
-  let seqTimer = null;
-  let seqStep = 0;
-  let seqOn = false;
-  let selectedPad = 0;
-  let selectedNote = "C4";
-  let padSteps = Object.fromEntries(MPC_PADS.map((p) => [p.id, emptySteps()]));
-  let noteSteps = Object.fromEntries(PIANO_KEYS.map((k) => [k.n, emptySteps()]));
+  let unsub = null;
 
   function mount(root) {
     if (!root || root.querySelector(".music-lab")) return;
@@ -86,12 +73,26 @@ export function createMusicLab(opts = {}) {
           <span class="ml-bpm-lbl" id="ml-bpm-lbl">120 bpm</span>
           <button type="button" class="ml-btn" id="ml-seq-play" title="Play pattern">▶</button>
           <button type="button" class="ml-btn" id="ml-seq-stop" title="Stop">■</button>
-          <button type="button" class="ml-btn ml-link" id="ml-grand" title="Open grand piano + staff">🎹 grand</button>
+          <button type="button" class="ml-btn ml-link" id="ml-grand" title="Grand piano pane">🎹</button>
+          <button type="button" class="ml-btn ml-link" id="ml-mpc" title="MPC pads pane">pads</button>
+          <button type="button" class="ml-btn ml-link" id="ml-beat" title="Beat MPC pane">beat</button>
+          <button type="button" class="ml-btn ml-link" id="ml-wave" title="Waveform edit pane">∿</button>
         </div>
         <div class="ml-strudel-row">
-          <input id="ml-strudel" type="text" placeholder="d1 $ s 'bd sd' · (flare) · live jam" spellcheck="false" autocomplete="off" aria-label="Strudel-style pattern" />
-          <button type="button" id="ml-strudel-go" class="ml-btn" title="Eval pattern">()</button>
+          <input id="ml-strudel" type="text" placeholder="GitHub repo · strudel.cc · d1 $ s 'bd sd'" spellcheck="false" autocomplete="off" aria-label="Strudel pattern or project URL" />
+          <button type="button" id="ml-strudel-open" class="ml-btn qb-btn--accent qb-btn--icon" title="Open Strudel pane">()</button>
+          <button type="button" id="ml-strudel-go" class="ml-btn qb-btn--play qb-btn--icon" title="Load / play in Strudel">▶</button>
         </div>
+        <div class="ml-strudel-presets qb-btn-group">
+          <button type="button" class="qb-chip" id="ml-failsafe" title="Load Fail-safe project">Fail-safe</button>
+          <button type="button" class="qb-chip" id="ml-strudel-cc" title="Open strudel.cc REPL">strudel.cc</button>
+        </div>
+        <div class="ml-audio-tools qb-btn-group" aria-label="Audio tools">
+          <button type="button" class="qb-chip" id="ml-wf-capture" title="Capture waveform snapshot (JSON)">∿ cap</button>
+          <button type="button" class="qb-chip" id="ml-autotune" title="Standard autotune · quantize pitch">♪ tune</button>
+          <button type="button" class="qb-chip" id="ml-a2m" title="Audio → MIDI note detect">a→midi</button>
+        </div>
+        <div class="ml-daw-row" id="ml-daw-chips" aria-label="DAW link targets"></div>
         <canvas id="ml-waveform" class="ml-waveform" width="240" height="36" aria-label="Audio waveform"></canvas>
         <div id="ml-staff" class="ml-staff" aria-label="Staff notation"></div>
         <div class="ml-section-hd">mpc pads</div>
@@ -111,19 +112,22 @@ export function createMusicLab(opts = {}) {
     buildSteps();
     buildPiano();
     bindEvents();
+    refreshDawChips();
     refreshSendTargets();
-    drawStaff([]);
+    drawStaff(document.getElementById("ml-staff"), []);
     startWaveform();
+    unsub = core.subscribe(syncUi);
+    syncUi();
   }
 
   function buildPads() {
     const el = document.getElementById("ml-pads");
     if (!el) return;
     el.innerHTML = "";
-    MPC_PADS.forEach((p) => {
+    core.MPC_PADS.forEach((p) => {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = `ml-pad${p.id === selectedPad ? " active" : ""}`;
+      b.className = `ml-pad${p.id === core.selectedPad ? " active" : ""}`;
       b.dataset.pad = String(p.id);
       b.innerHTML = `<span class="ml-pad-lbl">${p.label}</span>`;
       el.appendChild(b);
@@ -141,7 +145,6 @@ export function createMusicLab(opts = {}) {
       b.dataset.step = String(i);
       el.appendChild(b);
     }
-    syncStepUi();
   }
 
   function buildPiano() {
@@ -173,151 +176,83 @@ export function createMusicLab(opts = {}) {
     });
   }
 
-  function ensureAudio() {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      masterGain = audioCtx.createGain();
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.62;
-      masterGain.connect(analyser);
-      analyser.connect(audioCtx.destination);
-      masterGain.gain.value = 0.12;
-    }
-    return audioCtx;
-  }
-
-  function playPad(pad) {
-    const ctx = ensureAudio();
-    const t = ctx.currentTime;
-    const g = ctx.createGain();
-    g.connect(masterGain);
-    if (pad.kind === "kick" || pad.kind === "sub") {
-      const o = ctx.createOscillator();
-      o.type = "sine";
-      o.frequency.setValueAtTime(pad.kind === "kick" ? 90 : 55, t);
-      o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
-      g.gain.setValueAtTime(0.9, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-      o.connect(g);
-      o.start(t);
-      o.stop(t + 0.22);
-    } else if (pad.kind === "snare" || pad.kind === "clap" || pad.kind === "noise") {
-      const len = Math.floor(ctx.sampleRate * 0.08);
-      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      g.gain.setValueAtTime(0.5, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
-      src.connect(g);
-      src.start(t);
-    } else if (pad.kind === "hat" || pad.kind === "rim") {
-      const o = ctx.createOscillator();
-      o.type = "square";
-      o.frequency.value = pad.kind === "hat" ? 8000 : 1200;
-      g.gain.setValueAtTime(0.15, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
-      o.connect(g);
-      o.start(t);
-      o.stop(t + 0.05);
-    } else {
-      const midi = pad.midi ?? 60;
-      playTone(midiToFreq(midi), 140);
-      return;
-    }
-    onNotePlay?.({ pad: pad.label, kind: pad.kind });
-  }
-
-  function playTone(freq, ms = 180) {
-    const ctx = ensureAudio();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = "sine";
-    o.frequency.value = freq;
-    g.gain.value = 0.35;
-    o.connect(g);
-    g.connect(masterGain);
-    o.start();
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + ms / 1000);
-    o.stop(ctx.currentTime + ms / 1000 + 0.02);
-    onNotePlay?.({ hz: freq, note: freq });
-  }
-
-  function currentSteps() {
-    return padSteps[selectedPad] || emptySteps();
-  }
-
-  function syncStepUi() {
-    const steps = currentSteps();
-    const pad = MPC_PADS[selectedPad];
+  function syncUi() {
+    const steps = core.currentSteps();
+    const pad = core.MPC_PADS[core.selectedPad];
     document.getElementById("ml-step-label").textContent = pad?.label || "—";
     document.querySelectorAll(".ml-step").forEach((el, i) => {
       el.classList.toggle("on", !!steps[i]);
-      el.classList.toggle("playhead", seqOn && i === seqStep);
+      el.classList.toggle("playhead", core.seqOn && i === core.seqStep);
     });
     document.querySelectorAll(".ml-pad").forEach((el) => {
-      el.classList.toggle("active", Number(el.dataset.pad) === selectedPad);
+      el.classList.toggle("active", Number(el.dataset.pad) === core.selectedPad);
     });
+    document.getElementById("ml-seq-play")?.classList.toggle("active", core.seqOn);
   }
 
-  function toggleStep(i) {
-    const steps = currentSteps();
-    steps[i] = !steps[i];
-    padSteps[selectedPad] = steps;
-    syncStepUi();
-  }
-
-  function triggerStep(i) {
-    MPC_PADS.forEach((pad) => {
-      if (padSteps[pad.id]?.[i]) playPad(pad);
-    });
-    for (const [note, arr] of Object.entries(noteSteps)) {
-      if (!arr[i]) continue;
-      const k = PIANO_KEYS.find((x) => x.n === note);
-      if (k) playTone(k.f, 120);
+  function refreshDawChips() {
+    const host = document.getElementById("ml-daw-chips");
+    if (!host) return;
+    const { daws = [] } = core.getSendTargets();
+    if (!daws.length) {
+      host.innerHTML = '<span class="ml-daw-ph">daw · link targets in send ▾</span>';
+      return;
     }
-  }
-
-  function startSeq() {
-    stopSeq();
-    seqOn = true;
-    seqStep = 0;
-    const bpm = getBpm() || 120;
-    const ms = (60 / bpm / 4) * 1000;
-    triggerStep(0);
-    syncStepUi();
-    seqTimer = setInterval(() => {
-      seqStep = (seqStep + 1) % STEP_COUNT;
-      triggerStep(seqStep);
-      syncStepUi();
-    }, ms);
-    document.getElementById("ml-seq-play")?.classList.add("active");
-  }
-
-  function stopSeq() {
-    seqOn = false;
-    if (seqTimer) clearInterval(seqTimer);
-    seqTimer = null;
-    seqStep = 0;
-    document.getElementById("ml-seq-play")?.classList.remove("active");
-    syncStepUi();
+    host.innerHTML = daws
+      .slice(0, 8)
+      .map(
+        (d) =>
+          `<button type="button" class="qb-chip ml-daw-chip${d.linked ? " linked" : ""}" data-daw="${d.id}" title="${d.label} · ${d.repo || ""}">${d.label.slice(0, 10)}</button>`,
+      )
+      .join("");
+    host.querySelectorAll(".ml-daw-chip").forEach((btn) => {
+      btn.addEventListener("click", (ev) => {
+        const id = ev.currentTarget.dataset.daw;
+        const linked = opts.onDawLink?.(id);
+        ev.currentTarget.classList.toggle("linked", !!linked);
+        refreshSendTargets();
+      });
+      btn.addEventListener("dblclick", (ev) => {
+        opts.onDawOpen?.(ev.currentTarget.dataset.daw);
+      });
+    });
   }
 
   function refreshSendTargets() {
     const sel = document.getElementById("ml-send-target");
     if (!sel) return;
-    const { nodes = [], peers = [] } = getSendTargets();
+    const { nodes = [], peers = [], users = [], daws = [] } = core.getSendTargets();
     const prev = sel.value;
     sel.innerHTML = `<option value="broadcast:all">⊙ broadcast</option>`;
+    if (daws.length) {
+      const og = document.createElement("optgroup");
+      og.label = "daw";
+      daws.forEach((d) => {
+        const o = document.createElement("option");
+        o.value = `daw:${d.id}`;
+        o.textContent = `${d.linked ? "◉" : "○"} ${d.label}`;
+        og.appendChild(o);
+      });
+      sel.appendChild(og);
+    }
     nodes.forEach((n) => {
       const o = document.createElement("option");
       o.value = `node:${n.id}`;
       o.textContent = `◆ ${n.label || n.id}`;
       sel.appendChild(o);
     });
+    const seenPeers = new Set();
+    users.forEach((u) => {
+      if (!u.clientId || seenPeers.has(u.clientId)) return;
+      seenPeers.add(u.clientId);
+      const o = document.createElement("option");
+      o.value = `peer:${u.clientId}`;
+      o.textContent = `◎ ${u.name || u.clientId}`;
+      sel.appendChild(o);
+    });
     peers.forEach((p) => {
+      if (seenPeers.has(p.clientId)) return;
+      seenPeers.add(p.clientId);
       const o = document.createElement("option");
       o.value = `peer:${p.clientId}`;
       o.textContent = `◎ ${p.name || p.clientId}`;
@@ -326,139 +261,14 @@ export function createMusicLab(opts = {}) {
     if ([...sel.options].some((o) => o.value === prev)) sel.value = prev;
   }
 
-  function buildPayload() {
-    const bpm = getBpm() || 120;
-    const notes = [];
-    for (const [note, arr] of Object.entries(noteSteps)) {
-      arr.forEach((on, i) => {
-        if (on) notes.push({ note, beat: i / 4, step: i });
-      });
-    }
-    const musica = notes.map((n) => n.note).join(" ");
-    return {
-      bpm,
-      musica,
-      pattern: { pads: padSteps, notes: noteSteps, steps: STEP_COUNT },
-      notes,
-    };
-  }
-
-  function sendPattern() {
-    const sel = document.getElementById("ml-send-target");
-    const raw = sel?.value || "broadcast:all";
-    const [type, id] = raw.split(":");
-    const payload = buildPayload();
-    onSend?.({ targetType: type, target: id, payload });
-    pushToGrandPiano(payload);
-  }
-
-  function pushToGrandPiano(payload) {
-    try {
-      const bc = new BroadcastChannel("piano-buddy-state");
-      bc.postMessage({
-        type: "piano-state",
-        t: performance.now(),
-        musica: payload.musica,
-        bpm: payload.bpm,
-        pattern: payload.pattern,
-        source: "qbpm-music-lab",
-      });
-      bc.close();
-    } catch (_) {}
-    try {
-      const kb = new BroadcastChannel("kbatch-keyboard-data");
-      kb.postMessage({
-        musica: payload.musica,
-        bpm: payload.bpm,
-        flow: payload.musica,
-        text: payload.musica,
-      });
-      kb.close();
-    } catch (_) {}
-  }
-
-  function drawStaff(noteList) {
-    const el = document.getElementById("ml-staff");
-    if (!el) return;
-    el.innerHTML = "";
-    if (typeof Vex === "undefined") {
-      el.textContent = "staff…";
-      return;
-    }
-    const notes = noteList?.length
-      ? noteList
-      : collectActiveNotes().slice(0, 8);
-    if (!notes.length) {
-      el.innerHTML = '<span class="ml-staff-ph">staff · play or sequence notes</span>';
-      return;
-    }
-    try {
-      const { Renderer, Stave, StaveNote, Voice, Formatter } = Vex.Flow;
-      const w = el.clientWidth || 240;
-      const h = 52;
-      const renderer = new Renderer(el, Renderer.Backends.SVG);
-      renderer.resize(w, h);
-      const ctx = renderer.getContext();
-      const stave = new Stave(4, 8, w - 8);
-      stave.addClef("treble").setContext(ctx).draw();
-      const tickables = notes.map((n) => {
-        const m = PIANO_KEYS.find((k) => k.n === n.note)?.midi ?? 60;
-        const nm = midiToName(m);
-        const letter = nm.replace(/\d/, "");
-        const oct = nm.match(/\d/)?.[0] || "4";
-        const base = letter.replace("#", "");
-        const sn = new StaveNote({ clef: "treble", keys: [`${base}/${oct}`], duration: "8" });
-        if (letter.includes("#")) sn.addModifier(new Vex.Flow.Accidental("#"), 0);
-        return sn;
-      });
-      const voice = new Voice({ num_beats: tickables.length, beat_value: 8 });
-      voice.setStrict(false);
-      voice.addTickables(tickables);
-      new Formatter().joinVoices([voice]).format([voice], w - 20);
-      voice.draw(ctx, stave);
-    } catch (_) {
-      el.textContent = notes.map((n) => n.note).join(" ");
-    }
-  }
-
-  function collectActiveNotes() {
-    const out = [];
-    for (const [note, arr] of Object.entries(noteSteps)) {
-      if (arr.some(Boolean)) out.push({ note });
-    }
-    return out;
-  }
-
   function startWaveform() {
     const canvas = document.getElementById("ml-waveform");
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const fallback = new Uint8Array(128);
-    let freqBuf = null;
     let stopped = false;
-
     const draw = () => {
       if (stopped) return;
-      const w = canvas.width;
-      const h = canvas.height;
-      let data = fallback;
-      if (analyser) {
-        if (!freqBuf || freqBuf.length !== analyser.frequencyBinCount) {
-          freqBuf = new Uint8Array(analyser.frequencyBinCount);
-        }
-        analyser.getByteFrequencyData(freqBuf);
-        data = freqBuf;
-      }
-      ctx.fillStyle = "#0a0d12";
-      ctx.fillRect(0, 0, w, h);
-      const barCount = Math.min(data.length, Math.max(16, Math.floor(w / 4)));
-      const step = w / barCount;
-      ctx.fillStyle = "#7d8590";
-      for (let i = 0; i < barCount; i++) {
-        const norm = analyser ? data[i] / 255 : 0.04;
-        const bh = Math.max(1, norm * h * 0.92);
-        ctx.fillRect(Math.floor(i * step), h - bh, Math.max(1, Math.ceil(step) - 1), bh);
-      }
+      core.ensureAudio();
+      drawSpectrum(canvas, core.getAnalyser());
       wfRaf = requestAnimationFrame(draw);
     };
     wfRaf = requestAnimationFrame(draw);
@@ -474,16 +284,15 @@ export function createMusicLab(opts = {}) {
       if (!pad) return;
       ev.preventDefault();
       const id = Number(pad.dataset.pad);
-      selectedPad = id;
-      const p = MPC_PADS[id];
-      if (p) playPad(p);
-      syncStepUi();
+      core.selectedPad = id;
+      const p = core.MPC_PADS[id];
+      if (p) core.playPad(p);
     });
 
     document.getElementById("ml-steps")?.addEventListener("click", (ev) => {
       const step = ev.target.closest(".ml-step");
       if (!step) return;
-      toggleStep(Number(step.dataset.step));
+      core.toggleStep(Number(step.dataset.step));
     });
 
     document.getElementById("ml-piano")?.addEventListener("pointerdown", (ev) => {
@@ -492,45 +301,92 @@ export function createMusicLab(opts = {}) {
       ev.preventDefault();
       key.classList.add("active");
       const note = key.dataset.note;
-      selectedNote = note;
-      playTone(parseFloat(key.dataset.freq));
-      if (seqOn) {
-        const steps = noteSteps[note] || emptySteps();
-        steps[seqStep] = !steps[seqStep];
-        noteSteps[note] = steps;
-      }
-      drawStaff([{ note }]);
+      core.selectedNote = note;
+      core.playTone(parseFloat(key.dataset.freq));
+      if (core.seqOn) core.toggleNoteStep(note, core.seqStep);
+      drawStaff(document.getElementById("ml-staff"), [{ note }]);
     });
     document.getElementById("ml-piano")?.addEventListener("pointerup", (ev) => {
       ev.target.closest(".ml-key")?.classList.remove("active");
     });
 
     document.getElementById("ml-seq-play")?.addEventListener("click", () => {
-      if (seqOn) stopSeq();
-      else startSeq();
+      if (core.seqOn) core.stopSeq();
+      else core.startSeq();
     });
-    document.getElementById("ml-seq-stop")?.addEventListener("click", stopSeq);
+    document.getElementById("ml-seq-stop")?.addEventListener("click", () => core.stopSeq());
 
-    document.getElementById("ml-send-btn")?.addEventListener("click", sendPattern);
+    document.getElementById("ml-send-btn")?.addEventListener("click", () => {
+      core.sendPattern(document.getElementById("ml-send-target")?.value);
+    });
+
+    document.getElementById("ml-wf-capture")?.addEventListener("click", () => {
+      const cap = core.downloadWaveformCapture();
+      if (cap) drawStaff(document.getElementById("ml-staff"), [{ note: "C4" }]);
+    });
+    document.getElementById("ml-autotune")?.addEventListener("click", (ev) => {
+      const on = core.toggleAutotune();
+      ev.currentTarget.classList.toggle("active", on);
+      ev.currentTarget.title = on ? "Autotune on · quantize pitch" : "Autotune off";
+    });
+    document.getElementById("ml-a2m")?.addEventListener("click", () => {
+      const hit = core.audioToMidi();
+      if (hit) drawStaff(document.getElementById("ml-staff"), [{ note: hit.note }]);
+    });
+
     document.getElementById("ml-grand")?.addEventListener("click", () => {
-      const payload = buildPayload();
-      pushToGrandPiano(payload);
+      const payload = core.buildPayload();
+      core.pushToGrandPiano(payload);
       onOpenGrandPiano?.(payload);
+      onOpenPane?.("grand");
     });
 
-    const runStrudel = () => {
+    document.getElementById("ml-mpc")?.addEventListener("click", () => onOpenPane?.("mpc"));
+    document.getElementById("ml-beat")?.addEventListener("click", () => onOpenPane?.("beat"));
+    document.getElementById("ml-wave")?.addEventListener("click", () => onOpenPane?.("wave"));
+
+    const isStrudelProject = (src) =>
+      /strudel\.cc/i.test(src) ||
+      (/github\.com/i.test(src) && (/\.js(\?|$)/i.test(src) || /\/blob\//i.test(src) || /github\.com\/[^/]+\/[^/]+\/?$/i.test(src)));
+
+    const isStrudelCode = (src) =>
+      /stack\s*\(|setcps\s*\(|samples\s*\(|\.bank\s*\(|sound\s*\(|\.gain\s*\(|\bs\s*\(|^\s*d\d+\s*\$/im.test(src);
+
+    const runStrudel = async () => {
       const src = document.getElementById("ml-strudel")?.value?.trim();
       if (!src) return;
-      onJamEval?.(src, getBpm() || 120);
+      if (isStrudelProject(src)) {
+        await onStrudelLoad?.(src);
+        return;
+      }
+      if (isStrudelCode(src)) {
+        await onStrudelPlay?.(src);
+        return;
+      }
+      onOpenStrudel?.();
+      await onStrudelPlay?.(src);
+      onJamEval?.(src, core.getBpm() || 120);
     };
-    document.getElementById("ml-strudel-go")?.addEventListener("click", runStrudel);
+
+    document.getElementById("ml-strudel-open")?.addEventListener("click", () => onOpenStrudel?.());
+    document.getElementById("ml-strudel-go")?.addEventListener("click", () => runStrudel().catch(() => {}));
     document.getElementById("ml-strudel")?.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter") { ev.preventDefault(); runStrudel(); }
+      if (ev.key === "Enter") { ev.preventDefault(); runStrudel().catch(() => {}); }
+    });
+    document.getElementById("ml-failsafe")?.addEventListener("click", () => {
+      const url = "https://github.com/algorave-dave/Fail-safe";
+      const inp = document.getElementById("ml-strudel");
+      if (inp) inp.value = url;
+      onStrudelLoad?.(url).then(() => onStrudelPlay?.()).catch(() => {});
+    });
+    document.getElementById("ml-strudel-cc")?.addEventListener("click", () => {
+      onOpenStrudel?.();
+      onStrudelLoad?.("https://strudel.cc/").catch(() => {});
     });
   }
 
   function drawNotation(live) {
-    const bpm = live?.bpm || live?.cpm || getBpm() || 120;
+    const bpm = live?.bpm || live?.cpm || core.getBpm() || 120;
     const lbl = document.getElementById("ml-bpm-lbl");
     if (lbl) lbl.textContent = `${bpm} bpm`;
     const meta = document.getElementById("ml-meta");
@@ -550,42 +406,47 @@ export function createMusicLab(opts = {}) {
         const oct = m[3] || "4";
         parsed.push({ note: `${base}${acc}${oct}` });
       }
-      if (parsed.length) drawStaff(parsed);
+      if (parsed.length) drawStaff(document.getElementById("ml-staff"), parsed);
     }
+    refreshDawChips();
     refreshSendTargets();
+    syncUi();
+    document.getElementById("ml-autotune")?.classList.toggle("active", core.getAutotune?.());
   }
 
   function getState() {
     return {
-      padSteps,
-      noteSteps,
-      selectedPad,
-      selectedNote,
-      seqStep,
+      ...core.getState(),
       strudel: document.getElementById("ml-strudel")?.value || "",
     };
   }
 
   function setState(s) {
     if (!s) return;
-    if (s.padSteps) padSteps = s.padSteps;
-    if (s.noteSteps) noteSteps = s.noteSteps;
-    if (s.selectedPad != null) selectedPad = s.selectedPad;
-    if (s.selectedNote) selectedNote = s.selectedNote;
-    if (s.seqStep != null) seqStep = s.seqStep;
+    core.setState(s);
     buildPads();
     buildSteps();
     buildPiano();
     const str = document.getElementById("ml-strudel");
     if (str && s.strudel) str.value = s.strudel;
+    syncUi();
   }
 
   function destroy() {
-    stopSeq();
     cancelAnimationFrame(wfRaf);
-    if (audioCtx) audioCtx.close();
-    audioCtx = null;
+    unsub?.();
+    if (!coreOrOpts?.playPad) core.destroy();
   }
 
-  return { mount, drawNotation, buildPayload, refreshSendTargets, getState, setState, destroy };
+  return {
+    mount,
+    drawNotation,
+    buildPayload: () => core.buildPayload(),
+    refreshSendTargets,
+    refreshDawChips,
+    getState,
+    setState,
+    getCore: () => core,
+    destroy,
+  };
 }

@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Sync deps
+        run: uv sync
+
+      - name: pytest
+        run: uv run pytest -q
+
+  build-static:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        variant: [pages, forge, cloudflare]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ${{ matrix.variant }}
+        run: |
+          chmod +x deploy/build-static.sh
+          VARIANT=${{ matrix.variant }} ./deploy/build-static.sh _site-${{ matrix.variant }}
+          test -f _site-${{ matrix.variant }}/index.html
+          test -f _site-${{ matrix.variant }}/static/env-config.json

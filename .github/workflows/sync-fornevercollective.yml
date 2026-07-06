@@ -1,0 +1,27 @@
+name: Sync forge (fornevercollective/Qbpm)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "graphs/**"
+      - "deploy/**"
+      - "scripts/publish-fornevercollective.sh"
+      - "README.md"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync and push to fornevercollective/Qbpm
+        env:
+          FORNEVER_DEPLOY_TOKEN: ${{ secrets.FORNEVER_DEPLOY_TOKEN }}
+        run: |
+          chmod +x scripts/publish-fornevercollective.sh
+          ./scripts/publish-fornevercollective.sh

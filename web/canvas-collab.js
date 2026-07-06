@@ -11,6 +11,7 @@ export function createCanvasCollab(opts) {
     onChat,
     onHop,
     onVideo,
+    onVideoSignal,
     onJam,
     onDrawOverlay,
   } = opts;
@@ -24,9 +25,15 @@ export function createCanvasCollab(opts) {
   let lastRev = 0;
 
   function connect() {
-    if (typeof window !== "undefined" && window.QBPM_PAGES?.staticShell) return;
-    const proto = location.protocol === "https:" ? "wss" : "ws";
-    ws = new WebSocket(`${proto}://${location.host}/api/graph/ws?graph=${encodeURIComponent(graphName)}`);
+    const P = typeof window !== "undefined" && window.QBPM_PAGES;
+    if (P?.staticShell) {
+      if (!P.hasComponent?.("collab")) return;
+      if (P.componentMode?.("collab") === "bridge" && !P.apiBase?.()) return;
+    }
+    const wsUrl = P?.wsApi
+      ? P.wsApi(`api/graph/ws?graph=${encodeURIComponent(graphName)}`)
+      : `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/graph/ws?graph=${encodeURIComponent(graphName)}`;
+    ws = new WebSocket(wsUrl);
     ws.onopen = () => sendJoin();
     ws.onmessage = (ev) => {
       let msg;
@@ -60,6 +67,10 @@ export function createCanvasCollab(opts) {
       }
       if (msg.type === "video") {
         onVideo?.(msg);
+        return;
+      }
+      if (msg.type === "video.signal") {
+        onVideoSignal?.(msg);
         return;
       }
       if (msg.type === "cursor" && msg.clientId !== clientId) {
@@ -138,7 +149,12 @@ export function createCanvasCollab(opts) {
 
   function sendVideo(payload) {
     if (!ws || ws.readyState !== 1) return;
-    ws.send(JSON.stringify({ type: "video", ...payload, name }));
+    ws.send(JSON.stringify({ type: "video", ...payload, name, color }));
+  }
+
+  function sendVideoSignal(payload) {
+    if (!ws || ws.readyState !== 1) return;
+    ws.send(JSON.stringify({ type: "video.signal", from: clientId, ...payload }));
   }
 
   function broadcastGraph(graph) {
@@ -204,6 +220,7 @@ export function createCanvasCollab(opts) {
     sendJam,
     requestHop,
     sendVideo,
+    sendVideoSignal,
     broadcastGraph,
     broadcastPatch,
     broadcastFrames,

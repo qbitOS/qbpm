@@ -30,8 +30,8 @@ jobs:
       - name: Install uv
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
-      - name: Build static shell
-        run: chmod +x deploy/build-static.sh && ./deploy/build-static.sh qbpm _site
+      - name: Build static shell (pages variant)
+        run: chmod +x deploy/build-static.sh && VARIANT=pages ./deploy/build-static.sh qbpm _site
 
       - uses: actions/configure-pages@v5
 
