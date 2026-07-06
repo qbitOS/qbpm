@@ -21,6 +21,9 @@ const DEFAULT_OPEN = {
   proc: false,
 };
 
+const RIGHT_KEYS = ["chat", "strudel", "proc"];
+const LEFT_KEYS = ["video", "grand", "mpc", "beat", "wave", "music"];
+
 function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n));
 }
@@ -91,6 +94,7 @@ export function createFloatDock() {
       <button type="button" data-dock="wave" title="Waveform edit">⌇</button>
       <button type="button" data-dock="strudel" title="Strudel live code · Fail-safe">()</button>
       <button type="button" data-dock="proc" title="Processing · TD · bloch · EQ">∿</button>
+      <button type="button" data-dock="collapse-right" class="dock-collapse-right" title="Collapse right column">▸</button>
       <button type="button" data-dock="focus" class="dock-focus" title="Collapse all · canvas focus">◎</button>
     `;
     wrap.appendChild(rail);
@@ -105,6 +109,10 @@ export function createFloatDock() {
         layoutPanels();
         return;
       }
+      if (key === "collapse-right") {
+        collapseRightColumn();
+        return;
+      }
       open[key] = !open[key];
       save();
       syncRail();
@@ -114,10 +122,15 @@ export function createFloatDock() {
   }
 
   function syncRail() {
+    const rightAny = RIGHT_KEYS.some((k) => open[k]);
     document.querySelectorAll("#float-dock-rail [data-dock]").forEach((btn) => {
       const k = btn.dataset.dock;
-      if (k === "focus") return;
+      if (k === "focus" || k === "collapse-right") return;
       btn.classList.toggle("active", !!open[k]);
+    });
+    document.querySelectorAll('[data-dock="collapse-right"]').forEach((btn) => {
+      btn.classList.toggle("active", rightAny);
+      btn.title = rightAny ? "Collapse right column" : "Right column collapsed";
     });
   }
 
@@ -260,8 +273,19 @@ export function createFloatDock() {
     );
 
     syncRail();
-    wrap.dataset.dockLeft = String(leftX + leftColW);
-    wrap.dataset.dockRight = String(rightX);
+    const leftAny = LEFT_KEYS.some((k) => open[k]);
+    const rightAny = RIGHT_KEYS.some((k) => open[k]);
+    wrap.dataset.dockLeft = leftAny ? String(leftX + leftColW) : String(RAIL_W + EDGE);
+    wrap.dataset.dockRight = rightAny ? String(rightX) : String(ww);
+    wrap.dataset.dockRightOpen = rightAny ? "1" : "0";
+  }
+
+  function collapseRightColumn() {
+    RIGHT_KEYS.forEach((k) => { open[k] = false; });
+    save();
+    syncRail();
+    layoutPanels();
+    window.dispatchEvent(new Event("resize"));
   }
 
   function openPanel(key) {
@@ -280,5 +304,12 @@ export function createFloatDock() {
     layoutPanels();
   }
 
-  return { ensureRail, layoutPanels, openPanel, collapseAll, getOpen: () => ({ ...open }) };
+  return {
+    ensureRail,
+    layoutPanels,
+    openPanel,
+    collapseAll,
+    collapseRightColumn,
+    getOpen: () => ({ ...open }),
+  };
 }

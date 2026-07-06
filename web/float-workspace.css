@@ -43,6 +43,16 @@
   border-color: #58a6ff;
   color: #58a6ff;
 }
+.float-dock-rail .dock-collapse-right {
+  color: #8b949e;
+  border-color: #484f58;
+  font-size: 0.75rem;
+}
+.float-dock-rail .dock-collapse-right:hover,
+.float-dock-rail .dock-collapse-right.active {
+  color: #d29922;
+  border-color: #d29922;
+}
 .float-dock-rail .dock-focus { margin-top: auto; color: #3fb950; }
 
 .float-panel.dock-collapsed {

@@ -468,6 +468,7 @@ export function createFloatWorkspace(opts = {}) {
     refreshSendTargets: () => musicLab?.refreshSendTargets?.(),
     openDockPanel: (k) => floatDock.openPanel(k),
     collapseDock: () => floatDock.collapseAll(),
+    collapseRightColumn: () => floatDock.collapseRightColumn?.(),
     loadStrudelFrom,
     playStrudelCode,
     getStrudelPane: () => strudelPane,
