@@ -1,4 +1,4 @@
-/** Device / cluster bounding-box presets for canvas frames */
+/** Device / cluster bounding-box presets — neutral VFX comp tints */
 
 export const DEVICE_PRESETS = [
   { id: "phone", label: "Phone", icon: "📱", w: 390, h: 844, cluster: "edge" },
@@ -13,15 +13,15 @@ export const DEVICE_PRESETS = [
 ];
 
 const COLORS = {
-  phone: "#58a6ff22",
-  tablet: "#79c0ff22",
-  "ar-vr": "#bc8cff22",
-  mini: "#3fb95022",
-  desktop: "#58a6ff33",
-  server: "#d2992222",
-  iot: "#f8514922",
-  watch: "#ffa65722",
-  cluster: "#8b949e22",
+  phone: "rgba(110,118,129,0.05)",
+  tablet: "rgba(110,118,129,0.05)",
+  "ar-vr": "rgba(130,130,140,0.06)",
+  mini: "rgba(100,108,118,0.05)",
+  desktop: "rgba(72,79,88,0.05)",
+  server: "rgba(90,96,106,0.06)",
+  iot: "rgba(80,86,94,0.05)",
+  watch: "rgba(80,86,94,0.05)",
+  cluster: "rgba(110,118,129,0.07)",
 };
 
 export function presetById(id) {
@@ -29,7 +29,7 @@ export function presetById(id) {
 }
 
 export function presetColor(id) {
-  return COLORS[id] || "#58a6ff22";
+  return COLORS[id] || COLORS.desktop;
 }
 
 export function nextDeviceFrameRect(preset, existingFrames, origin = { x: 0, y: 0 }) {

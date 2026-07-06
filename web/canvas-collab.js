@@ -1,5 +1,5 @@
 /** Multi-user infinite canvas — presence, graph sync, chat, hop, video */
-const COLORS = ["#58a6ff", "#3fb950", "#d29922", "#f85149", "#bc8cff", "#79c0ff"];
+const COLORS = ["#9ca3af", "#8b949e", "#7d8590", "#b1bac4", "#6e7681", "#a8b0bc"];
 
 export function createCanvasCollab(opts) {
   const {

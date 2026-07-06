@@ -20,7 +20,7 @@
 .ugrad-plus {
   position: absolute;
   font: 700 11px/1 Menlo, ui-monospace, monospace;
-  color: rgba(130, 190, 255, 0.55);
+  color: rgba(156, 163, 175, 0.45);
   width: 14px;
   text-align: center;
   line-height: 14px;
@@ -33,7 +33,7 @@
   position: absolute;
   width: 22px;
   height: 22px;
-  border: 0 solid rgba(88, 166, 255, 0.45);
+  border: 0 solid rgba(139, 148, 158, 0.4);
 }
 .ugrad-corner--tl { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
 .ugrad-corner--tr { top: -1px; right: -1px; border-top-width: 2px; border-right-width: 2px; }

@@ -1,12 +1,13 @@
 /** go-ugrad HUD — GPU canvas crosshairs + throttled peer targets (no cursor DOM chase) */
 
 import { createGpuLoop, moveLayer } from "./gpu-loop.js";
+import { VFX } from "./vfx-palette.js";
 
 export function createUgradHud(opts = {}) {
   const {
     getPanScale = () => ({ pan: { x: 0, y: 0 }, scale: 1 }),
     getLocalHandle = () => "guest",
-    getLocalColor = () => "#58a6ff",
+    getLocalColor = () => VFX.compStrokeActive,
     getPeers = () => [],
     getFloatWorkspace = () => null,
   } = opts;
@@ -86,8 +87,8 @@ export function createUgradHud(opts = {}) {
     const { pan, scale } = getPanScale();
 
     if (mouse.active) {
-      const ch = "rgba(130,190,255,0.72)";
-      const chFade = "rgba(250,250,252,0.14)";
+      const ch = VFX.crosshair;
+      const chFade = VFX.crosshairFade;
       hudCtx.strokeStyle = chFade;
       hudCtx.lineWidth = 1;
       hudCtx.beginPath();
@@ -131,7 +132,7 @@ export function createUgradHud(opts = {}) {
         if (p.x == null || p.y == null) continue;
         const tgt = worldToScreen(p.x, p.y, pan, scale);
         if (tgt.x < -40 || tgt.y < -40 || tgt.x > w + 40 || tgt.y > h + 40) continue;
-        hudCtx.strokeStyle = `${p.color || "#58a6ff"}66`;
+        hudCtx.strokeStyle = `${p.color || VFX.accent}55`;
         hudCtx.lineWidth = 1;
         hudCtx.setLineDash([4, 6]);
         hudCtx.beginPath();
@@ -139,7 +140,7 @@ export function createUgradHud(opts = {}) {
         hudCtx.lineTo(tgt.x, tgt.y);
         hudCtx.stroke();
         hudCtx.setLineDash([]);
-        hudCtx.fillStyle = p.color || "#58a6ff";
+        hudCtx.fillStyle = p.color || VFX.accent;
         hudCtx.beginPath();
         hudCtx.arc(tgt.x, tgt.y, 4, 0, Math.PI * 2);
         hudCtx.fill();
@@ -192,7 +193,7 @@ export function createUgradHud(opts = {}) {
       }
       if (card._border !== p.color) {
         card._border = p.color;
-        card.style.borderColor = p.color || "#58a6ff";
+        card.style.borderColor = p.color || VFX.compStroke;
       }
 
       const extVid = document.querySelector(`[data-video-tile="${id}"] video`);

@@ -5,6 +5,8 @@ import { initToolsPanel } from "./tools-panel.js";
 import { createUgradHud } from "./ugrad-hud.js";
 import { createFloatWorkspace } from "./float-workspace.js";
 import { DEVICE_PRESETS, presetById, presetColor, nextDeviceFrameRect } from "./device-presets.js";
+import { framePipelinePorts, VFX, compFillForDevice } from "./vfx-palette.js";
+import { drawCompGrid, drawCompWindow, drawBusEdge } from "./vfx-compositor.js";
 
 const GRAPH_NAME = "default";
 const NODE_W = 168;
@@ -101,13 +103,17 @@ function ensureCanvasMeta() {
         id: "frame-main",
         label: "Main",
         rect: [-400, -300, 2400, 1800],
-        color: "#58a6ff33",
+        color: compFillForDevice("desktop"),
         device: "desktop",
         cluster: "local",
+        lane: "comp",
       },
     ];
   }
   if (!Array.isArray(graph.meta.frameEdges)) graph.meta.frameEdges = [];
+  if (!graph.meta.pipeline) {
+    graph.meta.pipeline = { lanes: ["prompt", "video", "audio", "midi"], daw: true, engine: "qbpm-vfx" };
+  }
   if (!Array.isArray(graph.meta.viewports)) {
     graph.meta.viewports = [
       { id: "vp-main", label: "Primary", frameId: "frame-main", pan: [80, 80], scale: 1 },
@@ -115,6 +121,7 @@ function ensureCanvasMeta() {
   }
   if (!activeFrameId) activeFrameId = graph.meta.frames[0]?.id || null;
   if (!activeWindowId) activeWindowId = graph.meta.viewports[0]?.id || null;
+  normalizeFramePalette();
   return graph.meta;
 }
 
@@ -163,11 +170,12 @@ function ensureUserFrame(clientId, name, color) {
     id,
     label: name || clientId,
     rect,
-    color: color ? `${color}18` : presetColor("desktop"),
+    color: compFillForDevice("desktop"),
     device: "desktop",
     cluster: "user",
     owner: name || clientId,
     clientId,
+    lane: "collab",
   });
   broadcastCanvasLayout();
   return id;
@@ -212,12 +220,22 @@ function updateCanvasResolutionLabel() {
 }
 
 function framePortPositions(f) {
-  const r = frameRect(f);
-  return [
-    { id: "in", side: "in", label: "in", x: r.x, y: r.y },
-    { id: "out-top", side: "out", label: "out↑", x: r.x + r.w, y: r.y },
-    { id: "out-bottom", side: "out", label: "out↓", x: r.x + r.w, y: r.y + r.h },
-  ];
+  return framePipelinePorts(frameRect(f));
+}
+
+function normalizeFramePalette() {
+  for (const f of frames()) {
+    const c = String(f.color || "").toLowerCase();
+    if (!f.color || c.includes("58a6ff") || c.includes("79c0ff") || c.includes("3fb95022")) {
+      f.color = compFillForDevice(f.device);
+    }
+    if (!f.lane) f.lane = f.cluster === "user" ? "collab" : "comp";
+  }
+  for (const e of frameEdges()) {
+    if (e.fromPort === "out-top") e.fromPort = "out-v";
+    if (e.fromPort === "out-bottom") e.fromPort = "out-a";
+    if (!e.lane && e.bus) e.lane = e.bus === "collab" ? "collab" : e.bus;
+  }
 }
 
 function framePortAt(wx, wy) {
@@ -227,83 +245,19 @@ function framePortAt(wx, wy) {
       const dx = wx - p.x;
       const dy = wy - p.y;
       if (dx * dx + dy * dy <= (FRAME_PORT_R * 2.4) ** 2) {
-        return { frame: f, port: p.id, side: p.side, x: p.x, y: p.y };
+        return { frame: f, port: p.id, side: p.side, lane: p.lane, x: p.x, y: p.y };
       }
     }
   }
   return null;
 }
 
-function drawFrameBusEdges() {
-  for (const e of frameEdges()) {
-    const a = frames().find((f) => f.id === e.from);
-    const b = frames().find((f) => f.id === e.to);
-    if (!a || !b) continue;
-    const ap = framePortPositions(a).find((p) => p.id === (e.fromPort || "out-top"));
-    const bp = framePortPositions(b).find((p) => p.id === (e.toPort || "in"));
-    if (!ap || !bp) continue;
-    ctx.strokeStyle = e.bus === "collab" ? "#bc8cff" : "#58a6ff88";
-    ctx.lineWidth = 2 / scale;
-    ctx.setLineDash(e.bus === "collab" ? [6 / scale, 4 / scale] : []);
-    ctx.beginPath();
-    ctx.moveTo(ap.x, ap.y);
-    ctx.lineTo(bp.x, bp.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    if (e.bus) {
-      const mx = (ap.x + bp.x) / 2;
-      const my = (ap.y + bp.y) / 2;
-      ctx.fillStyle = "#6e7681";
-      ctx.font = `${8 / scale}px Menlo, monospace`;
-      ctx.fillText(e.bus, mx + 4 / scale, my - 4 / scale);
-    }
-  }
-}
-
-function drawFramePorts(f, active) {
-  for (const p of framePortPositions(f)) {
-    const hover =
-      linking?.kind === "frame" &&
-      linking.fromId === f.id &&
-      linking.fromPort === p.id;
-    ctx.fillStyle = p.side === "in" ? "#3fb950" : "#d29922";
-    if (hover) ctx.fillStyle = "#58a6ff";
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, FRAME_PORT_R, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = active ? "#c9d1d9" : "#30363d";
-    ctx.lineWidth = 1 / scale;
-    ctx.stroke();
-    ctx.fillStyle = "#8b949e";
-    ctx.font = `${7 / scale}px Menlo, monospace`;
-    const lx = p.side === "in" ? p.x + 10 / scale : p.x - 28 / scale;
-    ctx.fillText(p.label, lx, p.y - 10 / scale);
-  }
-}
-
 function drawFrames() {
-  drawFrameBusEdges();
+  for (const e of frameEdges()) {
+    drawBusEdge(ctx, e, frames(), framePortPositions, scale);
+  }
   for (const f of frames()) {
-    const r = frameRect(f);
-    const active = f.id === activeFrameId;
-    ctx.fillStyle = f.color || "#58a6ff18";
-    ctx.fillRect(r.x, r.y, r.w, r.h);
-    ctx.strokeStyle = active ? "#58a6ff" : "#30363d";
-    ctx.lineWidth = (active ? 2 : 1) / scale;
-    ctx.setLineDash(active ? [] : [8 / scale, 6 / scale]);
-    ctx.strokeRect(r.x, r.y, r.w, r.h);
-    ctx.setLineDash([]);
-    ctx.fillStyle = active ? "#58a6ff" : "#6e7681";
-    ctx.font = `${11 / scale}px Menlo, monospace`;
-    const title = f.label || f.id;
-    ctx.fillText(title, r.x + 8 / scale, r.y + 16 / scale);
-    if (f.device || f.owner) {
-      ctx.fillStyle = "#6e7681";
-      ctx.font = `${8 / scale}px Menlo, monospace`;
-      const sub = [f.device, f.cluster, f.owner].filter(Boolean).join(" · ");
-      ctx.fillText(sub, r.x + 8 / scale, r.y + 28 / scale);
-    }
-    drawFramePorts(f, active);
+    drawCompWindow(ctx, f, frameRect(f), f.id === activeFrameId, scale, linking);
   }
   for (const vp of viewports()) {
     if (vp.id === activeWindowId) continue;
@@ -318,12 +272,12 @@ function drawFrames() {
     const vx = -vpx / vs;
     const vy = -vpy / vs;
     if (vx + vw < frRect.x || vy + vh < frRect.y || vx > frRect.x + frRect.w || vy > frRect.y + frRect.h) continue;
-    ctx.strokeStyle = "#d2992288";
+    ctx.strokeStyle = "rgba(139,148,158,0.55)";
     ctx.lineWidth = 1.5 / scale;
     ctx.setLineDash([4 / scale, 4 / scale]);
     ctx.strokeRect(vx, vy, vw, vh);
     ctx.setLineDash([]);
-    ctx.fillStyle = "#d29922";
+    ctx.fillStyle = VFX.textDim;
     ctx.font = `${9 / scale}px Menlo, monospace`;
     ctx.fillText(vp.label || vp.id, vx + 4 / scale, vy + 12 / scale);
   }
@@ -336,7 +290,8 @@ function addCanvasFrame() {
     id,
     label: `Frame ${frames().length + 1}`,
     rect: [b.x - 200, b.y - 200, b.w + 400, b.h + 400],
-    color: "#3fb95022",
+    color: compFillForDevice("cluster"),
+    lane: "comp",
   });
   activeFrameId = id;
   broadcastCanvasLayout();
@@ -361,12 +316,13 @@ function addDeviceFrame(presetId) {
     device: preset.id,
     cluster: preset.cluster,
     owner,
+    lane: preset.cluster === "compute" ? "render" : "comp",
   });
   activeFrameId = id;
   broadcastCanvasLayout();
   draw();
   collabShell?.positionOverlays?.();
-  vizLog.textContent = `frame ${id} · ${preset.w}×${preset.h} · ${preset.cluster}`;
+  vizLog.textContent = `frame ${id} · ${preset.w}×${preset.h} · ${preset.cluster} · vfx`;
 }
 
 function addViewportWindow() {
@@ -679,28 +635,8 @@ function toggleAlignOnRightClick() {
 }
 
 function drawGrid() {
-  const step = 40;
   const wrap = document.getElementById("canvas-wrap");
-  const cw = wrap.clientWidth;
-  const ch = wrap.clientHeight;
-  const x0 = Math.floor((-pan.x / scale) / step) * step;
-  const y0 = Math.floor((-pan.y / scale) / step) * step;
-  const x1 = x0 + cw / scale + step * 2;
-  const y1 = y0 + ch / scale + step * 2;
-  ctx.strokeStyle = "#161b22";
-  ctx.lineWidth = 1;
-  for (let x = x0; x < x1; x += step) {
-    ctx.beginPath();
-    ctx.moveTo(x, y0);
-    ctx.lineTo(x, y1);
-    ctx.stroke();
-  }
-  for (let y = y0; y < y1; y += step) {
-    ctx.beginPath();
-    ctx.moveTo(x0, y);
-    ctx.lineTo(x1, y);
-    ctx.stroke();
-  }
+  drawCompGrid(ctx, pan, scale, wrap.clientWidth, wrap.clientHeight);
 }
 
 function draw() {
@@ -774,8 +710,8 @@ function draw() {
       ctx.textBaseline = "alphabetic";
     }
 
-    ctx.fillStyle = active ? "#1f6feb" : "#21262d";
-    ctx.strokeStyle = active ? "#58a6ff" : "#30363d";
+    ctx.fillStyle = active ? "#2d333b" : "#21262d";
+    ctx.strokeStyle = active ? VFX.compStrokeActive : "#30363d";
     ctx.lineWidth = active ? 2 : 1.5;
     ctx.fillRect(r.x, r.y, r.w, r.h);
     ctx.strokeRect(r.x, r.y, r.w, r.h);
@@ -888,6 +824,7 @@ async function loadGraph(opts = {}) {
   if (!res.ok) throw new Error(await res.text());
   graph = await res.json();
   ensureCanvasMeta();
+  normalizeFramePalette();
   for (const n of graph.nodes) {
     if (!Array.isArray(n.pos)) n.pos = [80, 80];
     n.pos = [Number(n.pos[0]), Number(n.pos[1])];
@@ -1261,12 +1198,16 @@ function onPointerUp(ev) {
           (e) => e.from === linking.fromId && e.fromPort === linking.fromPort && e.to === tgt.frame.id
         );
         if (!exists) {
+          const srcPorts = framePortPositions(frames().find((f) => f.id === linking.fromId));
+          const srcP = srcPorts?.find((p) => p.id === linking.fromPort);
+          const lane = srcP?.lane || tgt.lane || "video";
           frameEdges().push({
             from: linking.fromId,
             fromPort: linking.fromPort,
             to: tgt.frame.id,
             toPort: tgt.port,
-            bus: ev.altKey ? "collab" : "bus",
+            lane,
+            bus: ev.altKey ? "collab" : lane,
           });
           broadcastCanvasLayout();
         }
