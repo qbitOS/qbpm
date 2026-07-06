@@ -14,6 +14,8 @@ rsync -aL --delete \
   "$ROOT/web/" "$DEST/web/"
 
 rsync -a "$ROOT/graphs/" "$DEST/graphs/"
+rsync -a "$ROOT/docs/" "$DEST/docs/" 2>/dev/null || true
+cp "$ROOT/README.md" "$DEST/README.md"
 cp "$ROOT/deploy/build-static.sh" "$DEST/deploy/build-static.sh"
 cp "$ROOT/scripts/publish-fornevercollective.sh" "$DEST/scripts/publish-fornevercollective.sh"
 chmod +x "$DEST/deploy/build-static.sh" "$DEST/scripts/publish-fornevercollective.sh"
@@ -58,31 +60,6 @@ jobs:
         uses: actions/deploy-pages@v4
         timeout-minutes: 10
 YAML
-
-# README
-cat > "$DEST/README.md" <<'MD'
-# Qbpm
-
-**Quantum BPM — Music Collab** · spatial node graph · live jam · mass collaboration
-
-Live: **https://fornevercollective.github.io/Qbpm/**
-
-Static shell (canvas, music lab, dock UI). Full API stack: [qbitOS/qbpm](https://github.com/qbitOS/qbpm) · `./start.sh` on port 8796.
-
-## Deploy
-
-1. **Settings → Pages → Source:** GitHub Actions
-2. Push to `main` — workflow builds with base path `/Qbpm/`
-
-## Sync from qbitOS/qbpm
-
-```bash
-./scripts/publish-fornevercollective.sh
-cd Qbpm && git add -A && git commit -m "sync pages" && git push
-```
-
-Apache-2.0
-MD
 
 # Never commit CI build output
 printf '_site/\n' > "$DEST/.gitignore"

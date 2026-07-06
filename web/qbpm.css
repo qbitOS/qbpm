@@ -313,12 +313,14 @@ body {
 }
 
 #canvas-wrap {
+  --dock-rail-w: 42px;
+  --canvas-ui-inset: 10px;
   position: relative;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   background: #0a0b0d;
-  padding-left: 42px;
+  padding-left: var(--dock-rail-w);
 }
 #canvas {
   width: 100%;
@@ -332,9 +334,9 @@ body {
 
 #canvas-toolbar {
   position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 5;
+  top: var(--canvas-ui-inset);
+  left: calc(var(--dock-rail-w) + var(--canvas-ui-inset));
+  z-index: 16;
   display: flex;
   gap: 6px;
 }
@@ -356,8 +358,8 @@ body {
 .device-picker {
   position: absolute;
   top: 46px;
-  left: 10px;
-  z-index: 16;
+  left: calc(var(--dock-rail-w) + var(--canvas-ui-inset));
+  z-index: 17;
   display: none;
   flex-direction: column;
   gap: 2px;
@@ -412,8 +414,8 @@ body {
 }
 #canvas-hint {
   position: absolute;
-  bottom: 10px;
-  left: 10px;
+  bottom: var(--canvas-ui-inset);
+  left: calc(var(--dock-rail-w) + var(--canvas-ui-inset));
   z-index: 5;
   font-size: 0.65rem;
   color: #6e7681;

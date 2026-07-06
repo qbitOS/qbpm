@@ -1,4 +1,6 @@
 .venv/
+node_modules/
+package-lock.json
 .pytest_cache/
 __pycache__/
 *.pyc

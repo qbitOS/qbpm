@@ -25,6 +25,34 @@ chmod +x start.sh
 
 Open **http://127.0.0.1:8796** · static shell at **https://qbitos.github.io/qbpm/** · **https://fornevercollective.github.io/Qbpm/** · full stack at **https://qbitos.ai**
 
+## Screenshots
+
+### Workspace
+
+| Graph canvas + dock rail | All float panels open |
+|---|---|
+| ![Graph workspace](docs/screenshots/workspace-graph.png) | ![Dock panels](docs/screenshots/workspace-dock-all.png) |
+
+Canvas toolbar (`+`, `◎`, frames) sits **right of** the dock rail — not over it.
+
+### Right panel tabs
+
+| Visualizer | Inspector | kbatch |
+|---|---|---|
+| ![Visualizer](docs/screenshots/panel-viz.png) | ![Inspector](docs/screenshots/panel-inspector.png) | ![kbatch](docs/screenshots/panel-kbatch.png) |
+
+| Tools hub | .grok terminal |
+|---|---|
+| ![Tools](docs/screenshots/panel-tools.png) | ![Grok terminal](docs/screenshots/panel-grok.png) |
+
+### Float dock panels
+
+| Video | Chat | Music lab | Processing · osc |
+|---|---|---|---|
+| ![Video](docs/screenshots/dock-video.png) | ![Chat](docs/screenshots/dock-chat.png) | ![Music lab](docs/screenshots/dock-music.png) | ![Processing](docs/screenshots/dock-proc.png) |
+
+Regenerate: `./start.sh` then `node scripts/capture-readme-screenshots.mjs`
+
 ## go-ugrad HUD
 
 Canvas overlay (like [go-ugrad](https://mueee.qbitos.ai/go-ugrad.html)):
