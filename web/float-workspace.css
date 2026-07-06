@@ -333,6 +333,53 @@
 .music-lab { display: flex; flex-direction: column; gap: 5px; }
 .ml-toolbar { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .ml-bpm-lbl { font-size: 0.52rem; color: #6e7681; margin-right: 2px; }
+.ml-theory {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+  border-top: 1px solid #21262d;
+  border-bottom: 1px solid #21262d;
+}
+.ml-theory-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.ml-theory-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.48rem;
+  color: #6e7681;
+}
+.ml-theory-field span { min-width: 1.4em; }
+.ml-theory-field select,
+.ml-theory-field input[type="number"] {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 3px;
+  color: #c9d1d9;
+  font: inherit;
+  font-size: 0.5rem;
+  padding: 2px 3px;
+  max-width: 52px;
+}
+.ml-theory-swing input[type="range"] { width: 48px; accent-color: #58a6ff; }
+.ml-lock, .ml-chip-toggle {
+  border: 1px solid #30363d;
+  border-radius: 3px;
+  background: #161b22;
+  color: #6e7681;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.48rem;
+  padding: 2px 5px;
+}
+.ml-lock.locked, .ml-chip-toggle.active {
+  border-color: #58a6ff;
+  color: #58a6ff;
+  background: #21262d;
+}
+.ml-theory-presets { flex-wrap: wrap; }
+.ml-theory-presets .qb-chip { font-size: 0.45rem; padding: 2px 5px; }
+.ml-theory-meta { font-size: 0.45rem; color: #484f58; line-height: 1.3; }
 .ml-btn.ml-link { color: #c9d1d9; }
 .ml-btn.ml-send { color: #3fb950; border-color: #238636; }
 .ml-waveform {

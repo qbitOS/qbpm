@@ -1,6 +1,15 @@
 /** Shared music engine — audio bus, MPC/beat state, waveform helpers */
 
 import { getTabRuntime } from "./tab-runtime.js";
+import {
+  DEFAULT_THEORY,
+  mergeTheory,
+  cycleBeatsFromSig,
+  stepDelayMs,
+  microtonalFreq,
+  quantizeMidiEdo,
+  negativeHarmonyMidi,
+} from "./music-theory.js";
 
 export const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 export const STEP_COUNT = 16;
@@ -191,8 +200,12 @@ export function createMusicCore(opts = {}) {
     onDawSend,
     getSendTargets = () => ({ nodes: [], peers: [], daws: [] }),
     getBpm = () => 120,
+    getTheory = () => null,
+    onTheoryChange,
     onStateChange,
   } = opts;
+
+  let theory = mergeTheory(DEFAULT_THEORY, getTheory?.());
 
   let audioCtx = null;
   let analyser = null;
@@ -290,10 +303,37 @@ export function createMusicCore(opts = {}) {
     onNotePlay?.({ pad: pad.label, kind: pad.kind });
   }
 
+  function refreshTheory() {
+    const next = mergeTheory(theory, getTheory?.());
+    if (next.locked?.bpm) next.bpm = theory.bpm;
+    theory = next;
+    return theory;
+  }
+
+  function getTheoryState() {
+    return mergeTheory(DEFAULT_THEORY, theory);
+  }
+
+  function setTheoryState(patch) {
+    theory = mergeTheory(theory, patch);
+    if (patch?.bpm != null && theory.locked?.bpm) theory.bpm = Number(patch.bpm);
+    onTheoryChange?.(getTheoryState());
+    notify();
+    return theory;
+  }
+
   function applyAutotune(freq) {
-    if (!autotuneOn) return freq;
-    const midi = quantizeMidi(hzToMidi(freq));
-    return midi != null ? midiToFreq(midi) : freq;
+    const t = refreshTheory();
+    let midi = hzToMidi(freq);
+    if (t.negativeHarmony?.enabled && midi != null) {
+      midi = negativeHarmonyMidi(midi, t.negativeHarmony.axis);
+    }
+    if (!autotuneOn) {
+      return microtonalFreq(freq, t.microtonal?.cents || 0, t.microtonal?.edo || 12);
+    }
+    const q = quantizeMidiEdo(midi, t.microtonal?.edo || 12);
+    const base = q != null ? midiToFreq(q) : freq;
+    return microtonalFreq(base, t.microtonal?.cents || 0, t.microtonal?.edo || 12);
   }
 
   function playTone(freq, ms = 180) {
@@ -421,34 +461,44 @@ export function createMusicCore(opts = {}) {
     }
   }
 
+  function scheduleSeqStep() {
+    if (!seqOn) return;
+    const t = refreshTheory();
+    const bpm = t.locked?.bpm ? t.bpm : getBpm() || t.bpm || 120;
+    const cycleBeats = cycleBeatsFromSig(t.timeSig);
+    const delay = stepDelayMs(seqStep, bpm, t.swing, STEP_COUNT, cycleBeats);
+    seqTimer = setTimeout(() => {
+      if (!seqOn) return;
+      ensureAudio();
+      seqStep = (seqStep + 1) % STEP_COUNT;
+      triggerStep(seqStep);
+      notify();
+      scheduleSeqStep();
+    }, delay);
+  }
+
   function startSeq() {
     stopSeq();
     seqOn = true;
     seqStep = 0;
     getTabRuntime().setAudioSession(true);
-    const bpm = getBpm() || 120;
-    const ms = (60 / bpm / 4) * 1000;
     triggerStep(0);
     notify();
-    seqTimer = setInterval(() => {
-      ensureAudio();
-      seqStep = (seqStep + 1) % STEP_COUNT;
-      triggerStep(seqStep);
-      notify();
-    }, ms);
+    scheduleSeqStep();
   }
 
   function stopSeq() {
     seqOn = false;
     getTabRuntime().setAudioSession(false);
-    if (seqTimer) clearInterval(seqTimer);
+    if (seqTimer) clearTimeout(seqTimer);
     seqTimer = null;
     seqStep = 0;
     notify();
   }
 
   function buildPayload() {
-    const bpm = getBpm() || 120;
+    const t = refreshTheory();
+    const bpm = t.locked?.bpm ? t.bpm : getBpm() || t.bpm || 120;
     const notes = [];
     for (const [note, arr] of Object.entries(noteSteps)) {
       arr.forEach((on, i) => {
@@ -459,6 +509,7 @@ export function createMusicCore(opts = {}) {
     return {
       bpm,
       musica,
+      theory: getTheoryState(),
       pattern: { pads: padSteps, notes: noteSteps, steps: STEP_COUNT, envelope: waveEnvelope },
       notes,
     };
@@ -530,6 +581,7 @@ export function createMusicCore(opts = {}) {
       selectedNote,
       seqStep,
       waveEnvelope: [...waveEnvelope],
+      theory: getTheoryState(),
     };
   }
 
@@ -541,6 +593,7 @@ export function createMusicCore(opts = {}) {
     if (s.selectedNote) selectedNote = s.selectedNote;
     if (s.seqStep != null) seqStep = s.seqStep;
     if (s.waveEnvelope?.length) waveEnvelope = [...s.waveEnvelope];
+    if (s.theory) setTheoryState(s.theory);
     notify();
   }
 
@@ -596,6 +649,8 @@ export function createMusicCore(opts = {}) {
     collectActiveNotes,
     getSendTargets,
     getBpm,
+    getTheory: getTheoryState,
+    setTheory: setTheoryState,
     onJamEval,
     getState,
     setState,
