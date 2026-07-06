@@ -331,17 +331,25 @@ function framePortPositions(f) {
 }
 
 function normalizeFramePalette() {
-  for (const f of frames()) {
-    const c = String(f.color || "").toLowerCase();
-    if (!f.color || c.includes("58a6ff") || c.includes("79c0ff") || c.includes("3fb95022")) {
-      f.color = compFillForDevice(f.device);
+  const meta = graph.meta;
+  if (!meta) return;
+  const frs = meta.frames;
+  if (Array.isArray(frs)) {
+    for (const f of frs) {
+      const c = String(f.color || "").toLowerCase();
+      if (!f.color || c.includes("58a6ff") || c.includes("79c0ff") || c.includes("3fb95022")) {
+        f.color = compFillForDevice(f.device);
+      }
+      if (!f.lane) f.lane = f.cluster === "user" ? "collab" : "comp";
     }
-    if (!f.lane) f.lane = f.cluster === "user" ? "collab" : "comp";
   }
-  for (const e of frameEdges()) {
-    if (e.fromPort === "out-top") e.fromPort = "out-v";
-    if (e.fromPort === "out-bottom") e.fromPort = "out-a";
-    if (!e.lane && e.bus) e.lane = e.bus === "collab" ? "collab" : e.bus;
+  const edges = meta.frameEdges;
+  if (Array.isArray(edges)) {
+    for (const e of edges) {
+      if (e.fromPort === "out-top") e.fromPort = "out-v";
+      if (e.fromPort === "out-bottom") e.fromPort = "out-a";
+      if (!e.lane && e.bus) e.lane = e.bus === "collab" ? "collab" : e.bus;
+    }
   }
 }
 
