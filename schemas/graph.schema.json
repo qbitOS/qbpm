@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qbitos.dev/qbpm/graph.schema.json",
+  "title": "QBPM Graph",
+  "type": "object",
+  "required": ["version", "nodes", "edges"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "cpm": { "type": "number" }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["id", "type", "pos"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "pos": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "params": { "type": "object" },
+        "code": { "type": "string" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "port": { "type": "string" }
+      }
+    }
+  }
+}

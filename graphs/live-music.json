@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "meta": { "name": "live-music", "cpm": 120, "stack": ["jax", "python", "json", "wasm", "repel"] },
+  "nodes": [
+    {
+      "id": "clock",
+      "type": "music.clock",
+      "pos": [80, 120],
+      "params": { "cpm": 120, "bpm": 120 }
+    },
+    {
+      "id": "kbatch",
+      "type": "tool.kbatch",
+      "pos": [80, 280],
+      "params": {}
+    },
+    {
+      "id": "score",
+      "type": "music.score",
+      "pos": [320, 200],
+      "params": {}
+    },
+    {
+      "id": "wasm",
+      "type": "wasm.classify",
+      "pos": [560, 120],
+      "params": {}
+    },
+    {
+      "id": "jax-live",
+      "type": "python.jax",
+      "pos": [320, 360],
+      "code": "import jax.numpy as jnp\nflow = str(inputs.get('score', {}).get('flow') or '')\nnotes = inputs.get('score', {}).get('notes') or []\nvec = jnp.array([ord(c) for c in flow[:32]] or [0], dtype=jnp.float32)\nresult = {\"flow\": flow, \"dim\": int(vec.shape[0]), \"energy\": float(jnp.sum(vec * vec))}"
+    },
+    {
+      "id": "repel",
+      "type": "repel.play",
+      "pos": [560, 360],
+      "params": { "stream": "/tmp/piano-live.m3u8", "room": "live" }
+    },
+    {
+      "id": "out",
+      "type": "core.output",
+      "pos": [800, 240],
+      "params": {}
+    }
+  ],
+  "edges": [
+    { "from": "clock", "to": "score", "port": "tick" },
+    { "from": "kbatch", "to": "score", "port": "live" },
+    { "from": "score", "to": "jax-live", "port": "score" },
+    { "from": "score", "to": "wasm", "port": "text" },
+    { "from": "jax-live", "to": "repel", "port": "data" },
+    { "from": "wasm", "to": "out", "port": "wasm" },
+    { "from": "repel", "to": "out", "port": "stream" }
+  ]
+}

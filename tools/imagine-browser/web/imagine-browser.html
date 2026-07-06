@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>imagine — qbpm</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0a0a0a; color: #f4f4f4; padding: 12px; }
+    .slug { display: block; width: 100%; text-align: left; margin: 4px 0; padding: 8px; background: #1c1c1c; border: 1px solid #2e2e2e; border-radius: 8px; color: inherit; cursor: pointer; }
+    pre { font-size: 0.75rem; background: #111; padding: 10px; border-radius: 8px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Grok Imagine</h1>
+  <p><a href="https://grok.com/supergrok/imagine" style="color:#7dd3fc">grok.com/imagine</a> · <a href="https://github.com/fornevercollective/imagine" style="color:#7dd3fc">presets repo</a></p>
+  <div id="list"></div>
+  <pre id="prompt">select a slug</pre>
+  <script>
+    const list = document.getElementById("list");
+    const prompt = document.getElementById("prompt");
+    fetch("/api/imagine/slugs").then(r => r.json()).then(data => {
+      (data.slugs || []).slice(0, 40).forEach(slug => {
+        const btn = document.createElement("button");
+        btn.className = "slug";
+        btn.textContent = slug;
+        btn.onclick = async () => {
+          const res = await fetch(`/api/imagine/slug/${encodeURIComponent(slug)}`);
+          const d = await res.json();
+          prompt.textContent = d.prompt || JSON.stringify(d, null, 2);
+          parent.postMessage({ type: "qbpm-imagine-slug", slug, prompt: d.prompt }, "*");
+        };
+        list.appendChild(btn);
+      });
+    });
+  </script>
+</body>
+</html>

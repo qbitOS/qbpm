@@ -1,0 +1,1 @@
+../../../../../mu.eee/web/kbatch-capsule-search-worker.js

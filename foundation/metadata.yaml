@@ -1,0 +1,34 @@
+project:
+  name: qbpm
+  brand_title: "qbpm — spatial graph · live music · Grok pipe"
+  grok_optimized: true
+  imagine_compatible: true
+  colossus_compatible: true
+  ecosystem:
+    grok_public_folder: "${GROK_PUBLIC_FOLDER:-~/film/grok-public-folder}"
+    imagine: "${IMAGINE_REPO:-~/film/imagine}"
+    blank: "fornevercollective/blank"
+    overview: "fornevercollective/overview"
+    vwall: "fornevercollective/vwall"
+    aito: "fornevercollective/aito"
+    grok_repo_template: "fornevercollective/grok-repo-template"
+  entrypoints:
+    qbpm: "./start.sh"
+    kbatch: "tools/kbatch/start.sh"
+    blank_ingest: "tools/blank-ingest/start.sh"
+  media_sinks:
+    video: media/video
+    image: media/image
+    streaming: media/streaming
+    blank_downloads: media/blank/downloads
+  tools:
+    - id: kbatch
+      role: keyboard-live
+    - id: blank-ingest
+      role: video-ingest
+    - id: imagine-browser
+      role: imagine-presets
+    - id: vwall
+      role: media-wall
+    - id: grok-pipe
+      role: grok-generate

@@ -1,0 +1,1130 @@
+<!-- beyondBINARY quantum-prefixed | uvspeed | {n, +1, -n, +0, 0, -1, +n, +2, -0, +3, 1} -->
+<!-- Copyright (c) 2026 qbitOS / ugrad.ai. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Source: https://github.com/qbitOS/uvspeed -->
+<!-- Provenance: ai-created-control-envelope -->
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0d1117">
+    <title>kbatch — World Keyboard &amp; Quantum Analyzer</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon.png">
+    <link rel="icon" type="image/x-icon" href="../icons/favicon.ico">
+    <link rel="stylesheet" href="quantum-theme.css">
+    <link rel="stylesheet" href="../school/corpus/school-corpus.css">
+    <style>
+        /* ═══════════════════════════════════════════════
+           kbatch — World Keyboard + Quantum Analyzer
+           uvspeed PWA · IBM Quantum bridge — chrome aligned w/ digital_alphabet / quantum-theme
+           ═══════════════════════════════════════════════ */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        body {
+            background: var(--qp-bg);
+            color: var(--qp-text-secondary);
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+            overflow-y: auto; overflow-x: hidden;
+            min-height: 100vh; display: flex; flex-direction: column;
+            user-select: none; -webkit-user-select: none;
+        }
+        [data-theme="light"] body {
+            background: var(--qp-bg);
+            color: var(--qp-text-secondary);
+        }
+
+        /* ── Header (digital-alphabet / upl-style blur bar) ── */
+        #header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 16px;
+            background: color-mix(in srgb, var(--qp-bg-secondary) 92%, transparent);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--qp-border-muted);
+            font-size: 0.8125rem; z-index: 10;
+        }
+        #header a { color: var(--qp-accent); text-decoration: none; margin-left: 12px; }
+        #header a:hover { text-decoration: underline; color: var(--qp-accent-hover); }
+        .hdr-title { font-weight: 700; color: var(--qp-text); letter-spacing: -0.02em; }
+        .hdr-sub { color: var(--qp-text-muted); font-size: 0.6875rem; }
+
+        /* ── Fullscreen ── */
+        .fullscreen-btn {
+            background: none; border: 1px solid #30363d; border-radius: 4px;
+            color: #8b949e; font-family: inherit; font-size: 0.6875rem;
+            padding: 2px 8px; cursor: pointer; margin-left: 10px; transition: all 0.15s;
+        }
+        .fullscreen-btn:hover { background: #21262d; color: #c9d1d9; }
+        body.fullscreen .schd,
+        body.fullscreen .kb-rainbow,
+        body.fullscreen #header, body.fullscreen #footer, body.fullscreen #bottom-panels, body.fullscreen #tab-bar { display: none; }
+        body.fullscreen #main-area { height: 100vh; }
+        body.fullscreen .fs-exit { display: block; }
+        .fs-exit {
+            display: none; position: fixed; top: 8px; right: 8px; z-index: 100;
+            background: rgba(13,17,23,0.85); border: 1px solid #30363d; border-radius: 6px;
+            color: #8b949e; font-family: inherit; font-size: 0.75rem; padding: 4px 12px; cursor: pointer;
+        }
+        .fs-exit:hover { background: rgba(33,38,45,0.95); color: #c9d1d9; }
+
+        /* ── Tab Bar ── */
+        #tab-bar {
+            display: flex; gap: 0; background: var(--qp-bg-secondary);
+            border-bottom: 1px solid var(--qp-border); overflow-x: auto; flex-shrink: 0;
+        }
+        .tab-btn {
+            padding: 8px 16px; background: none; border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--qp-text-muted); font-family: inherit; font-size: 0.75rem;
+            cursor: pointer; white-space: nowrap; transition: all 0.15s;
+        }
+        .tab-btn:hover { color: var(--qp-text-secondary); background: var(--qp-bg-tertiary); }
+        .tab-btn.active { color: var(--qp-text); border-bottom-color: var(--qp-accent); }
+        .tab-btn .tab-badge {
+            font-size: 0.5625rem; padding: 1px 5px; border-radius: 8px;
+            background: #30363d; color: #8b949e; margin-left: 4px;
+        }
+
+        /* ── Tab Panels ── */
+        .tab-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; min-height: 0; }
+        .tab-panel.active { display: flex; }
+
+        /* ── Main Area ── */
+        #main-area {
+            flex: 0 0 auto; display: flex; flex-direction: column;
+            min-height: min(65vh, 600px); position: relative;
+            border-left: 1px solid var(--qp-border-muted);
+            border-right: 1px solid var(--qp-border-muted);
+        }
+
+        /* ── Stats Bar ── */
+        #stats-bar {
+            display: flex; gap: 12px; padding: 6px 16px; flex-wrap: wrap;
+            background: var(--qp-bg-secondary); border-bottom: 1px solid var(--qp-border-muted); font-size: 0.6875rem;
+        }
+        .stat { display: flex; align-items: center; gap: 4px; }
+        .stat-label { color: #484f58; }
+        .stat-val { font-weight: 700; }
+        .stat-eff { color: #7ee787; } .stat-cpx { color: #f97583; }
+        .stat-wpm { color: #58a6ff; } .stat-strain { color: #e6b422; }
+        .stat-keys { color: #d2a8ff; } .stat-dist { color: #f0883e; }
+
+        /* ── Viz Panels ── */
+        #viz-grid {
+            flex: 1; display: grid;
+            grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+            gap: 1px; background: var(--qp-border-muted); min-height: 0;
+        }
+        .viz-panel { background: var(--qp-bg); display: flex; flex-direction: column; overflow: hidden; }
+        .viz-title {
+            padding: 4px 10px; font-size: 0.625rem; font-weight: 700;
+            background: var(--qp-bg-secondary); border-bottom: 1px solid var(--qp-border-muted);
+        }
+        .viz-canvas-wrap { flex: 1; position: relative; min-height: 0; }
+        .viz-canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+        /* ── Typing Input ── */
+        #typing-area {
+            padding: 8px 16px; background: var(--qp-bg-secondary);
+            border-top: 1px solid var(--qp-border); border-bottom: 1px solid var(--qp-border);
+        }
+        #typing-input {
+            width: 100%; padding: 10px 14px; background: var(--qp-input-bg); border: 1px solid var(--qp-border);
+            border-radius: 10px; color: var(--qp-text-secondary); font-family: inherit; font-size: 0.9375rem;
+            outline: none; user-select: text; -webkit-user-select: text;
+        }
+        #typing-input:focus { border-color: #f0883e; }
+        #typing-input::placeholder { color: #484f58; }
+        #typing-hint { font-size: 0.5625rem; color: #484f58; margin-top: 4px; }
+        .layout-badge {
+            display: inline-block; padding: 1px 6px; border-radius: 4px;
+            background: #f0883e22; color: #f0883e; font-size: 0.625rem; margin-left: 8px;
+        }
+
+        /* ═══ Layouts Tab ═══ */
+        .layout-grid { display: grid; grid-template-columns: 220px 1fr; gap: 1px; background: #21262d; flex: 1; min-height: 0; }
+        .layout-sidebar { background: #0d1117; overflow-y: auto; padding: 8px; }
+        .layout-item {
+            padding: 6px 10px; border-radius: 4px; cursor: pointer;
+            font-size: 0.75rem; margin-bottom: 2px; display: flex; justify-content: space-between;
+        }
+        .layout-item:hover { background: #161b22; }
+        .layout-item.active { background: #f0883e22; color: #f0883e; }
+        .layout-item .region { color: #484f58; font-size: 0.625rem; }
+        .layout-preview { background: #0d1117; display: flex; flex-direction: column; }
+        .layout-info {
+            padding: 8px 12px; background: #161b22; border-bottom: 1px solid #21262d;
+            font-size: 0.6875rem; display: flex; gap: 16px; flex-wrap: wrap;
+        }
+        .layout-info .li-val { color: #58a6ff; font-weight: 700; }
+        .layout-canvas-wrap { flex: 1; position: relative; min-height: 0; }
+        .layout-canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .layout-compare { padding: 8px 12px; background: #161b22; border-top: 1px solid #21262d; font-size: 0.6875rem; }
+        .layout-compare select {
+            background: #0d1117; border: 1px solid #30363d; border-radius: 4px;
+            color: #c9d1d9; font-family: inherit; font-size: 0.6875rem; padding: 3px 8px;
+        }
+
+        /* ═══ Dictionary Tab ═══ */
+        .dict-container { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+        .dict-search {
+            display: flex; gap: 8px; padding: 12px 16px;
+            background: #161b22; border-bottom: 1px solid #21262d;
+        }
+        .dict-search input {
+            flex: 1; padding: 8px 12px; background: #0d1117; border: 1px solid #30363d;
+            border-radius: 6px; color: #c9d1d9; font-family: inherit; font-size: 0.875rem; outline: none;
+            user-select: text; -webkit-user-select: text;
+        }
+        .dict-search input:focus { border-color: #58a6ff; }
+        .dict-search button {
+            padding: 8px 16px; background: #238636; border: none; border-radius: 6px;
+            color: #fff; font-family: inherit; font-size: 0.8125rem; cursor: pointer;
+        }
+        .dict-search button:hover { background: #2ea043; }
+        .dict-results { flex: 1; overflow-y: auto; padding: 16px; }
+        .dict-entry { margin-bottom: 16px; padding: 12px; background: #161b22; border-radius: 8px; border: 1px solid #21262d; }
+        .dict-word { font-size: 1.25rem; font-weight: 700; color: #f0883e; }
+        .dict-phonetic { color: #8b949e; font-size: 0.875rem; margin-left: 8px; }
+        .dict-pos { color: #d2a8ff; font-weight: 700; font-size: 0.8125rem; margin-top: 8px; }
+        .dict-def { color: #c9d1d9; font-size: 0.8125rem; margin: 4px 0 4px 12px; }
+        .dict-example { color: #8b949e; font-size: 0.75rem; font-style: italic; margin-left: 12px; }
+        .dict-syn { color: #7ee787; font-size: 0.75rem; margin-left: 12px; }
+
+        /* ═══ Quantum Tab ═══ */
+        .quantum-container { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #21262d; flex: 1; min-height: 0; }
+        .quantum-panel { background: #0d1117; display: flex; flex-direction: column; overflow: hidden; }
+        .qp-section { padding: 10px 12px; border-bottom: 1px solid #21262d; }
+        .qp-section-title { font-size: 0.6875rem; font-weight: 700; color: #d2a8ff; margin-bottom: 6px; }
+        .qp-row { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; font-size: 0.75rem; }
+        .qp-row label { color: #8b949e; min-width: 60px; }
+        .qp-row input, .qp-row select {
+            flex: 1; padding: 4px 8px; background: #161b22; border: 1px solid #30363d;
+            border-radius: 4px; color: #c9d1d9; font-family: inherit; font-size: 0.75rem;
+            user-select: text; -webkit-user-select: text;
+        }
+        .qp-row input:focus { border-color: #d2a8ff; outline: none; }
+        .qp-btn {
+            padding: 6px 14px; border: none; border-radius: 4px;
+            font-family: inherit; font-size: 0.75rem; cursor: pointer; transition: all 0.15s;
+        }
+        .qp-btn-primary { background: #8957e5; color: #fff; }
+        .qp-btn-primary:hover { background: #a371f7; }
+        .qp-btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+        .qp-btn-secondary:hover { background: #30363d; }
+        .qp-circuit {
+            flex: 1; overflow: auto; padding: 10px 12px; font-size: 0.6875rem;
+            line-height: 1.5; white-space: pre-wrap; color: #7ee787; background: #0d1117;
+        }
+        .qp-results-wrap { flex: 1; position: relative; min-height: 0; }
+        .qp-results-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .qp-status { padding: 6px 12px; background: #161b22; border-top: 1px solid #21262d; font-size: 0.625rem; color: #8b949e; }
+        .qp-gate-map {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+            font-size: 0.625rem; padding: 6px 0;
+        }
+        .qp-gate { padding: 2px 4px; background: #161b22; border-radius: 3px; text-align: center; }
+        .qp-gate .sym { color: #f0883e; font-weight: 700; }
+        .qp-gate .gname { color: #d2a8ff; }
+
+        /* ═══ Training Tab ═══ */
+        .training-container { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+        .training-header {
+            display: flex; gap: 12px; align-items: center; padding: 10px 16px;
+            background: #161b22; border-bottom: 1px solid #21262d; font-size: 0.75rem;
+        }
+        .training-header select {
+            padding: 4px 8px; background: #0d1117; border: 1px solid #30363d;
+            border-radius: 4px; color: #c9d1d9; font-family: inherit; font-size: 0.75rem;
+        }
+        .training-prompt {
+            padding: 24px 16px; font-size: 1.125rem; line-height: 2;
+            letter-spacing: 0.5px; text-align: center; background: #0d1117; flex: 1;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .training-prompt .char { display: inline-block; transition: color 0.1s; }
+        .training-prompt .char.done { color: #7ee787; }
+        .training-prompt .char.current { color: #f0883e; text-decoration: underline; }
+        .training-prompt .char.wrong { color: #f97583; background: #f9758322; }
+        .training-prompt .char.pending { color: #484f58; }
+        .training-input { padding: 12px 16px; background: #161b22; border-top: 1px solid #21262d; }
+        .training-input input {
+            width: 100%; padding: 10px 14px; background: #0d1117; border: 1px solid #30363d;
+            border-radius: 6px; color: #c9d1d9; font-family: inherit; font-size: 1rem;
+            outline: none; user-select: text; -webkit-user-select: text;
+        }
+        .training-input input:focus { border-color: #7ee787; }
+        .training-stats {
+            display: flex; gap: 16px; padding: 8px 16px;
+            background: #161b22; border-top: 1px solid #21262d; font-size: 0.75rem; flex-wrap: wrap;
+        }
+
+        /* ═══ Footer ═══ */
+        #footer {
+            display: flex; align-items: center; justify-content: center; gap: 16px;
+            padding: 6px 16px; background: #161b22; border-top: 1px solid #30363d;
+            font-size: 0.6875rem; color: #484f58; flex-wrap: wrap; z-index: 10;
+        }
+        #footer a { color: #58a6ff; text-decoration: none; }
+
+        /* ═══ Bottom Panels ═══ */
+        #bottom-panels { display: flex; flex-direction: column; border-top: 1px solid #30363d; }
+        .panel-section { border-bottom: 1px solid #21262d; }
+        .panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 6px 16px; background: #161b22; cursor: pointer;
+            font-size: 0.75rem; font-weight: 700;
+        }
+        .panel-header:hover { background: #1c2129; }
+        .panel-header .tag { font-size: 0.5625rem; padding: 2px 6px; border-radius: 4px; }
+        .panel-body { padding: 0; overflow: hidden; transition: max-height 0.3s ease; }
+        .panel-body.collapsed { max-height: 0 !important; }
+        .code-cell-area { display: grid; grid-template-columns: 1fr 1fr; gap: 0; min-height: 200px; }
+        .code-editor { display: flex; flex-direction: column; border-right: 1px solid #21262d; }
+        .code-editor textarea {
+            flex: 1; background: #0d1117; color: #c9d1d9; border: none; padding: 12px;
+            font-family: inherit; font-size: 0.8125rem; line-height: 1.6; resize: none;
+            outline: none; min-height: 180px; user-select: text; -webkit-user-select: text;
+        }
+        .code-toolbar {
+            display: flex; align-items: center; gap: 6px; padding: 4px 12px;
+            background: #161b22; border-bottom: 1px solid #21262d; font-size: 0.6875rem;
+        }
+        .code-toolbar button {
+            padding: 3px 10px; border: 1px solid #30363d; border-radius: 4px;
+            background: #21262d; color: #c9d1d9; font-family: inherit; font-size: 0.6875rem; cursor: pointer;
+        }
+        .code-toolbar button:hover { background: #30363d; }
+        .code-toolbar .btn-run { background: #238636; border-color: #2ea043; color: #fff; }
+        .code-toolbar .btn-run:hover { background: #2ea043; }
+        .code-output {
+            background: #0d1117; padding: 12px; font-size: 0.75rem; line-height: 1.5;
+            overflow-y: auto; max-height: 300px; min-height: 180px; white-space: pre-wrap; word-break: break-all;
+        }
+        .code-output .out-line { color: #8b949e; }
+        .code-output .out-result { color: #7ee787; }
+        .code-output .out-error { color: #f97583; }
+        .code-output .out-info { color: #58a6ff; }
+        .terminal-area {
+            background: #0d1117; padding: 8px 12px; min-height: 120px; max-height: 300px;
+            overflow-y: auto; font-size: 0.75rem; line-height: 1.6;
+        }
+        .terminal-area .term-line { color: #8b949e; }
+        .terminal-area .term-line.result { color: #7ee787; }
+        .terminal-area .term-line.error { color: #f97583; }
+        .terminal-area .term-line.info { color: #58a6ff; }
+        .terminal-area .term-line.warn { color: #e6b422; }
+        .term-input-row {
+            display: flex; align-items: center; padding: 4px 12px;
+            background: #161b22; border-top: 1px solid #21262d;
+        }
+        .term-prompt { color: #f0883e; font-size: 0.75rem; margin-right: 6px; white-space: nowrap; }
+        .term-input-row input {
+            flex: 1; background: transparent; border: none; color: #c9d1d9;
+            font-family: inherit; font-size: 0.75rem; outline: none;
+            user-select: text; -webkit-user-select: text;
+        }
+
+        @media (max-width: 700px) {
+            #viz-grid { grid-template-columns: 1fr; }
+            .code-cell-area { grid-template-columns: 1fr; }
+            .layout-grid { grid-template-columns: 1fr; }
+            .quantum-container { grid-template-columns: 1fr; }
+            .tab-btn { padding: 6px 10px; font-size: 0.6875rem; }
+        }
+    </style>
+    <style>
+        :root {
+            --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+            --kb-bg: #f8fbff;
+            --kb-panel: rgba(255, 255, 255, 0.84);
+            --kb-line: #d9e4f1;
+            --kb-text: #1f2a38;
+            --kb-muted: #5f728a;
+            --kb-accent: #2f7bdb;
+            --kb-ok: #22a06b;
+            --kb-warn: #b95a1d;
+            --kb-qg-r1: #ff3838;
+            --kb-qg-r2: #ff8c38;
+            --kb-qg-r3: #ffe138;
+            --kb-qg-r4: #3fb950;
+            --kb-qg-r5: #38a5ff;
+            --kb-qg-r6: #bc8cff;
+        }
+        body {
+            color: var(--kb-text);
+            font-family: -apple-system, "SF Pro Display", BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+            background:
+                radial-gradient(rgba(61, 94, 133, .11) 1px, transparent 1px),
+                radial-gradient(rgba(61, 94, 133, .07) 1px, transparent 1px),
+                var(--kb-bg);
+            background-size: 20px 20px, 20px 20px, auto;
+            background-position: 0 0, 10px 10px, 0 0;
+            animation: kbDots 16s linear infinite;
+        }
+        @keyframes kbDots {
+            0% { background-position: 0 0, 10px 10px, 0 0; }
+            50% { background-position: 0 7px, 10px 3px, 0 0; }
+            100% { background-position: 0 0, 10px 10px, 0 0; }
+        }
+        #header, #tab-bar, #stats-bar, #typing-area, #footer, .panel-header, .term-input-row, .code-toolbar, .dict-search,
+        .layout-info, .layout-compare, .training-header, .training-input, .training-stats, .qp-status {
+            background: var(--kb-panel) !important;
+            backdrop-filter: blur(8px);
+            border-color: var(--kb-line) !important;
+        }
+        #header a, .stat-label, #footer, .term-line, .dict-phonetic, .dict-example, .term-input-row input {
+            color: var(--kb-muted) !important;
+        }
+        .tab-btn { color: #476482 !important; }
+        .tab-btn:hover { color: #1f5b9b !important; background: rgba(234, 243, 255, 0.7) !important; }
+        .tab-btn.active { color: #1f5b9b !important; border-bottom-color: var(--kb-accent) !important; }
+        .hdr-title, .stat-val, .term-prompt { color: #1f5b9b !important; }
+        .viz-panel, .layout-sidebar, .layout-preview, .quantum-panel, .dict-entry, .terminal-area, .code-output, .code-editor textarea {
+            background: rgba(255, 255, 255, 0.62) !important;
+            border-color: var(--kb-line) !important;
+            color: var(--kb-text) !important;
+        }
+        #typing-input, .dict-search input, .training-input input, .qp-row input, .qp-row select, .layout-compare select {
+            background: rgba(255, 255, 255, 0.8) !important;
+            border-color: #c5d7ec !important;
+            color: var(--kb-text) !important;
+            font-family: var(--mono);
+        }
+        #s-live-intel {
+            background: rgba(255, 255, 255, 0.78) !important;
+            border-color: #cfe0f3 !important;
+            color: #45627f !important;
+            font-family: var(--mono) !important;
+        }
+        #kb-sf-live {
+            border: 1px solid var(--qp-border-muted, #21262d);
+            border-radius: 8px;
+            background: rgba(13, 17, 23, 0.55);
+            padding: 6px 10px;
+            margin-bottom: 6px;
+        }
+        #kb-sf-tele {
+            font-size: 1.05rem;
+            font-weight: 700;
+            line-height: 1.35;
+            color: #e6edf3;
+            text-align: center;
+            min-height: 2.5rem;
+            padding: 8px 12px;
+            border-radius: 6px;
+            background: linear-gradient(180deg, rgba(34, 197, 94, 0.12), rgba(13, 17, 23, 0.9));
+            border: 1px solid rgba(63, 185, 80, 0.35);
+            text-shadow: 0 0 20px rgba(34, 197, 94, 0.25);
+        }
+        #kb-sf-transcript {
+            max-height: 88px;
+            overflow-y: auto;
+            font-size: 0.5625rem;
+            color: #8b949e;
+            font-family: var(--mono);
+            line-height: 1.45;
+            padding: 4px 0;
+        }
+        #kb-sf-transcript div {
+            border-bottom: 1px solid #21262d;
+            padding: 2px 0;
+        }
+        .stack-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 1px 6px;
+            border-radius: 999px;
+            border: 1px solid #bfd5ec;
+            background: rgba(255, 255, 255, 0.84);
+            color: #476482;
+            font-size: 0.625rem;
+            font-family: var(--mono);
+        }
+    </style>
+</head>
+<body class="kbatch-schd">
+<header class="schd">
+    <div class="schd-row">
+        <a class="sch-slab" href="../school/corpus/school-corpus.html" style="text-decoration:none;color:inherit">school · corpus</a>
+        <span class="schd-spacer" aria-hidden="true"></span>
+        <div data-qp-theme-host class="schd-theme" title="Light / dark (μgrad stack)"></div>
+    </div>
+    <div class="schd-bar" role="toolbar">
+        <span>keyboard · quantum · capsules</span>
+        <span class="schd-spacer"></span>
+        <a class="schd-pill sch-primary" href="../school/corpus/school-corpus.html">school corpus</a>
+        <a class="schd-pill" href="games-ugrad-hub.html">μgrad games hub</a>
+        <a class="schd-pill" href="glyph.html">glyph</a>
+    </div>
+</header>
+<div class="kb-rainbow" style="display:flex;height:2px;width:100%;flex-shrink:0"><span style="flex:1;background:#ff3838"></span><span style="flex:1;background:#ff8c38"></span><span style="flex:1;background:#ffe138"></span><span style="flex:1;background:#3fb950"></span><span style="flex:1;background:#38a5ff"></span><span style="flex:1;background:#bc8cff"></span></div>
+
+    <div id="header">
+        <div>
+            <span class="hdr-title">kbatch</span>
+            <span class="hdr-sub"> — world keyboard &amp; quantum analyzer</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+            <button class="fullscreen-btn" id="btn-fullscreen">&#x26F6; Fullscreen</button>
+        </div>
+    </div>
+
+    <!-- ═══ Tab Bar ═══ -->
+    <div id="tab-bar">
+        <button class="tab-btn active" data-tab="analyzer">&#x1F525; Analyzer</button>
+        <button class="tab-btn" data-tab="layouts">&#x2328; Layouts <span class="tab-badge">15</span></button>
+        <button class="tab-btn" data-tab="dictionary">&#x1F4D6; Dictionary</button>
+        <button class="tab-btn" data-tab="quantum">&#x269B; Quantum <span class="tab-badge">IBM</span></button>
+        <button class="tab-btn" data-tab="training">&#x1F3AF; Training</button>
+        <button class="tab-btn" data-tab="capsules">&#x1F30D; Capsules</button>
+        <button class="tab-btn" data-tab="contrails">&#x1F320; Contrails</button>
+        <button class="tab-btn" data-tab="musica">&#x1F3B6; Musica <span class="tab-badge">DAW</span></button>
+        <button class="tab-btn" data-tab="symbollab">&#x1F523; Symbols</button>
+        <button class="tab-btn" data-tab="lattice">&#x269B; Lattice</button>
+    </div>
+
+    <!-- ═══════════ TAB: ANALYZER (existing) ═══════════ -->
+    <div class="tab-panel active" id="panel-analyzer">
+        <div id="main-area">
+            <button class="fs-exit" id="btn-fs-exit">&#x2716; Exit</button>
+            <div id="stats-bar">
+                <div class="stat"><span class="stat-label">WPM</span> <span class="stat-val stat-wpm" id="s-wpm">0</span></div>
+                <div class="stat"><span class="stat-label">Efficiency</span> <span class="stat-val stat-eff" id="s-eff">0%</span></div>
+                <div class="stat"><span class="stat-label">Complexity</span> <span class="stat-val stat-cpx" id="s-cpx">0%</span></div>
+                <div class="stat"><span class="stat-label">Strain</span> <span class="stat-val stat-strain" id="s-strain">0%</span></div>
+                <div class="stat"><span class="stat-label">Keys</span> <span class="stat-val stat-keys" id="s-keys">0</span></div>
+                <div class="stat"><span class="stat-label">Distance</span> <span class="stat-val stat-dist" id="s-dist">0.0</span></div>
+                <div class="stat"><span class="stat-label">Words</span> <span class="stat-val" style="color:#c9d1d9;" id="s-words">0</span></div>
+                <div class="stat"><span class="stat-label">Hapax</span> <span class="stat-val" style="color:#d2a8ff;" id="s-hapax">0</span></div>
+                <div class="stat"><span class="stat-label">Layout</span> <span class="stat-val" style="color:#f0883e;" id="s-layout">QWERTY</span></div>
+                <div class="stat"><span class="stat-label">Tone</span> <span class="stat-val" style="color:#34d399;" id="s-tone">—</span></div>
+                <div class="stat"><span class="stat-label">&hearts;</span> <span class="stat-val" style="color:#8b5cf6;" id="s-heartbeat">—</span></div>
+                <div class="stat"><span class="stat-label">Stack</span> <span class="stat-val" id="s-stack">warming</span></div>
+                <div class="stat"><span class="stat-label">Bench</span> <span class="stat-val" id="s-bench">—</span></div>
+                <div class="stat"><span class="stat-label">T5</span> <span class="stat-val" id="s-t5">browser</span></div>
+                <div class="stat"><span class="stat-label">Stream</span> <span class="stat-val" id="s-stream">warming</span></div>
+            </div>
+            <!-- Live Intelligence Bar: flow direction + encoder + ML benchmark -->
+            <div id="s-live-intel" style="padding:4px 8px;font-size:.6875rem;font-family:var(--mono);background:#0d1117;border:1px solid #21262d;border-radius:6px;margin-bottom:6px;min-height:18px;display:flex;align-items:center;gap:6px;overflow-x:auto;white-space:nowrap;"></div>
+            <div id="kb-sf-live" title="hexcast-stream · sportsfield ball + shot analysis → teleprompter + transcript">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.5625rem;color:#8b949e;margin-bottom:6px;">
+                    <span style="font-weight:700;color:#58a6ff;">&#x26BD; Live pitch</span>
+                    <label><input type="checkbox" id="kb-sf-enable" checked /> hexcast</label>
+                    <label><input type="checkbox" id="kb-sf-train" checked /> train kbatch</label>
+                    <label><input type="checkbox" id="kb-sf-log" checked /> log</label>
+                    <button type="button" id="kb-sf-replay" style="padding:2px 8px;background:#21262d;border:1px solid #30363d;border-radius:4px;color:#e6edf3;font-size:.5625rem;cursor:pointer;">Replay aggregate</button>
+                    <button type="button" id="kb-sf-export" style="padding:2px 8px;background:#21262d;border:1px solid #30363d;border-radius:4px;color:#e6edf3;font-size:.5625rem;cursor:pointer;">Export JSON</button>
+                    <button type="button" id="kb-sf-clear" style="padding:2px 8px;background:#21262d;border:1px solid #30363d;border-radius:4px;color:#f85149;font-size:.5625rem;cursor:pointer;">Clear store</button>
+                    <button type="button" id="kb-sf-mic" style="padding:2px 8px;background:#21262d;border:1px solid #30363d;border-radius:4px;color:#58a6ff;font-size:.5625rem;cursor:pointer;" title="Live mic captions (Web Speech API)">Mic</button>
+                    <span id="kb-sf-count">0 saved</span>
+                    <span class="stack-chip" title="Fast live pipeline — blank-style caption throughput">live-fast</span>
+                </div>
+                <div id="kb-sf-tele" aria-live="polite" role="status">&#x2014; no sportsfield telemetry yet &#x2014; open <code style="font-size:.65rem;">sports-field-ugrad.html</code></div>
+                <div id="kb-sf-transcript"></div>
+            </div>
+            <div id="viz-grid">
+                <div class="viz-panel">
+                    <div class="viz-title" style="color:#f0883e;">&#x1F525; Thermal Heatmap</div>
+                    <div class="viz-canvas-wrap"><canvas id="cv-thermal"></canvas></div>
+                </div>
+                <div class="viz-panel">
+                    <div class="viz-title" style="color:#58a6ff;">&#x2708; Contrails</div>
+                    <div class="viz-canvas-wrap"><canvas id="cv-contrails"></canvas></div>
+                </div>
+                <div class="viz-panel">
+                    <div class="viz-title" style="color:#d2a8ff;">&#x2B22; Geometric Pattern</div>
+                    <div class="viz-canvas-wrap"><canvas id="cv-geometric"></canvas></div>
+                </div>
+                <div class="viz-panel">
+                    <div class="viz-title" style="color:#7ee787;">&#x1F3B9; 3D Language Model</div>
+                    <div class="viz-canvas-wrap"><canvas id="cv-3d"></canvas></div>
+                </div>
+            </div>
+            <div id="typing-area">
+                <input type="text" id="typing-input" placeholder="Start typing to analyze keyboard patterns in real-time..." autocomplete="off" spellcheck="false">
+                <div id="typing-hint">All visualizations update live as you type. Press <b>Enter</b> to analyze. <span class="layout-badge" id="active-layout-badge">QWERTY</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ TAB: LAYOUTS ═══════════ -->
+    <div class="tab-panel" id="panel-layouts">
+        <div class="layout-grid">
+            <div class="layout-sidebar" id="layout-list"></div>
+            <div class="layout-preview">
+                <div class="layout-info" id="layout-info">
+                    <span><span class="stat-label">Name:</span> <span class="li-val" id="li-name">QWERTY</span></span>
+                    <span><span class="stat-label">Script:</span> <span class="li-val" id="li-script">Latin</span></span>
+                    <span><span class="stat-label">Region:</span> <span class="li-val" id="li-region">US</span></span>
+                    <span><span class="stat-label">Direction:</span> <span class="li-val" id="li-dir">LTR</span></span>
+                </div>
+                <div class="layout-canvas-wrap"><canvas id="cv-layout"></canvas></div>
+                <div class="layout-compare">
+                    <span class="stat-label">Compare with:</span>
+                    <select id="layout-compare-select"><option value="">— select —</option></select>
+                    <span id="compare-result" style="margin-left:12px;color:#7ee787;"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ TAB: DICTIONARY ═══════════ -->
+    <div class="tab-panel" id="panel-dictionary">
+        <div class="dict-container">
+            <div class="dict-search">
+                <input type="text" id="dict-input" placeholder="Look up any word — definitions, synonyms, etymology..." autocomplete="off" spellcheck="false">
+                <button id="dict-search-btn">Look Up</button>
+            </div>
+            <div class="dict-results" id="dict-results">
+                <div style="text-align:center;padding:40px;color:#484f58;">
+                    Type a word and press Enter or click Look Up.<br>
+                    Powered by Free Dictionary API + Datamuse synonyms.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ TAB: QUANTUM ═══════════ -->
+    <div class="tab-panel" id="panel-quantum">
+        <div class="quantum-container">
+            <div class="quantum-panel">
+                <div class="qp-section">
+                    <div class="qp-section-title">&#x269B; IBM Quantum Bridge</div>
+                    <div class="qp-row">
+                        <label>Token</label>
+                        <input type="password" id="qp-token" placeholder="Paste IBM Quantum API token...">
+                    </div>
+                    <div class="qp-row">
+                        <label>Backend</label>
+                        <select id="qp-backend">
+                            <option value="local">Local Simulator (instant)</option>
+                            <option value="ibm_brisbane">ibm_brisbane (127q Eagle)</option>
+                            <option value="ibm_kyoto">ibm_kyoto (127q Eagle)</option>
+                            <option value="ibm_osaka">ibm_osaka (127q Eagle)</option>
+                        </select>
+                    </div>
+                    <div class="qp-row">
+                        <label>Source</label>
+                        <select id="qp-source">
+                            <option value="prefix">From Quantum Prefixes</option>
+                            <option value="typing">From Typing Pattern</option>
+                            <option value="custom">Custom QASM</option>
+                        </select>
+                    </div>
+                    <div class="qp-row">
+                        <label>Shots</label>
+                        <input type="number" id="qp-shots" value="1024" min="1" max="8192">
+                    </div>
+                    <div class="qp-row" style="gap:6px;">
+                        <button class="qp-btn qp-btn-primary" id="qp-build">Build Circuit</button>
+                        <button class="qp-btn qp-btn-primary" id="qp-run" style="background:#238636;">&#9654; Run</button>
+                        <button class="qp-btn qp-btn-secondary" id="qp-export">Export QASM</button>
+                    </div>
+                </div>
+                <div class="qp-section" style="padding:6px 12px;">
+                    <div class="qp-section-title">Prefix → Gate Mapping</div>
+                    <div class="qp-gate-map">
+                        <div class="qp-gate"><span class="sym">+1:</span><span class="gname">H</span></div>
+                        <div class="qp-gate"><span class="sym">1:</span><span class="gname">CNOT</span></div>
+                        <div class="qp-gate"><span class="sym">-1:</span><span class="gname">X</span></div>
+                        <div class="qp-gate"><span class="sym">+0:</span><span class="gname">Rz</span></div>
+                        <div class="qp-gate"><span class="sym">0:</span><span class="gname">I</span></div>
+                        <div class="qp-gate"><span class="sym">-0:</span><span class="gname">S</span></div>
+                        <div class="qp-gate"><span class="sym">+n:</span><span class="gname">T</span></div>
+                        <div class="qp-gate"><span class="sym">n:</span><span class="gname">SWAP</span></div>
+                        <div class="qp-gate"><span class="sym">-n:</span><span class="gname">M</span></div>
+                        <div class="qp-gate"><span class="sym">+2:</span><span class="gname">CZ</span></div>
+                        <div class="qp-gate"><span class="sym">+3:</span><span class="gname">Y</span></div>
+                    </div>
+                </div>
+                <div class="qp-circuit" id="qp-circuit">// Build a circuit from typing data or quantum prefixes
+// Select source above and click "Build Circuit"
+//
+// Free tier: 10 min/month on 127-qubit Eagle processors
+// Get token: https://quantum.ibm.com → API token
+//
+// Or use Local Simulator for instant results (up to 12 qubits)</div>
+            </div>
+            <div class="quantum-panel">
+                <div class="qp-section">
+                    <div class="qp-section-title">&#x1F4CA; Results — Measurement Histogram</div>
+                </div>
+                <div class="qp-results-wrap"><canvas id="cv-quantum"></canvas></div>
+                <div class="qp-status" id="qp-status">Ready — select source and build circuit</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ TAB: TRAINING ═══════════ -->
+    <div class="tab-panel" id="panel-training">
+        <div class="training-container">
+            <div class="training-header">
+                <span class="stat-label">Layout:</span>
+                <select id="train-layout"></select>
+                <span class="stat-label">Drill:</span>
+                <select id="train-drill">
+                    <option value="home">Home Row</option>
+                    <option value="common">Common Words</option>
+                    <option value="pangram">Pangrams</option>
+                    <option value="code">Code Snippets</option>
+                    <option value="shakespeare">Shakespeare</option>
+                    <option value="rhythm">Musical Rhythm</option>
+                    <option value="dance">Dance Moves</option>
+                    <option value="literature">Classic Literature</option>
+                    <option value="bulk">Bulk Analysis (50 words)</option>
+                </select>
+                <button class="qp-btn qp-btn-secondary" id="train-new">New Drill</button>
+                <span style="flex:1;"></span>
+                <span class="stat-label">Best WPM:</span>
+                <span style="color:#7ee787;font-weight:700;" id="train-best">0</span>
+            </div>
+            <div class="training-prompt" id="train-prompt">
+                <span style="color:#484f58;">Select a drill and press "New Drill" to begin</span>
+            </div>
+            <div class="training-input">
+                <input type="text" id="train-input" placeholder="Type here to practice..." autocomplete="off" spellcheck="false">
+            </div>
+            <div class="training-stats">
+                <div class="stat"><span class="stat-label">WPM</span> <span class="stat-val stat-wpm" id="train-wpm">0</span></div>
+                <div class="stat"><span class="stat-label">Accuracy</span> <span class="stat-val stat-eff" id="train-acc">100%</span></div>
+                <div class="stat"><span class="stat-label">Progress</span> <span class="stat-val stat-dist" id="train-prog">0%</span></div>
+                <div class="stat"><span class="stat-label">Errors</span> <span class="stat-val stat-cpx" id="train-err">0</span></div>
+            </div>
+            <!-- Session History + AI Export -->
+            <div style="margin-top:12px;border-top:1px solid #21262d;padding-top:12px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="font-family:var(--mono);font-size:.6875rem;font-weight:700;color:#e6edf3;">Session History</span>
+                    <span style="font-family:var(--mono);font-size:.5625rem;color:#484f58;" id="train-session-count">0 drills completed</span>
+                    <span style="flex:1;"></span>
+                    <button class="qp-btn qp-btn-secondary" id="train-export-ai" style="font-size:.5625rem;padding:3px 8px;">Export for AI Training</button>
+                    <button class="qp-btn qp-btn-secondary" id="train-export-json" style="font-size:.5625rem;padding:3px 8px;">Export JSON</button>
+                    <button class="qp-btn qp-btn-secondary" id="train-search-push" style="font-size:.5625rem;padding:3px 8px;">Push to Search</button>
+                    <button class="qp-btn qp-btn-secondary" id="train-quantum-loopback" style="font-size:.5625rem;padding:3px 8px;background:#06b6d4;color:#000;">⚛ Quantum Loopback</button>
+                </div>
+                <div id="train-history" style="max-height:160px;overflow-y:auto;font-family:var(--mono);font-size:.5625rem;color:#8b949e;display:flex;flex-direction:column;gap:4px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ TAB: CAPSULES ═══════════ -->
+    <div class="tab-panel" id="panel-capsules">
+        <div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;padding:12px;gap:10px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <span style="font-size:1.2rem;">&#x1F30D;</span>
+                <span style="font-weight:700;color:#e6edf3;">Global Knowledge Base</span>
+                <span style="color:#484f58;font-size:.625rem;" id="capsule-total-count">loading...</span>
+            </div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;" id="capsule-filters">
+                <button class="qp-btn qp-btn-secondary capsule-filter active" data-cat="all" style="font-size:.5625rem;padding:2px 8px;">All</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="lang" style="font-size:.5625rem;padding:2px 8px;">&#x1F30D; Languages</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="medical" style="font-size:.5625rem;padding:2px 8px;">&#x2695; Medical</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="survival" style="font-size:.5625rem;padding:2px 8px;">&#x26FA; Survival</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="education" style="font-size:.5625rem;padding:2px 8px;">&#x1F52C; Education</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="math" style="font-size:.5625rem;padding:2px 8px;">&#x2211; Math</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="research" style="font-size:.5625rem;padding:2px 8px;">&#x1F52D; Research</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="university" style="font-size:.5625rem;padding:2px 8px;">&#x1F393; Universities</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="publisher" style="font-size:.5625rem;padding:2px 8px;">&#x1F4DA; Publishers</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="agency" style="font-size:.5625rem;padding:2px 8px;">&#x1F3DB; Agencies</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="agency-verified" style="font-size:.5625rem;padding:2px 8px;">&#x2705; Verified Agencies</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="agency-synth" style="font-size:.5625rem;padding:2px 8px;">&#x1F9EA; Synth Agencies</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="career" style="font-size:.5625rem;padding:2px 8px;">&#x1F4BC; Careers</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="trends" style="font-size:.5625rem;padding:2px 8px;">&#x1F4F0; Trends</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="culture" style="font-size:.5625rem;padding:2px 8px;">&#x1F3AD; Culture</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="ancient" style="font-size:.5625rem;padding:2px 8px;">&#x1F3DB; Ancient</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="access" style="font-size:.5625rem;padding:2px 8px;">&#x270B; Access</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="encoding" style="font-size:.5625rem;padding:2px 8px;">&#x2336; Encoding</button>
+                <button class="qp-btn qp-btn-secondary capsule-filter" data-cat="code" style="font-size:.5625rem;padding:2px 8px;">&#x1F4BB; Code</button>
+            </div>
+            <div id="capsule-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;"></div>
+            <div id="capsule-detail" style="display:none;flex-direction:column;gap:8px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <button id="capsule-back" style="background:none;border:1px solid #30363d;color:#8b949e;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.625rem;">&larr; Back</button>
+                    <span id="capsule-name" style="font-weight:700;color:#e6edf3;"></span>
+                    <span id="capsule-count" style="color:#484f58;font-size:.625rem;"></span>
+                </div>
+                <div id="capsule-words" style="display:flex;flex-wrap:wrap;gap:4px;max-height:300px;overflow-y:auto;"></div>
+                <div id="capsule-stats" style="font-family:'SF Mono',monospace;font-size:.625rem;color:#484f58;padding-top:6px;border-top:1px solid #21262d;"></div>
+                <div id="capsule-cross" style="border-top:1px solid #21262d;padding-top:6px;font-size:.625rem;"></div>
+                <div id="capsule-encoder" style="font-size:.625rem;"></div>
+                <div id="capsule-livedict" style="font-size:.625rem;"></div>
+            </div>
+            <div id="transcript-panel" style="display:none;flex-direction:column;gap:8px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <button id="transcript-back" style="background:none;border:1px solid #30363d;color:#8b949e;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.625rem;">&larr; Back</button>
+                    <span style="font-weight:700;color:#f59e0b;">&#x1F3AC; Video Transcript → DCA</span>
+                </div>
+                <div style="display:flex;gap:6px;align-items:end;">
+                    <div style="flex:1;">
+                        <label style="font-size:.5625rem;color:#8b949e;">YouTube Video ID or URL</label>
+                        <input id="yt-url" type="text" placeholder="K9zxUWZgMBE or full URL" style="width:100%;padding:6px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e6edf3;font-size:.6875rem;font-family:'SF Mono',monospace;">
+                    </div>
+                    <button id="yt-fetch" style="padding:6px 14px;background:#238636;border:1px solid #2ea043;border-radius:4px;color:#fff;font-size:.625rem;cursor:pointer;white-space:nowrap;">Fetch &amp; Classify</button>
+                </div>
+                <div style="display:flex;gap:6px;">
+                    <button id="yt-paste" style="padding:4px 10px;background:#21262d;border:1px solid #30363d;border-radius:4px;color:#8b949e;font-size:.5625rem;cursor:pointer;">Paste Transcript</button>
+                    <button id="yt-push" style="padding:4px 10px;background:#1f2937;border:1px solid #30363d;border-radius:4px;color:#f59e0b;font-size:.5625rem;cursor:pointer;" disabled>Push to History/Search</button>
+                    <span id="yt-status" style="font-size:.5625rem;color:#484f58;align-self:center;"></span>
+                </div>
+                <textarea id="yt-paste-area" style="display:none;width:100%;height:120px;padding:6px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e6edf3;font-size:.625rem;font-family:'SF Mono',monospace;resize:vertical;" placeholder="Paste transcript text here (timestamps optional)..."></textarea>
+                <div id="yt-results" style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;"></div>
+                <div id="yt-summary" style="font-family:'SF Mono',monospace;font-size:.5625rem;color:#484f58;padding-top:6px;border-top:1px solid #21262d;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ TAB: CONTRAILS (Pattern Flow) ═══════════ -->
+    <div class="tab-panel" id="panel-contrails">
+        <div style="display:flex;flex-direction:column;gap:8px;padding:16px;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <span style="font-family:var(--mono);font-size:.625rem;color:#8b949e;">Mode:</span>
+                <select id="ct-mode" style="background:#161b22;border:1px solid #21262d;color:#e6edf3;padding:4px 8px;border-radius:4px;font-family:var(--mono);font-size:.625rem;">
+                    <option value="contrails">Contrails</option>
+                    <option value="heatmap">Heatmap</option>
+                    <option value="rhythm">Musical Rhythm</option>
+                    <option value="dance">Dance Moves</option>
+                    <option value="flow">Pattern Flow</option>
+                    <option value="ergo">Ergonomic View</option>
+                    <option value="finger">Finger Analysis</option>
+                </select>
+                <span style="font-family:var(--mono);font-size:.625rem;color:#8b949e;">Speed:</span>
+                <input type="range" id="ct-speed" min="1" max="10" value="5" style="width:80px;">
+                <span style="flex:1;"></span>
+                <span style="font-family:var(--mono);font-size:.5625rem;color:#484f58;" id="ct-stats">Type or paste text to visualize</span>
+                <button class="qp-btn qp-btn-secondary" onclick="ctClear()" style="font-size:.625rem;padding:3px 8px;">Clear</button>
+            </div>
+            <canvas id="ct-canvas" style="width:100%;height:280px;border-radius:8px;border:1px solid #21262d;background:#0d1117;cursor:crosshair;"></canvas>
+            <textarea id="ct-input" rows="2" placeholder="Type here to generate contrails — watch your typing path animate across the keyboard..." style="width:100%;background:#161b22;border:1px solid #21262d;color:#e6edf3;padding:8px;border-radius:6px;font-family:var(--mono);font-size:.75rem;resize:none;outline:none;"></textarea>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;" id="ct-legend"></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;" id="ct-metrics"></div>
+            <!-- Ergonomic + Biometric Panels -->
+            <div id="ct-ergo-panel" style="display:none;border-top:1px solid #21262d;padding-top:8px;">
+                <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+                    <span style="font-weight:700;font-size:.75rem;color:#e6edf3;">Ergonomics + Biometrics</span>
+                    <span style="font-size:.5625rem;color:#484f58;">from Cisponju biomechanical engine</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;" id="ct-ergo-grid"></div>
+                <div style="margin-top:8px;">
+                    <div style="font-size:.625rem;font-weight:700;color:#e6edf3;margin-bottom:4px;">Finger Usage</div>
+                    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;" id="ct-finger-grid"></div>
+                </div>
+                <div style="margin-top:8px;">
+                    <div style="font-size:.625rem;font-weight:700;color:#e6edf3;margin-bottom:4px;">Health Risk</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;" id="ct-health-risks"></div>
+                </div>
+                <div style="margin-top:8px;">
+                    <div style="font-size:.625rem;font-weight:700;color:#e6edf3;margin-bottom:4px;">Flow Symbols</div>
+                    <div id="ct-flow-symbols" style="font-family:var(--mono);font-size:1rem;letter-spacing:2px;color:#a78bfa;padding:4px;background:#161b22;border-radius:4px;min-height:20px;"></div>
+                </div>
+                <!-- Contrail Language live panel -->
+                <div style="margin-top:10px;border-top:1px solid #21262d;padding-top:8px;">
+                    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+                        <span style="font-size:.875rem;">&#x1F30A;</span>
+                        <span style="font-weight:700;font-size:.75rem;color:#e6edf3;">Contrail Language</span>
+                        <span style="font-size:.5625rem;color:#484f58;">keyboard-born language · layout = dialect · arrows = phonemes</span>
+                    </div>
+                    <div id="ct-lang-output" style="background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:8px;font-family:var(--mono);font-size:.6875rem;color:#8b949e;min-height:40px;"></div>
+                </div>
+            </div>
+            <!-- ── Gesture Search Panel ── -->
+            <div style="border-top:1px solid #21262d;padding-top:10px;margin-top:6px;">
+                <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:1rem;">&#x1F590;</span>
+                    <span style="font-weight:700;font-size:.75rem;color:#e6edf3;">Gesture Search</span>
+                    <span style="font-size:.5625rem;color:#484f58;">draw flow direction to find matching words · VR/XR hand tracking ready</span>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">
+                    <input type="text" id="ct-gesture-input" placeholder="Direction sequence: →↓↗→ or R D UR R" style="flex:1;background:#0d1117;border:1px solid #30363d;color:#e6edf3;padding:6px 10px;border-radius:6px;font-family:var(--mono);font-size:.75rem;outline:none;" autocomplete="off">
+                    <button class="qp-btn qp-btn-secondary" onclick="runGestureSearch()" style="font-size:.625rem;padding:4px 10px;">Search</button>
+                    <select id="ct-gesture-mode" style="background:#161b22;border:1px solid #21262d;color:#e6edf3;padding:4px 8px;border-radius:4px;font-family:var(--mono);font-size:.625rem;">
+                        <option value="flow">Keyboard Flow</option>
+                        <option value="asl">ASL Signs</option>
+                        <option value="bsl">BSL Signs</option>
+                        <option value="dance">Dance/Gesture</option>
+                        <option value="vr">VR Hand Track</option>
+                    </select>
+                </div>
+                <!-- Quick direction palette -->
+                <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;" id="ct-direction-pad">
+                    <button onclick="appendGesture('\u2191')" style="background:#161b22;border:1px solid #21262d;color:#58a6ff;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:.875rem;">&uarr;</button>
+                    <button onclick="appendGesture('\u2193')" style="background:#161b22;border:1px solid #21262d;color:#58a6ff;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:.875rem;">&darr;</button>
+                    <button onclick="appendGesture('\u2190')" style="background:#161b22;border:1px solid #21262d;color:#58a6ff;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:.875rem;">&larr;</button>
+                    <button onclick="appendGesture('\u2192')" style="background:#161b22;border:1px solid #21262d;color:#58a6ff;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:.875rem;">&rarr;</button>
+                    <button onclick="appendGesture('\u2197')" style="background:#161b22;border:1px solid #21262d;color:#3fb950;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:.875rem;">&#x2197;</button>
+                    <button onclick="appendGesture('\u2198')" style="background:#161b22;border:1px solid #21262d;color:#3fb950;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:.875rem;">&#x2198;</button>
+                    <button onclick="appendGesture('\u2196')" style="background:#161b22;border:1px solid #21262d;color:#3fb950;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:.875rem;">&#x2196;</button>
+                    <button onclick="appendGesture('\u2199')" style="background:#161b22;border:1px solid #21262d;color:#3fb950;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:.875rem;">&#x2199;</button>
+                    <button onclick="appendGesture('\u25CF')" style="background:#161b22;border:1px solid #21262d;color:#d4a017;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:.875rem;">&#x25CF;</button>
+                    <button onclick="document.getElementById('ct-gesture-input').value=''" style="background:#161b22;border:1px solid #f85149;color:#f85149;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:.625rem;">Clear</button>
+                </div>
+                <div id="ct-gesture-results" style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:8px;font-family:var(--mono);font-size:.6875rem;color:#8b949e;min-height:40px;max-height:200px;overflow-y:auto;"></div>
+            </div>
+            <!-- ── VR/XR Hand Tracking Status ── -->
+            <div style="border-top:1px solid #21262d;padding-top:8px;margin-top:6px;">
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <span style="font-size:.875rem;">&#x1F3AE;</span>
+                    <span style="font-weight:700;font-size:.6875rem;color:#e6edf3;">VR/XR/AR Device</span>
+                    <span id="ct-xr-status" style="font-size:.5625rem;color:#484f58;">Waiting for WebXR session...</span>
+                    <button onclick="initXRSession()" class="qp-btn qp-btn-secondary" style="font-size:.5625rem;padding:2px 8px;margin-left:auto;">Connect XR</button>
+                </div>
+                <div id="ct-xr-hands" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
+                    <div style="background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:6px;text-align:center;">
+                        <div style="font-size:.5625rem;color:#484f58;">Left Hand</div>
+                        <div id="ct-xr-left" style="font-family:var(--mono);font-size:.75rem;color:#58a6ff;">—</div>
+                    </div>
+                    <div style="background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:6px;text-align:center;">
+                        <div style="font-size:.5625rem;color:#484f58;">Right Hand</div>
+                        <div id="ct-xr-right" style="font-family:var(--mono);font-size:.75rem;color:#3fb950;">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ TAB: MUSICA ENGINE ═══════════ -->
+    <div class="tab-panel" id="panel-musica">
+        <div style="display:flex;flex-direction:column;gap:10px;padding:12px;min-height:0;overflow:auto;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                <div style="font-weight:700;color:#1f5b9b;">Musica Engine — code as flow + BPM</div>
+                <div style="font-size:.6875rem;color:#5f728a;" id="musica-profile">profile: warming</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(5,minmax(140px,1fr));gap:8px;">
+                <div style="border:1px solid #cfe0f3;border-radius:8px;padding:8px;background:rgba(255,255,255,.8);">
+                    <div style="font-size:.625rem;color:#5f728a;">BPM</div>
+                    <div id="musica-bpm" style="font-size:1rem;font-weight:700;color:#1f5b9b;">0</div>
+                </div>
+                <div style="border:1px solid #cfe0f3;border-radius:8px;padding:8px;background:rgba(255,255,255,.8);">
+                    <div style="font-size:.625rem;color:#5f728a;">qBPM</div>
+                    <div id="musica-qbpm" style="font-size:1rem;font-weight:700;color:#7c3aed;">0</div>
+                    <div id="musica-qhzns" style="font-size:.625rem;color:#5f728a;font-family:var(--mono);">0 QHz · 0 ns/line</div>
+                </div>
+                <div style="border:1px solid #cfe0f3;border-radius:8px;padding:8px;background:rgba(255,255,255,.8);">
+                    <div style="font-size:.625rem;color:#5f728a;">Code Melody</div>
+                    <div id="musica-notes" style="font-size:.75rem;color:#8b5cf6;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+                </div>
+                <div style="border:1px solid #cfe0f3;border-radius:8px;padding:8px;background:rgba(255,255,255,.8);">
+                    <div style="font-size:.625rem;color:#5f728a;">Flow</div>
+                    <div id="musica-flow" style="font-size:.75rem;color:#38a5ff;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+                </div>
+                <div style="border:1px solid #cfe0f3;border-radius:8px;padding:8px;background:rgba(255,255,255,.8);">
+                    <div style="font-size:.625rem;color:#5f728a;">DAW Bridges</div>
+                    <div id="musica-daw" style="font-size:.75rem;color:#22a06b;font-family:var(--mono);">checking…</div>
+                </div>
+            </div>
+            <div style="border:1px solid #cfe0f3;border-radius:8px;padding:10px;background:rgba(255,255,255,.8);">
+                <div style="font-size:.6875rem;color:#5f728a;margin-bottom:6px;">Code Style as Music</div>
+                <div id="musica-style" style="font-family:var(--mono);font-size:.75rem;color:#7c3aed;line-height:1.5;min-height:20px;">—</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button id="musica-refresh" class="qp-btn qp-btn-secondary">Refresh from benchmark</button>
+                <button id="musica-export-json" class="qp-btn qp-btn-secondary">Export Musica JSON</button>
+                <button id="musica-push-daw" class="qp-btn qp-btn-primary">Push DAW payload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ TAB: SYMBOL LAB ═══════════ -->
+    <div class="tab-panel" id="panel-symbollab">
+        <div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;padding:12px;gap:10px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <span style="font-size:1.2rem;">&#x1F523;</span>
+                <span style="font-weight:700;color:#e6edf3;">Symbol Lab</span>
+                <span style="color:#484f58;font-size:.625rem;">multi-script input + pattern recognition</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <select id="sym-script" style="background:#161b22;border:1px solid #30363d;color:#e6edf3;padding:6px 10px;border-radius:6px;font-family:'SF Mono',monospace;font-size:.75rem;">
+                    <option value="latin">Latin</option>
+                    <option value="cyrillic">Cyrillic</option>
+                    <option value="arabic">Arabic</option>
+                    <option value="devanagari">Devanagari</option>
+                    <option value="hangul">Hangul</option>
+                    <option value="kanji">Kanji</option>
+                    <option value="hiragana">Hiragana</option>
+                    <option value="greek">Greek</option>
+                    <option value="hebrew">Hebrew</option>
+                    <option value="thai">Thai</option>
+                    <option value="tamil">Tamil</option>
+                    <option value="georgian">Georgian</option>
+                    <option value="armenian">Armenian</option>
+                </select>
+                <input type="text" id="sym-input" placeholder="Type or paste symbols..." style="flex:1;background:#0d1117;border:1px solid #30363d;color:#e6edf3;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-family:'SF Mono',monospace;outline:none;" autocomplete="off">
+            </div>
+            <div style="display:flex;gap:8px;">
+                <div style="flex:1;">
+                    <div style="font-size:.625rem;color:#484f58;margin-bottom:4px;">Unicode Analysis</div>
+                    <div id="sym-analysis" style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:8px;font-family:'SF Mono',monospace;font-size:.6875rem;color:#8b949e;min-height:80px;"></div>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-size:.625rem;color:#484f58;margin-bottom:4px;">Pattern Recognition</div>
+                    <div id="sym-patterns" style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:8px;font-family:'SF Mono',monospace;font-size:.6875rem;color:#8b949e;min-height:80px;"></div>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <div style="flex:2;">
+                    <div style="font-size:.625rem;color:#484f58;margin-bottom:4px;">Logogram Workspace</div>
+                    <canvas id="cv-logogram" style="width:100%;height:200px;background:#0d1117;border:1px solid #21262d;border-radius:6px;"></canvas>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-size:.625rem;color:#484f58;margin-bottom:4px;">Script Properties</div>
+                    <div id="sym-props" style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:8px;font-family:'SF Mono',monospace;font-size:.6875rem;color:#8b949e;min-height:200px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ TAB: LATTICE ═══════════ -->
+    <div class="tab-panel" id="panel-lattice">
+        <div style="display:flex;flex-direction:column;flex:1;overflow:hidden;padding:12px;gap:10px;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-size:1.2rem;">&#x269B;</span>
+                <span style="font-weight:700;color:#e6edf3;">Quantum Lattice</span>
+                <span style="color:#484f58;font-size:.625rem;">3D keyboard lattice — gesture search · hand tracking · multi-alphabet</span>
+                <span style="flex:1;"></span>
+                <select id="lattice-alphabet" style="background:#161b22;border:1px solid #21262d;color:#e6edf3;padding:3px 8px;border-radius:4px;font-family:var(--mono);font-size:.625rem;">
+                    <option value="key">Keys</option>
+                    <option value="braille">Braille</option>
+                    <option value="morse">Morse</option>
+                    <option value="asl">ASL</option>
+                    <option value="bsl">BSL</option>
+                    <option value="musical">Musical</option>
+                </select>
+                <button id="lattice-reset" style="background:none;border:1px solid #30363d;color:#8b949e;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.625rem;">Reset</button>
+                <button id="lattice-animate" style="background:#238636;border:none;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.625rem;">Animate</button>
+            </div>
+            <canvas id="cv-lattice" style="flex:1;width:100%;background:#050810;border:1px solid #21262d;border-radius:8px;cursor:grab;"></canvas>
+            <div style="display:flex;gap:12px;font-family:'SF Mono',monospace;font-size:.625rem;color:#484f58;flex-wrap:wrap;">
+                <span>Nodes: <span id="lattice-nodes" style="color:#7ee787;">0</span></span>
+                <span>Edges: <span id="lattice-edges" style="color:#58a6ff;">0</span></span>
+                <span>Tunnels: <span id="lattice-tunnels" style="color:#d2a8ff;">0</span></span>
+                <span>Rotation: <span id="lattice-rot" style="color:#f0883e;">0,0,0</span></span>
+                <span>Layout: <span id="lattice-layout-name" style="color:#fbbf24;">—</span></span>
+                <span>Alphabet: <span id="lattice-alphabet-name" style="color:#c084fc;">Keys</span></span>
+            </div>
+            <!-- Gesture search within lattice -->
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input type="text" id="lattice-search" placeholder="Search lattice by letter, word, or gesture..." style="flex:1;background:#0d1117;border:1px solid #30363d;color:#e6edf3;padding:5px 10px;border-radius:6px;font-family:var(--mono);font-size:.6875rem;outline:none;" autocomplete="off">
+                <button onclick="highlightLatticeNode()" class="qp-btn qp-btn-secondary" style="font-size:.625rem;padding:3px 10px;">Find</button>
+            </div>
+            <!-- Multi-alphabet info strip -->
+            <div id="lattice-alpha-strip" style="display:flex;gap:6px;flex-wrap:wrap;font-family:var(--mono);font-size:.625rem;"></div>
+        </div>
+    </div>
+
+    <div id="footer">
+        <span>{n, +1, -n, +0, 0, -1, +n, +2, -0, +3, 1}</span>
+        <span>&middot;</span>
+        <span style="color:#f0883e;">kbatch: world keyboard &amp; quantum analyzer</span>
+        <span>&middot;</span>
+        <a href="quantum-notepad.html">uvspeed notepad</a>
+        <span>&middot;</span>
+        <a href="search.html">search</a>
+        <span>&middot;</span>
+        <span>API: <code>window.kbatch</code></span>
+    </div>
+
+    <!-- ═══ Bottom Panels: Code Cell + Terminal ═══ -->
+    <div id="bottom-panels">
+        <div class="panel-section">
+            <div class="panel-header" id="code-panel-toggle">
+                <span style="color:#7ee787;">&#9889; Live Code Cell</span>
+                <span>
+                    <span class="tag" style="background:#238636;color:#fff;">JS</span>
+                    <span class="tag" style="background:#21262d;color:#8b949e;">kbatch + Quantum</span>
+                    <span style="color:#484f58;margin-left:6px;">&#9660;</span>
+                </span>
+            </div>
+            <div class="panel-body collapsed" id="code-panel-body">
+                <div class="code-cell-area">
+                    <div class="code-editor">
+                        <div class="code-toolbar">
+                            <button class="btn-run" id="code-run">&#9654; Run</button>
+                            <button id="code-clear">Clear</button>
+                            <button id="code-example">Example</button>
+                            <button id="code-sync">Sync State</button>
+                            <span style="flex:1;"></span>
+                            <span style="color:#484f58;">Ctrl+Enter to run</span>
+                        </div>
+                        <textarea id="code-input" placeholder="// Write JavaScript here&#10;// Access: kbatch, kbatch.quantum, kbatch.layouts&#10;" spellcheck="false">// Get current analysis state
+const state = kbatch.state;
+console.log('Layout:', kbatch.activeLayout);
+console.log('Words typed:', state.words);
+console.log('WPM:', state.wpm.toFixed(1));
+console.log('Efficiency:', state.efficiency.toFixed(1) + '%');
+
+// Analyze a specific word
+const analysis = kbatch.analyze('quantum');
+console.log('\n"quantum" analysis:');
+console.log('  Efficiency:', analysis.efficiency.toFixed(1) + '%');
+console.log('  Path:', analysis.path);
+
+// List available layouts
+console.log('\nLayouts:', Object.keys(kbatch.layouts).join(', '));
+
+// Build a quantum circuit from typing
+const qasm = kbatch.quantum.buildFromTyping();
+console.log('\nQuantum circuit (first 5 lines):');
+console.log(qasm.split('\n').slice(0,5).join('\n'));</textarea>
+                    </div>
+                    <div>
+                        <div class="code-toolbar" style="justify-content:space-between;">
+                            <span style="color:#7ee787;">Output</span>
+                            <button id="output-clear">Clear Output</button>
+                        </div>
+                        <div class="code-output" id="code-output">
+                            <div class="out-info">// Output appears here when you run code</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="panel-section">
+            <div class="panel-header" id="term-panel-toggle">
+                <span style="color:#f0883e;">&#x2622; Terminal</span>
+                <span>
+                    <span class="tag" style="background:#f0883e22;color:#f0883e;">kbatch</span>
+                    <span style="color:#484f58;margin-left:6px;">&#9660;</span>
+                </span>
+            </div>
+            <div class="panel-body collapsed" id="term-panel-body">
+                <div class="terminal-area" id="term-output">
+                    <div class="term-line info">Welcome to kbatch terminal — world keyboard &amp; quantum analyzer</div>
+                    <div class="term-line">Type <b style="color:#f0883e;">help</b> for commands. 15 layouts, dictionary, IBM Quantum bridge.</div>
+                    <div class="term-line" style="color:#484f58;">───────────────────────────────────────────────</div>
+                </div>
+                <div class="term-input-row">
+                    <span class="term-prompt">kb&gt;</span>
+                    <input type="text" id="term-input" placeholder="help, layout, dict, quantum, analyze, train ..." autocomplete="off" spellcheck="false">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="quantum-prefixes.js"></script>
+    <script src="classify-confidence.js"></script>
+    <script src="classify-tensor.js"></script>
+    <script src="classify-adam.js"></script>
+    <script src="qbit-dac.js"></script>
+    <script src="qbit-preflight.js"></script>
+    <script src="capsule-embed.js"></script>
+    <script src="qbit-steno.js"></script>
+    <script src="history-search-engine.js"></script>
+    <script src="ugrad-game-registry.js"></script>
+    <script src="plan-corpus-indexer.js"></script>
+    <script src="kbatch-capsules.generated.js"></script>
+    <script src="kbatch-live-capsules.js"></script>
+    <script src="lib/kbatch-live-pipeline.js"></script>
+    <script src="lib/kbatch-contrails-fast.js"></script>
+    <script src="kbatch-main.js"></script>
+    <script src="lib/kbatch-qbpm-bridge.js"></script>
+    <script src="lib/kbatch-live-patch.js"></script>
+    <script src="lib/kbatch-caption-bridge.js"></script>
+    <script src="ugrad-sportsfield-shot.js?v=4.237"></script>
+    <script src="kbatch-sportsfield-aggregate.js"></script>
+    <script src="kbatch-tab-query.js"></script>
+    <script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+    </script>
+</body>
+</html>

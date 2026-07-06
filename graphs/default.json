@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "meta": { "name": "starter", "cpm": 120 },
+  "nodes": [
+    {
+      "id": "clock",
+      "type": "core.clock",
+      "pos": [80, 120],
+      "params": { "cpm": 120 }
+    },
+    {
+      "id": "jax-1",
+      "type": "python.jax",
+      "pos": [320, 80],
+      "code": "import jax.numpy as jnp\nx = jnp.arange(4)\nresult = {\"values\": x.tolist(), \"sum\": float(jnp.sum(x))}"
+    },
+    {
+      "id": "py-1",
+      "type": "python.exec",
+      "pos": [320, 240],
+      "code": "result = {\"message\": \"qbpm python node\", \"inputs\": inputs}"
+    },
+    {
+      "id": "out",
+      "type": "core.output",
+      "pos": [560, 160],
+      "params": {}
+    }
+  ],
+  "edges": [
+    { "from": "clock", "to": "py-1", "port": "tick" },
+    { "from": "py-1", "to": "out", "port": "data" },
+    { "from": "jax-1", "to": "out", "port": "data" }
+  ]
+}

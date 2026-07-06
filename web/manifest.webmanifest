@@ -1,0 +1,27 @@
+{
+  "name": "qbpm — qbitOS",
+  "short_name": "qbpm",
+  "description": "Spatial node graph · live music · collab HUD — qbitos.ai",
+  "start_url": "https://qbitos.ai/",
+  "scope": "https://qbitos.ai/",
+  "id": "https://qbitos.ai/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#010409",
+  "theme_color": "#0d1117",
+  "categories": ["developer", "productivity", "music"],
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

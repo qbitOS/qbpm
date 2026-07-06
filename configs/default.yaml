@@ -1,0 +1,6 @@
+app: qbpm
+host: 127.0.0.1
+port: 8796
+graph: graphs/default.json
+framework: python
+precision: float32

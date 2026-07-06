@@ -1,0 +1,8 @@
+# Portable Colossus scaling — train jobs launch separately; qbpm stays graph/orchestration.
+framework: jax
+nodes: 2
+gpus_per_node: 8
+batch_size: 256
+precision: bfloat16
+rdma: true
+qbpm_api: http://127.0.0.1:8796

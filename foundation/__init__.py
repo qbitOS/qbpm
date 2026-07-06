@@ -1,0 +1,1 @@
+"""qbpm foundation — shared paths, presets, ingest recipes."""

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>grok pipe — qbpm</title>
+  <style>body{font-family:ui-monospace,Menlo,monospace;background:#0d1117;color:#c9d1d9;padding:12px}pre{background:#161b22;padding:10px;font-size:0.7rem}</style>
+</head>
+<body>
+  <h1>Grok pipe</h1>
+  <p>Imagine → Resolve → Colossus — <a href="https://github.com/fornevercollective/grok-public-folder" style="color:#58a6ff">grok-public-folder</a></p>
+  <pre id="meta">loading…</pre>
+  <script>
+    fetch("/api/health").then(r=>r.json()).then(h=>{
+      document.getElementById("meta").textContent = JSON.stringify({ foundation: h.foundation, imagine: h.imagine, video: h.video, live: h.live }, null, 2);
+    });
+  </script>
+</body>
+</html>
