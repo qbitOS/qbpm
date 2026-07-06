@@ -4,6 +4,7 @@ import { createMusicCore } from "./music-core.js";
 import { createMusicLab } from "./music-lab.js";
 import { createMusicPanes } from "./music-panes.js";
 import { createHeaderWaveform } from "./header-waveform.js";
+import { createHeaderStage } from "./header-stage.js";
 import { createFloatDock } from "./float-dock.js";
 import { createProcessingWing } from "./processing-wing.js";
 import { createVideoFeed } from "./video-feed.js";
@@ -16,7 +17,7 @@ import {
 } from "./video-ingest.js";
 import { createStrudelPane } from "./strudel-pane.js";
 import { createDawLink } from "./daw-link.js";
-import { createVideoFloatBar } from "./video-float-bar.js";
+
 
 const floatDock = createFloatDock();
 
@@ -53,7 +54,7 @@ export function createFloatWorkspace(opts = {}) {
   let videoWall = null;
   let strudelPane = null;
   let dawLink = null;
-  let videoFloatBar = null;
+  let headerStage = null;
   const chatHistory = [];
 
   const wrap = document.getElementById("canvas-wrap");
@@ -213,14 +214,18 @@ export function createFloatWorkspace(opts = {}) {
     });
     videoWall.mountThumbStrip(document.getElementById("viz-stream-strip"));
     videoWall.setFloatDockOpen?.(() => floatDock.openPanel("video"));
-    videoFloatBar = createVideoFloatBar({
+    headerStage = createHeaderStage({
+      getBpm,
+      getAnalyser: () => musicCore?.getAnalyser?.(),
       getVideoWall: () => videoWall,
-      onPinClick: (entry) => {
-        processingWing?.setStatus?.(`pin · ${entry?.role || "?"} · ${entry?.active ? entry.name : "placeholder"}`);
-      },
+      getLocalHandle,
+      getPeers,
+      getRoomId: getActiveWindowId,
+      onChatSend,
       onOpenVideo: () => floatDock.openPanel("video"),
+      onVwallLive: () => processingWing?.setStatus?.("vwall · live"),
     });
-    videoFloatBar.mount(document.getElementById("video-float-bar"));
+    headerStage.mount(document.getElementById("header-stage"));
     videoFeed = createVideoFeed({
       videoWall,
       onIngestUrl: (url) => ingestWatchUrl(url),
@@ -235,6 +240,7 @@ export function createFloatWorkspace(opts = {}) {
     const fromEl = document.getElementById("float-chat-from");
     const toEl = document.getElementById("float-chat-to");
     if (fromEl) fromEl.value = getLocalHandle() || "guest";
+    headerStage?.refreshChatRoute?.();
 
     if (!toEl) return;
     const peers = getPeers() || [];
@@ -276,6 +282,7 @@ export function createFloatWorkspace(opts = {}) {
   }
 
   function appendChatLine(msg) {
+    headerStage?.appendChatLine?.(msg);
     const log = document.getElementById("float-chat-log");
     if (!log) return;
     const from = msg.fromName || msg.from || "sys";
@@ -402,7 +409,7 @@ export function createFloatWorkspace(opts = {}) {
     processingWing?.destroy?.();
     videoWall?.destroy?.();
     videoFeed?.destroy?.();
-    videoFloatBar?.destroy?.();
+    headerStage?.destroy?.();
     dawLink?.destroy?.();
     strudelPane?.destroy?.();
   }
