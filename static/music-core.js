@@ -61,25 +61,32 @@ function buildTwoOctaveKeys() {
   return keys;
 }
 
+const GRAND_MIDI_LO = 48;
+const GRAND_MIDI_HI = 83;
+
 function buildGrandKeys() {
-  const KEY_W = 14;
   const keys = [];
   let whitePos = 0;
-  for (let m = 36; m <= 84; m++) {
+  for (let m = GRAND_MIDI_LO; m <= GRAND_MIDI_HI; m++) {
     const name = midiToName(m);
     const black = name.includes("#");
     if (!black) {
-      keys.push({ n: name, midi: m, f: midiToFreq(m), w: whitePos * KEY_W, black: false });
+      keys.push({ n: name, midi: m, f: midiToFreq(m), wi: whitePos, black: false });
       whitePos++;
     } else {
-      keys.push({ n: name, midi: m, f: midiToFreq(m), w: 0, black: true });
+      keys.push({ n: name, midi: m, f: midiToFreq(m), wi: null, black: true });
     }
   }
+  const whiteCount = whitePos;
   keys.filter((k) => k.black).forEach((k) => {
     let prev = k.midi - 1;
-    while (prev >= 36 && midiToName(prev).includes("#")) prev--;
+    while (prev >= GRAND_MIDI_LO && midiToName(prev).includes("#")) prev--;
     const white = keys.find((x) => x.midi === prev && !x.black);
-    if (white) k.w = white.w + KEY_W - 8;
+    if (white) k.wi = white.wi;
+  });
+  keys.forEach((k) => {
+    k.whiteCount = whiteCount;
+    if (k.black && k.wi != null) k.w = (k.wi + 0.68) / whiteCount;
   });
   return keys;
 }
@@ -216,6 +223,21 @@ export function createMusicCore(opts = {}) {
   let audioCtx = null;
   let analyser = null;
   let masterGain = null;
+  let scratchPan = null;
+  let scratchDelay = null;
+  let scratchEchoSend = null;
+  let scratchEchoFb = null;
+  let scratchLfo = null;
+  let scratchLfoDepth = null;
+  let scratchFx = {
+    pan: 0,
+    lfo: 0,
+    lfoRate: 2,
+    env: 0.5,
+    warp: 1,
+    echo: 0,
+    delay: 0,
+  };
   let autotuneOn = localStorage.getItem("qbpm-autotune") === "1";
   let lastDetectedMidi = null;
   let waveformCapture = null;
@@ -246,13 +268,75 @@ export function createMusicCore(opts = {}) {
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 512;
       analyser.smoothingTimeConstant = 0.62;
-      masterGain.connect(analyser);
-      analyser.connect(audioCtx.destination);
       masterGain.gain.value = 0.12;
+      ensureScratchBus();
       getTabRuntime().registerAudioContext(audioCtx);
     }
     getTabRuntime().resumeAllAudioContexts();
     return audioCtx;
+  }
+
+  function ensureScratchBus() {
+    if (scratchPan || !audioCtx || !masterGain || !analyser) return;
+    scratchPan = audioCtx.createStereoPanner();
+    scratchDelay = audioCtx.createDelay(1.5);
+    scratchDelay.delayTime.value = 0;
+    scratchEchoFb = audioCtx.createGain();
+    scratchEchoFb.gain.value = 0;
+    const echoDelay = audioCtx.createDelay(1.2);
+    echoDelay.delayTime.value = 0.22;
+    scratchLfo = audioCtx.createOscillator();
+    scratchLfo.type = "sine";
+    scratchLfo.frequency.value = scratchFx.lfoRate;
+    scratchLfoDepth = audioCtx.createGain();
+    scratchLfoDepth.gain.value = 0;
+    scratchLfo.connect(scratchLfoDepth);
+    scratchLfoDepth.connect(scratchPan.pan);
+    scratchLfo.start();
+    masterGain.disconnect();
+    masterGain.connect(scratchPan);
+    scratchPan.connect(scratchDelay);
+    scratchDelay.connect(analyser);
+    scratchDelay.connect(echoDelay);
+    echoDelay.connect(scratchEchoFb);
+    scratchEchoFb.connect(scratchPan);
+    analyser.connect(audioCtx.destination);
+    applyScratchFx();
+  }
+
+  function applyScratchFx() {
+    if (!scratchPan) return;
+    scratchPan.pan.value = scratchFx.pan;
+    scratchDelay.delayTime.value = scratchFx.delay * 0.45;
+    scratchEchoFb.gain.value = scratchFx.echo * 0.42;
+    scratchLfoDepth.gain.value = scratchFx.lfo * 0.4;
+    if (scratchLfo) scratchLfo.frequency.value = Math.max(0.1, scratchFx.lfoRate);
+    const envGain = 0.35 + scratchFx.env * 0.65;
+    if (masterGain) masterGain.gain.value = 0.12 * envGain * (scratchFx.warp > 1 ? 1.05 : 1);
+  }
+
+  function setScratchFx(patch) {
+    scratchFx = { ...scratchFx, ...patch };
+    ensureAudio();
+    applyScratchFx();
+    notify();
+  }
+
+  function getScratchFx() {
+    return { ...scratchFx };
+  }
+
+  function getTimeDomainWave(n = 256) {
+    if (!analyser) return null;
+    const buf = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(buf);
+    const out = new Float32Array(n);
+    const step = buf.length / n;
+    for (let i = 0; i < n; i++) {
+      const v = buf[Math.floor(i * step)] / 128 - 1;
+      out[i] = v;
+    }
+    return out;
   }
 
   function envGainAt(stepIdx) {
@@ -621,6 +705,9 @@ export function createMusicCore(opts = {}) {
     STEP_COUNT,
     ensureAudio,
     getAnalyser: () => analyser,
+    getTimeDomainWave,
+    getScratchFx,
+    setScratchFx,
     subscribe,
     playPad,
     playTone,

@@ -16,7 +16,7 @@ function clamp(v, lo, hi) {
 }
 
 export function createVideoFeed(opts = {}) {
-  const { onIngestUrl, onStatus, onSnapshot, videoWall } = opts;
+  const { onIngestUrl, onStatus, onSnapshot, videoWall, compact = false } = opts;
 
   let host = null;
   let video = null;
@@ -41,8 +41,9 @@ export function createVideoFeed(opts = {}) {
 
   function mount(el) {
     host = el;
+    const wingCls = compact ? "vid-wing vid-wing-compact" : "vid-wing";
     host.innerHTML = `
-      <div class="vid-wing">
+      <div class="${wingCls}">
         <div class="vid-vwall-hd">
           <span>vwall · group stream</span>
           <button type="button" class="vid-btn vid-vwall-live" title="Join group stream">📡 live</button>
@@ -109,12 +110,17 @@ export function createVideoFeed(opts = {}) {
       </div>`;
 
     video = host.querySelector(".vid-el");
-    videoWall?.mountWall?.(document.getElementById("vid-vwall-host"));
+    const vwallHost = host.querySelector(".vid-vwall-host");
+    const railHost = host.querySelector(".vid-live-rail-host");
+    if (videoWall && vwallHost && !vwallHost.dataset.mounted) {
+      videoWall.mountWall?.(vwallHost);
+      vwallHost.dataset.mounted = "1";
+    }
     liveRail = createLiveVideoRail({
       onStatus: setStatus,
       loadDirectVideo: (url) => loadUrl(url, "direct"),
     });
-    liveRail.mount(document.getElementById("vid-live-rail-host"));
+    if (railHost) liveRail.mount(railHost);
     applyDisplay();
     bindEvents();
     getTabRuntime().registerVisualLoop("video-feed-scrub", {

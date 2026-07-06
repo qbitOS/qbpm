@@ -18,10 +18,13 @@ import { mountInspectorCommandHelp } from "./terminal-commands.js";
 import { resolveTransport, drawNodeCycleBar } from "./node-cycle.js";
 import { getTabRuntime } from "./tab-runtime.js";
 import { createVizUserRail } from "./viz-user-rail.js";
+import { createLiveNodePanel, LIVE_PANEL_W, LIVE_PANEL_H } from "./live-node-panel.js";
 
 const GRAPH_NAME = "default";
 const NODE_W = 168;
 const NODE_H = 64;
+const LIVE_NODE_W = 200;
+const LIVE_NODE_H = 72;
 const PORT_R = 7;
 const FRAME_PORT_R = 8;
 const NODE_BTN_GAP = 3;
@@ -69,6 +72,7 @@ let qubeManager = null;
 let jamBridge = null;
 let lastProcessingText = "";
 let vizUserRail = null;
+let liveNodePanel = null;
 const SOLO_GRAPH_KEY = "qbpm-solo-graph";
 let soloGraph = localStorage.getItem(SOLO_GRAPH_KEY) !== "0";
 
@@ -114,6 +118,7 @@ function resize() {
   canvas.style.height = `${ch}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   floatWorkspace?.positionFramePanels?.();
+  liveNodePanel?.sync?.();
   draw();
   resizeViz();
 }
@@ -130,6 +135,12 @@ window.addEventListener("resize", resize);
 
 function nodeRect(n) {
   const [x, y] = n.pos;
+  if (n.type?.startsWith("live.") && n.id === selectedId) {
+    return { x, y, w: LIVE_PANEL_W, h: LIVE_PANEL_H };
+  }
+  if (n.type?.startsWith("live.")) {
+    return { x, y, w: LIVE_NODE_W, h: LIVE_NODE_H };
+  }
   return { x, y, w: NODE_W, h: NODE_H };
 }
 
@@ -874,6 +885,16 @@ function initCollab() {
     onWorkspaceChange: () => qubeManager?.scheduleFlush?.("workspace"),
   });
 
+  liveNodePanel = createLiveNodePanel({
+    getPanScale: () => ({ pan, scale }),
+    getSelectedId: () => selectedId,
+    getGraph: () => graph,
+    getCanvasWrap: () => document.getElementById("canvas-wrap"),
+    getVideoWall: () => floatWorkspace?.getVideoWall?.(),
+    onIngestUrl: (url) => floatWorkspace?.ingestWatchUrl?.(url),
+    onStatus: (t) => collabShell?.appendPromptOutput?.(t),
+  });
+
   ugradHud = createUgradHud({
     getPanScale: () => ({ pan, scale }),
     getLocalHandle: () => localStorage.getItem("qbpm-collab-name") || "guest",
@@ -1169,24 +1190,35 @@ function draw() {
     ctx.font = `${9 / scale}px Menlo, monospace`;
     ctx.fillText(n.type, r.x + 10, r.y + 36);
     if (n.type?.startsWith("live.")) {
-      const urls = n.data?.urls?.length || 0;
-      const feat = n.data?.feature || n.type.split(".")[1] || "rail";
-      ctx.fillStyle = "#d29922";
-      ctx.font = `${7 / scale}px Menlo, monospace`;
-      ctx.fillText(`${feat} · ${urls} src`, r.x + 10, r.y + 48);
+      if (n.id === selectedId) {
+        ctx.fillStyle = "rgba(33, 38, 45, 0.35)";
+        ctx.fillRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4);
+        ctx.fillStyle = "#6e7681";
+        ctx.font = `${8 / scale}px Menlo, monospace`;
+        ctx.fillText("live editor · drag ports · dbl-click", r.x + 8, r.y + 14);
+      } else {
+        const urls = n.data?.urls?.length || 0;
+        const feat = n.data?.feature || n.type.split(".")[1] || "rail";
+        ctx.fillStyle = "#d29922";
+        ctx.font = `${7 / scale}px Menlo, monospace`;
+        ctx.fillText(`${feat} · ${urls} src`, r.x + 10, r.y + 48);
+      }
     }
-    const lk = nodeParamKey(n, "left");
-    const rk = nodeParamKey(n, "right");
-    ctx.fillStyle = "#6e7681";
-    ctx.font = `${8 / scale}px Menlo, monospace`;
-    ctx.fillText(`L ${lk}=${p[lk] ?? nodeParamDefault(n, lk)}`, r.x + 8, r.y + 50);
-    ctx.fillText(`R ${rk}=${p[rk] ?? nodeParamDefault(n, rk)}`, r.x + 8, r.y + 60);
-    drawNodeCycleBar(ctx, r, n, transport, scale);
+    if (!(n.type?.startsWith("live.") && n.id === selectedId)) {
+      const lk = nodeParamKey(n, "left");
+      const rk = nodeParamKey(n, "right");
+      ctx.fillStyle = "#6e7681";
+      ctx.font = `${8 / scale}px Menlo, monospace`;
+      ctx.fillText(`L ${lk}=${p[lk] ?? nodeParamDefault(n, lk)}`, r.x + 8, r.y + 50);
+      ctx.fillText(`R ${rk}=${p[rk] ?? nodeParamDefault(n, rk)}`, r.x + 8, r.y + 60);
+      drawNodeCycleBar(ctx, r, n, transport, scale);
+    }
   }
   if (collab) collab.drawPeers(ctx, pan, scale);
   ctx.restore();
   updateCanvasResolutionLabel();
   collabShell?.positionOverlays?.();
+  liveNodePanel?.sync?.();
   drawViz();
 }
 
@@ -1445,6 +1477,14 @@ function syncInspector() {
   }
   tagNodeOwner(n);
   if (!soloGraph) collab?.broadcastPatch?.({ nodes: graph.nodes });
+  const entry = liveNodePanel?.getFeedForNode?.(n.id);
+  if (entry && n.type?.startsWith("live.")) {
+    const urls = n.data?.urls;
+    if (Array.isArray(urls) && urls.length) entry.loadLiveVideos?.(urls);
+    const url = n.data?.url || n.data?.ingestUrl;
+    if (url) entry.loadUrl?.(url);
+  }
+  liveNodePanel?.sync?.();
   draw();
   qubeManager?.scheduleFlush?.("nodes");
   vizUserRail?.render?.();
@@ -1979,12 +2019,11 @@ canvas.addEventListener("dblclick", (ev) => {
   const { wx, wy } = canvasPoint(ev);
   const hit = nodeAt(wx, wy);
   if (hit?.type?.startsWith("live.")) {
+    selectNode(hit.id);
+    liveNodePanel?.sync?.();
     const urls = hit.data?.urls || [];
-    if (urls.length) window.qbpm?.loadLiveVideos?.(urls);
-    else {
-      setRightPanelTab("inspector");
-      selectNode(hit.id);
-      vizLog.textContent = `${hit.id} · edit URLs in inspector JSON`;
+    if (urls.length) {
+      liveNodePanel?.getFeedForNode?.(hit.id)?.loadLiveVideos?.(urls);
     }
     return;
   }

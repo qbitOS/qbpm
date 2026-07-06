@@ -6,6 +6,7 @@ import { createMusicPanes } from "./music-panes.js";
 import { createHeaderWaveform } from "./header-waveform.js";
 import { createHeaderStage } from "./header-stage.js";
 import { createHeaderPlayStrip } from "./header-play-strip.js";
+import { createDjScratchSpot } from "./dj-scratch-spot.js";
 import { createFloatDock } from "./float-dock.js";
 import { createProcessingWing } from "./processing-wing.js";
 import { createVideoFeed } from "./video-feed.js";
@@ -59,6 +60,7 @@ export function createFloatWorkspace(opts = {}) {
   let dawLink = null;
   let headerStage = null;
   let headerPlayStrip = null;
+  let djScratchSpot = null;
   const chatHistory = [];
 
   const wrap = document.getElementById("canvas-wrap");
@@ -214,6 +216,10 @@ export function createFloatWorkspace(opts = {}) {
     headerWaveform.mount();
     headerPlayStrip = createHeaderPlayStrip(musicCore);
     headerPlayStrip.mount(document.getElementById("header-play-strip"));
+    djScratchSpot = createDjScratchSpot(musicCore, {
+      onCollabPatch: (patch) => onMusicSend?.({ targetType: "broadcast", target: "all", payload: { scratch: patch } }),
+    });
+    djScratchSpot.mount(document.getElementById("header-dj-spot"));
     processingWing = createProcessingWing();
     processingWing.mount(document.getElementById("float-processing-host"));
     videoWall = createVideoWall({
@@ -431,6 +437,7 @@ export function createFloatWorkspace(opts = {}) {
     videoWall?.destroy?.();
     videoFeed?.destroy?.();
     headerStage?.destroy?.();
+    djScratchSpot?.destroy?.();
     dawLink?.destroy?.();
     strudelPane?.destroy?.();
   }
@@ -475,6 +482,8 @@ export function createFloatWorkspace(opts = {}) {
     ingestWatchUrl,
     ffplayWatchUrl,
     getVideoFeed: () => videoFeed,
+    getMusicCore: () => musicCore,
+    getDjScratchSpot: () => djScratchSpot,
     onRemoteVideo: (msg) => videoWall?.onRemoteVideo?.(msg),
     onVideoSignal: (msg) => videoWall?.handleSignal?.(msg),
     onVideoPresence: (peers) => videoWall?.onPresence?.(peers),

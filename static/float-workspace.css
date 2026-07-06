@@ -575,12 +575,15 @@
 }
 .mp-black-key {
   position: absolute;
-  width: 12px;
+  width: 58%;
+  max-width: 14px;
+  min-width: 8px;
   height: 58px;
   background: #161b22;
   border-radius: 0 0 2px 2px;
   pointer-events: auto;
   z-index: 2;
+  transform: translateX(-50%);
 }
 .mp-key.active { filter: brightness(0.85); }
 .mp-mpc-pads {
@@ -871,6 +874,23 @@
 
 /* video feed wing */
 .vid-wing { display: flex; flex-direction: column; gap: 5px; }
+.vid-wing-compact { gap: 3px; font-size: 0.55rem; }
+.vid-wing-compact .vid-stage { min-height: 72px; max-height: 96px; }
+.vid-wing-compact .vid-el { max-height: 96px; }
+.vid-wing-compact .vid-status { font-size: 0.48rem; max-height: 28px; overflow: hidden; }
+.vid-wing-compact .vid-scrub { gap: 2px; }
+.vid-wing-compact .vid-transport,
+.vid-wing-compact .vid-source,
+.vid-wing-compact .vid-controls,
+.vid-wing-compact .vid-filters,
+.vid-wing-compact .vid-out { flex-wrap: wrap; gap: 3px; }
+.vid-wing-compact .vid-btn { font-size: 0.55rem; padding: 2px 5px; }
+.vid-wing-compact .vid-knob { font-size: 0.48rem; }
+.vid-wing-compact .vid-knob input { width: 48px; }
+.vid-wing-compact .vid-url { font-size: 0.55rem; min-height: 22px; }
+.vid-wing-compact .lvr-player { min-height: 64px; }
+.vid-wing-compact .lvr-iframe,
+.vid-wing-compact .lvr-vid { height: 72px; }
 .vid-vwall-hd {
   display: flex;
   align-items: center;
