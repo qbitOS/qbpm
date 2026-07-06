@@ -24,15 +24,17 @@
   letter-spacing: 0.06em;
   margin-bottom: 4px;
 }
-.float-tr { top: 8px; right: 8px; width: min(220px, 38vw); z-index: 13; }
-.float-bl { bottom: 52px; left: 8px; width: min(260px, 44vw); z-index: 13; }
-.float-br { bottom: 52px; right: 8px; width: min(220px, 38vw); z-index: 13; }
+.float-tr,
+.float-bl,
+.float-br,
 .float-video {
-  top: 48px;
-  left: 8px;
-  width: min(200px, 36vw);
-  z-index: 12;
+  left: 0;
+  top: 0;
 }
+.float-tr { width: min(220px, 38vw); z-index: 13; }
+.float-bl { width: min(260px, 44vw); z-index: 13; }
+.float-br { width: min(220px, 38vw); z-index: 13; }
+.float-video { width: min(200px, 36vw); z-index: 12; }
 
 .float-chat-log {
   max-height: 88px;
@@ -194,10 +196,7 @@
 }
 
 .float-peer-chats {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 10;
+  display: none;
 }
 .float-peer-chat {
   position: absolute;

@@ -1,4 +1,8 @@
-/** Collaborative shell — frame-anchored user badge, dock chat, frame video tiles */
+/** Collaborative shell — frame-anchored user dock, frame video tiles */
+
+import { moveLayer } from "./gpu-loop.js";
+
+const DOCK_GAP = 8;
 
 export function createCollabShell(opts) {
   const {
@@ -9,6 +13,7 @@ export function createCollabShell(opts) {
     getLocalHandle = () => "guest",
     getLocalColor = () => "#58a6ff",
     getLocalClientId = () => "local",
+    getFloatWorkspace,
     onHopViewport,
     onPromptSearch,
     onSyncPush,
@@ -16,6 +21,7 @@ export function createCollabShell(opts) {
 
   const videoStreams = new Map();
   let localVideo = null;
+  let lastPeerList = [];
 
   const els = ensureDom();
 
@@ -32,6 +38,10 @@ export function createCollabShell(opts) {
           <span class="ufb-dot" id="uwt-sync-dot">●</span>
           <input id="uwt-handle" type="text" maxlength="24" placeholder="handle" aria-label="User handle" />
           <span class="ufb-cid" id="ufb-client-id"></span>
+        </div>
+        <div class="ufb-search-row">
+          <input id="user-search" type="search" placeholder="find user · hop…" autocomplete="off" spellcheck="false" aria-label="Find user" />
+          <button type="button" id="user-search-go" title="Hop to user">◎</button>
         </div>
         <div class="uwt-peers" id="uwt-peers"></div>
         <div class="uwt-actions">
@@ -81,6 +91,27 @@ export function createCollabShell(opts) {
 
     document.getElementById("uwt-video")?.addEventListener("click", () => toggleLocalVideo());
 
+    const userSearch = document.getElementById("user-search");
+    const userSearchGo = document.getElementById("user-search-go");
+    const runUserSearch = () => {
+      const q = userSearch?.value?.trim().toLowerCase();
+      if (!q) return;
+      const match = lastPeerList.find(
+        (p) =>
+          (p.name || "").toLowerCase().includes(q) ||
+          (p.clientId || "").toLowerCase().includes(q),
+      );
+      if (match) {
+        if (match.viewport?.pan) onHopViewport?.(match.viewport);
+        getCollab?.()?.requestHop?.(match.clientId);
+      }
+    };
+    userSearchGo?.addEventListener("click", runUserSearch);
+    userSearch?.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") { ev.preventDefault(); runUserSearch(); }
+    });
+    userSearch?.addEventListener("input", () => filterPeers(userSearch.value));
+
     const promptIn = document.getElementById("prompt-search-in");
     const promptGo = document.getElementById("prompt-search-go");
     const runPrompt = () => {
@@ -103,7 +134,17 @@ export function createCollabShell(opts) {
     else els.syncDot.classList.add("sync-push");
   }
 
+  function filterPeers(query) {
+    const needle = query.trim().toLowerCase();
+    els.peers?.querySelectorAll(".uwt-peer").forEach((btn) => {
+      const text = btn.textContent.toLowerCase();
+      const title = (btn.title || "").toLowerCase();
+      btn.style.display = !needle || text.includes(needle) || title.includes(needle) ? "" : "none";
+    });
+  }
+
   function renderPeers(peerList) {
+    lastPeerList = peerList;
     if (!els.peers) return;
     els.peers.innerHTML = "";
     for (const p of peerList) {
@@ -119,6 +160,8 @@ export function createCollabShell(opts) {
       });
       els.peers.appendChild(btn);
     }
+    const q = document.getElementById("user-search")?.value;
+    if (q) filterPeers(q);
   }
 
   function appendChat(_msg) {
@@ -200,35 +243,20 @@ export function createCollabShell(opts) {
   function positionUserBadge() {
     const badge = els.badge;
     if (!badge) return;
-    const { pan, scale } = getPanScale?.() || { pan: { x: 0, y: 0 }, scale: 1 };
-    const frameList = getFrames?.() || [];
-    const mainFrame = frameList.find((f) => f.id === "frame-main") || frameList[0];
     const cid = getLocalClientId?.() || "local";
     if (els.clientIdEl && els.clientIdEl.textContent !== cid.slice(-6)) {
       els.clientIdEl.textContent = cid.slice(-6);
       els.clientIdEl.style.color = getLocalColor?.() || "#58a6ff";
     }
-    if (!mainFrame) {
-      if (badge._lx !== 10) {
-        badge._lx = 10;
-        badge._ly = 48;
-        badge.style.transform = "translate3d(10px,48px,0)";
-      }
-      return;
-    }
-    const [fx, fy] = mainFrame.rect;
-    const scr = worldToScreen(fx, fy, pan, scale);
-    const bw = badge._bw || 180;
-    const lx = Math.max(8, Math.round(scr.x - bw - 6));
-    const ly = Math.max(48, Math.round(scr.y - 4));
-    if (badge._lx !== lx || badge._ly !== ly) {
-      badge._lx = lx;
-      badge._ly = ly;
-      badge.style.transform = `translate3d(${lx}px,${ly}px,0)`;
-    }
+    const layout = getFloatWorkspace?.()?.getLeftDockLayout?.();
+    const lx = layout ? layout.colX : 10;
+    const ly = layout ? layout.rowBottom + DOCK_GAP : 48;
+    badge.style.width = layout ? `${layout.colW}px` : "";
+    moveLayer(badge, lx, ly);
   }
 
   function positionOverlays() {
+    getFloatWorkspace?.()?.positionFramePanels?.();
     positionUserBadge();
     const { pan, scale } = getPanScale?.() || { pan: { x: 0, y: 0 }, scale: 1 };
     const frameList = getFrames?.() || [];

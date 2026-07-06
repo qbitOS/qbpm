@@ -1,4 +1,4 @@
-const CACHE = "qbpm-v10";
+const CACHE = "qbpm-v11";
 const SHELL = [
   "/",
   "/static/qbpm.css",

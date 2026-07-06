@@ -121,15 +121,16 @@ body {
   contain: layout style paint;
   z-index: 14;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 5px;
-  padding: 4px 7px;
+  padding: 6px 8px;
   background: rgba(1, 4, 9, 0.94);
-  border: 1px solid #58a6ff;
+  border: 1px solid #30363d;
   border-radius: 8px;
   backdrop-filter: blur(10px);
   pointer-events: auto;
-  max-width: min(360px, 88vw);
+  max-width: min(428px, 88vw);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 .ufb-id {
@@ -138,6 +139,36 @@ body {
   gap: 4px;
   flex-shrink: 0;
 }
+.ufb-search-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+#user-search {
+  flex: 1;
+  min-width: 0;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #c9d1d9;
+  font: inherit;
+  font-size: 0.6rem;
+  padding: 4px 6px;
+}
+#user-search:focus { outline: none; border-color: #484f58; }
+#user-search::placeholder { color: #484f58; }
+#user-search-go {
+  min-width: 26px;
+  height: 26px;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  background: #21262d;
+  color: #8b949e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.7rem;
+}
+#user-search-go:hover { border-color: #58a6ff; color: #58a6ff; }
 .ufb-dot { font-size: 0.55rem; color: #6e7681; }
 .ufb-dot.sync-ok { color: #3fb950; }
 .ufb-dot.sync-warn { color: #d29922; }
@@ -162,7 +193,6 @@ body {
   display: flex;
   gap: 3px;
   flex-wrap: wrap;
-  max-width: 180px;
 }
 .uwt-peer {
   background: #21262d;
@@ -175,6 +205,11 @@ body {
   cursor: pointer;
 }
 .uwt-peer:hover { background: #30363d; }
+.uwt-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
 .uwt-actions button {
   width: 26px;
   height: 26px;

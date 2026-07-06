@@ -216,10 +216,7 @@ export function createUgradHud(opts = {}) {
       }
     }
 
-    const fw = getFloatWorkspace?.();
-    if (fw?.setPeerChats) {
-      fw.setPeerChats(peers, pan, scale, worldToScreen);
-    }
+    getFloatWorkspace?.()?.setPeerChats?.();
   }
 
   function notifyChat(msg) {

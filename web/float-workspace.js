@@ -1,4 +1,9 @@
-/** Floating workspace — piano, oscillator, blank-style video, per-user quick chat */
+/** Floating workspace — piano, oscillator, blank-style video, frame-anchored chat */
+
+import { moveLayer } from "./gpu-loop.js";
+
+const DOCK_GAP = 8;
+const DOCK_MARGIN = 10;
 
 const PIANO_KEYS = [
   { n: "C4", f: 261.63, w: 0, black: false },
@@ -22,6 +27,8 @@ export function createFloatWorkspace(opts = {}) {
     onPromptIngest,
     onNotePlay,
     getLocalHandle = () => "guest",
+    getPanScale,
+    getFrames,
   } = opts;
 
   let audioCtx = null;
@@ -37,7 +44,54 @@ export function createFloatWorkspace(opts = {}) {
   bindEvents();
 
   function stub() {
-    return { setPeerChats() {}, destroy() {} };
+    return { setPeerChats() {}, positionFramePanels() {}, getLeftDockLayout() {}, destroy() {} };
+  }
+
+  function getMainFrame() {
+    const frameList = getFrames?.() || [];
+    return frameList.find((f) => f.id === "frame-main") || frameList[0];
+  }
+
+  function worldToScreen(wx, wy, pan, scale) {
+    return { x: pan.x + wx * scale, y: pan.y + wy * scale };
+  }
+
+  function getLeftDockLayout() {
+    const { pan, scale } = getPanScale?.() || { pan: { x: 0, y: 0 }, scale: 1 };
+    const main = getMainFrame();
+    if (!main) return null;
+    const [fx, fy, , fh] = main.rect;
+    const scr = worldToScreen(fx, fy, pan, scale);
+    const videoEl = document.getElementById("float-panel-video");
+    const chatEl = document.getElementById("float-panel-tr");
+    const videoW = videoEl?.offsetWidth || 200;
+    const chatW = chatEl?.offsetWidth || 220;
+    const colW = videoW + DOCK_GAP + chatW;
+    const colX = Math.round(scr.x - colW - DOCK_MARGIN);
+    const colY = Math.max(48, Math.round(scr.y));
+    const videoH = videoEl?.offsetHeight || 180;
+    const chatH = chatEl?.offsetHeight || 140;
+    const rowH = Math.max(videoH, chatH);
+    const bottomY = pan.y + (fy + fh) * scale;
+    return { colX, colY, colW, rowH, rowBottom: colY + rowH, mainScr: scr, bottomY };
+  }
+
+  function positionFramePanels() {
+    const layout = getLeftDockLayout();
+    if (!layout) return;
+    const videoEl = document.getElementById("float-panel-video");
+    const chatEl = document.getElementById("float-panel-tr");
+    const videoW = videoEl?.offsetWidth || 200;
+    moveLayer(videoEl, layout.colX, layout.colY);
+    moveLayer(chatEl, layout.colX + videoW + DOCK_GAP, layout.colY);
+
+    const bl = document.getElementById("float-panel-bl");
+    const br = document.getElementById("float-panel-br");
+    const blH = bl?.offsetHeight || 120;
+    const brW = br?.offsetWidth || 220;
+    const brH = br?.offsetHeight || 120;
+    if (bl) moveLayer(bl, layout.colX, layout.bottomY - blH - DOCK_MARGIN);
+    if (br) moveLayer(br, layout.mainScr.x - brW - DOCK_MARGIN, layout.bottomY - brH - DOCK_MARGIN);
   }
 
   function ensureDom(parent) {
@@ -284,47 +338,9 @@ export function createFloatWorkspace(opts = {}) {
     return out;
   }
 
-  function setPeerChats(peers, pan, scale, worldToScreen) {
+  function setPeerChats() {
     const layer = document.getElementById("float-peer-chats");
-    if (!layer) return;
-    const existing = new Set();
-    for (const p of peers) {
-      const id = p.clientId || p.name;
-      existing.add(id);
-      let box = layer.querySelector(`[data-peer-chat="${id}"]`);
-      if (!box) {
-        box = document.createElement("div");
-        box.className = "float-peer-chat";
-        box.dataset.peerChat = id;
-        box.innerHTML = `
-          <span class="fpc-name"></span>
-          <input type="text" class="fpc-in" placeholder="→ ${id.slice(0, 6)}" maxlength="120" />
-          <button type="button" class="fpc-send">↵</button>
-        `;
-        box.querySelector(".fpc-send").addEventListener("click", () => {
-          const t = box.querySelector(".fpc-in")?.value?.trim();
-          if (t) onChatSend?.(t);
-          box.querySelector(".fpc-in").value = "";
-        });
-        box.querySelector(".fpc-in").addEventListener("keydown", (ev) => {
-          if (ev.key === "Enter") {
-            ev.preventDefault();
-            box.querySelector(".fpc-send")?.click();
-          }
-        });
-        layer.appendChild(box);
-      }
-      box.querySelector(".fpc-name").textContent = p.name || id;
-      box.style.borderColor = p.color || "#58a6ff";
-      if (p.x != null && p.y != null) {
-        const scr = worldToScreen(p.x, p.y, pan, scale);
-        box.style.left = `${scr.x + 12}px`;
-        box.style.top = `${scr.y - 28}px`;
-      }
-    }
-    layer.querySelectorAll(".float-peer-chat").forEach((el) => {
-      if (!existing.has(el.dataset.peerChat)) el.remove();
-    });
+    if (layer) layer.innerHTML = "";
   }
 
   function escapeHtml(s) {
@@ -346,6 +362,8 @@ export function createFloatWorkspace(opts = {}) {
     setProcessing,
     drawNotation,
     setPeerChats,
+    positionFramePanels,
+    getLeftDockLayout,
     getVideoElement,
     destroy,
   };

@@ -452,6 +452,8 @@ function initCollab() {
     onChatSend: (text) => collab?.sendChat(text),
     onPromptIngest: (url) => runPromptSearch(url),
     onNotePlay: (n) => window.qbpmLive?.ingest?.({ musica: n.note, bpm: liveState?.bpm }, "piano"),
+    getPanScale: () => ({ pan, scale }),
+    getFrames: () => frames(),
   });
 
   ugradHud = createUgradHud({
@@ -470,6 +472,7 @@ function initCollab() {
     getLocalHandle: () => localStorage.getItem("qbpm-collab-name") || "guest",
     getLocalClientId: () => collab?.clientId || "local",
     getLocalColor: () => localStorage.getItem("qbpm-collab-color") || "#58a6ff",
+    getFloatWorkspace: () => floatWorkspace,
     onHopViewport: hopToViewport,
     onPromptSearch: runPromptSearch,
     onSyncPush: () => {
