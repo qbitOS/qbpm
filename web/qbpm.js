@@ -15,6 +15,7 @@ import { isStrudelUrl } from "./strudel-pane.js";
 import { createQubeManager } from "./qube-manager.js";
 import { getLocalQubeClientId } from "./qube-store.js";
 import { mountInspectorCommandHelp } from "./terminal-commands.js";
+import { resolveTransport, drawNodeCycleBar } from "./node-cycle.js";
 
 const GRAPH_NAME = "default";
 const NODE_W = 168;
@@ -981,6 +982,12 @@ function draw() {
     ctx.setLineDash([]);
   }
 
+  const transport = resolveTransport({
+    graph,
+    liveState,
+    musicTransport: floatWorkspace?.getMusicTransport?.(),
+  });
+
   for (const n of graph.nodes) {
     const r = nodeRect(n);
     const active = n.id === selectedId;
@@ -1033,6 +1040,7 @@ function draw() {
     ctx.font = `${8 / scale}px Menlo, monospace`;
     ctx.fillText(`L ${lk}=${p[lk] ?? nodeParamDefault(n, lk)}`, r.x + 8, r.y + 50);
     ctx.fillText(`R ${rk}=${p[rk] ?? nodeParamDefault(n, rk)}`, r.x + 8, r.y + 60);
+    drawNodeCycleBar(ctx, r, n, transport, scale);
   }
   if (collab) collab.drawPeers(ctx, pan, scale);
   ctx.restore();
@@ -1143,7 +1151,10 @@ function drawViz() {
 }
 
 function vizAnimLoop() {
-  if (document.visibilityState === "visible") drawViz();
+  if (document.visibilityState === "visible") {
+    drawViz();
+    draw();
+  }
   requestAnimationFrame(vizAnimLoop);
 }
 
