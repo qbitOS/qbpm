@@ -108,6 +108,8 @@ function ensureParams(n) {
   return n.params;
 }
 
+let ensuringCanvasMeta = false;
+
 function ensureCanvasMeta() {
   if (!graph.meta || typeof graph.meta !== "object") graph.meta = {};
   if (!Array.isArray(graph.meta.frames)) {
@@ -132,9 +134,15 @@ function ensureCanvasMeta() {
       { id: "vp-main", label: "Primary", frameId: "frame-main", pan: [80, 80], scale: 1 },
     ];
   }
-  if (!activeFrameId) activeFrameId = graph.meta.frames[0]?.id || null;
-  if (!activeWindowId) activeWindowId = graph.meta.viewports[0]?.id || null;
-  normalizeFramePalette();
+  if (ensuringCanvasMeta) return graph.meta;
+  ensuringCanvasMeta = true;
+  try {
+    if (!activeFrameId) activeFrameId = graph.meta.frames[0]?.id || null;
+    if (!activeWindowId) activeWindowId = graph.meta.viewports[0]?.id || null;
+    normalizeFramePalette();
+  } finally {
+    ensuringCanvasMeta = false;
+  }
   return graph.meta;
 }
 
@@ -1158,10 +1166,14 @@ function drawViz() {
   });
 }
 
+function canvasNeedsAnimRedraw() {
+  return !!(graph.nodes && graph.nodes.length);
+}
+
 function vizAnimLoop() {
   if (document.visibilityState === "visible") {
     drawViz();
-    draw();
+    if (canvasNeedsAnimRedraw()) draw();
   }
   requestAnimationFrame(vizAnimLoop);
 }
@@ -1208,27 +1220,17 @@ async function loadGraph(opts = {}) {
 }
 
 async function hardRefreshCanvas() {
-  dragging = null;
-  linking = null;
-  panning = false;
-  panStart = null;
-  hoverControl = null;
-  pinchStart = null;
-  selectedId = null;
-  pan = { x: 80, y: 80 };
-  scale = 1;
-  document.getElementById("insp-id").value = "";
-  document.getElementById("insp-type").value = "core.clock";
-  document.getElementById("insp-code").value = "";
   vizLog.textContent = "refreshing…";
   try {
     if ("caches" in window) {
       const keys = await caches.keys();
       await Promise.all(keys.map((k) => caches.delete(k)));
     }
-    await loadGraph({ hard: true, bust: true });
-    resize();
-    vizLog.textContent = "canvas hard-refreshed";
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      await reg?.update();
+    }
+    location.reload();
   } catch (err) {
     vizLog.textContent = `refresh error: ${err}`;
   }
