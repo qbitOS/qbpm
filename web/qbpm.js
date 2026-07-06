@@ -145,6 +145,25 @@ function ensureCanvasMeta() {
       negativeHarmony: { enabled: false, axis: "C" },
       polyrhythm: { enabled: false, ratio: [3, 4] },
       structure: { section: "verse", marker: "" },
+      notation: {
+        system: "modern",
+        key: "C",
+        mode: "ionian",
+        solfege: { mode: "movable", variant: "major" },
+        transposing: { instrument: "concert" },
+      },
+      structureChart: {
+        template: "pop",
+        sections: [
+          { id: "intro", label: "intro", bars: 4, startBar: 0 },
+          { id: "verse", label: "verse", bars: 8, startBar: 4 },
+          { id: "pre", label: "pre-chorus", bars: 4, startBar: 12 },
+          { id: "chorus", label: "chorus", bars: 8, startBar: 16 },
+          { id: "bridge", label: "bridge", bars: 8, startBar: 24 },
+          { id: "outro", label: "outro", bars: 4, startBar: 32 },
+        ],
+        totalBars: 36,
+      },
     };
   }
   if (ensuringCanvasMeta) return graph.meta;

@@ -14,9 +14,24 @@ import {
   THEORY_PRESETS,
   theorySummary,
   timeSigLabel,
+  resolveTransportTheory,
 } from "./music-theory.js";
+import {
+  NOTATION_SYSTEMS,
+  KEYS,
+  GREGORIAN_MODES,
+  TRANSPOSING_INSTRUMENTS,
+  STRUCTURE_TEMPLATES,
+  CHART_PRESETS,
+  drawStructureChart,
+  drawModeChart,
+  renderSolfegeRow,
+  notationLabelForNote,
+} from "./notation-chart.js";
 
-function drawStaff(el, notes, keys = PIANO_KEYS) {
+let lastChartNotes = [];
+
+function drawStaff(el, notes, keys = PIANO_KEYS, theory = null) {
   if (!el) return;
   el.innerHTML = "";
   if (typeof Vex === "undefined") {
@@ -51,8 +66,20 @@ function drawStaff(el, notes, keys = PIANO_KEYS) {
     voice.addTickables(tickables);
     new Formatter().joinVoices([voice]).format([voice], w - 20);
     voice.draw(ctx, stave);
+    if (theory) {
+      renderSolfegeRow(document.getElementById("ml-chart-row"), notes, theory);
+    }
   } catch (_) {
-    el.textContent = notes.map((n) => n.note).join(" ");
+    el.textContent = notes.map((n) => notationLabelForNote(n.note, theory || {})).join(" ");
+    if (theory) renderSolfegeRow(document.getElementById("ml-chart-row"), notes, theory);
+  }
+}
+
+function refreshCharts(theory, transport) {
+  drawStructureChart(document.getElementById("ml-structure-chart"), theory, transport);
+  drawModeChart(document.getElementById("ml-mode-chart"), theory);
+  if (lastChartNotes.length) {
+    renderSolfegeRow(document.getElementById("ml-chart-row"), lastChartNotes, theory);
   }
 }
 
@@ -125,6 +152,45 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
           </div>
           <div class="ml-theory-meta" id="ml-theory-meta">4/4 · verse</div>
         </div>
+        <div class="ml-chart-panel" aria-label="Notation charting · solfège · structure">
+          <div class="ml-theory-row">
+            <label class="ml-theory-field" title="Notation system">
+              <span>chart</span>
+              <select id="ml-notation-sys"></select>
+            </label>
+            <label class="ml-theory-field" title="Key / tonic">
+              <span>key</span>
+              <select id="ml-key"></select>
+            </label>
+            <label class="ml-theory-field" title="Mode">
+              <span>mode</span>
+              <select id="ml-mode"></select>
+            </label>
+            <label class="ml-theory-field" title="Solfège fixed or movable do">
+              <span>do</span>
+              <select id="ml-solfege-mode">
+                <option value="movable">movable</option>
+                <option value="fixed">fixed</option>
+              </select>
+            </label>
+          </div>
+          <div class="ml-theory-row">
+            <label class="ml-theory-field" title="Transposing instrument">
+              <span>inst</span>
+              <select id="ml-transpose-inst"></select>
+            </label>
+            <label class="ml-theory-field" title="Structure template">
+              <span>map</span>
+              <select id="ml-struct-tmpl"></select>
+            </label>
+          </div>
+          <div class="ml-chart-presets qb-btn-group" aria-label="Chart presets">
+            ${Object.values(CHART_PRESETS).map((p) => `<button type="button" class="qb-chip ml-chart-preset" data-chart="${p.id}" title="${p.label}">${p.label}</button>`).join("")}
+          </div>
+          <canvas id="ml-structure-chart" class="ml-structure-chart" height="28" aria-label="Song structure timeline"></canvas>
+          <canvas id="ml-mode-chart" class="ml-mode-chart" height="22" aria-label="Mode scale degrees"></canvas>
+          <div id="ml-chart-row" class="ml-chart-row" aria-label="Notation chart row"></div>
+        </div>
         <div class="ml-strudel-row">
           <input id="ml-strudel" type="text" placeholder="GitHub repo · strudel.cc · d1 $ s 'bd sd'" spellcheck="false" autocomplete="off" aria-label="Strudel pattern or project URL" />
           <button type="button" id="ml-strudel-open" class="ml-btn qb-btn--accent qb-btn--icon" title="Open Strudel pane">()</button>
@@ -162,7 +228,8 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
     bindEvents();
     refreshDawChips();
     refreshSendTargets();
-    drawStaff(document.getElementById("ml-staff"), []);
+    drawStaff(document.getElementById("ml-staff"), [], PIANO_KEYS, core.getTheory?.());
+    refreshCharts(core.getTheory?.() || {}, null);
     startWaveform();
     unsub = core.subscribe(syncUi);
     syncUi();
@@ -210,7 +277,31 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
     if (sec) {
       sec.innerHTML = STRUCTURE_SECTIONS.map((s) => `<option value="${s}">${s}</option>`).join("");
     }
+    buildChartControls();
     syncTheoryUi();
+  }
+
+  function buildChartControls() {
+    const sys = document.getElementById("ml-notation-sys");
+    if (sys) {
+      sys.innerHTML = NOTATION_SYSTEMS.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
+    }
+    const key = document.getElementById("ml-key");
+    if (key) key.innerHTML = KEYS.map((k) => `<option value="${k}">${k}</option>`).join("");
+    const mode = document.getElementById("ml-mode");
+    if (mode) {
+      mode.innerHTML = GREGORIAN_MODES.map((m) => `<option value="${m.id}">${m.label}</option>`).join("");
+    }
+    const inst = document.getElementById("ml-transpose-inst");
+    if (inst) {
+      inst.innerHTML = TRANSPOSING_INSTRUMENTS.map((i) => `<option value="${i.id}">${i.label}</option>`).join("");
+    }
+    const tmpl = document.getElementById("ml-struct-tmpl");
+    if (tmpl) {
+      tmpl.innerHTML = Object.values(STRUCTURE_TEMPLATES).map(
+        (t) => `<option value="${t.id}">${t.label}</option>`,
+      ).join("");
+    }
   }
 
   function syncTheoryUi() {
@@ -246,6 +337,15 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
     }
     const meta = document.getElementById("ml-theory-meta");
     if (meta) meta.textContent = theorySummary(t);
+    const n = t.notation || {};
+    document.getElementById("ml-notation-sys") && (document.getElementById("ml-notation-sys").value = n.system || "modern");
+    document.getElementById("ml-key") && (document.getElementById("ml-key").value = n.key || "C");
+    document.getElementById("ml-mode") && (document.getElementById("ml-mode").value = n.mode || "ionian");
+    document.getElementById("ml-solfege-mode") && (document.getElementById("ml-solfege-mode").value = n.solfege?.mode || "movable");
+    document.getElementById("ml-transpose-inst") && (document.getElementById("ml-transpose-inst").value = n.transposing?.instrument || "concert");
+    document.getElementById("ml-struct-tmpl") && (document.getElementById("ml-struct-tmpl").value = t.structureChart?.template || "pop");
+    const transport = resolveTransportTheory({ musicTransport: { bpm: t.bpm, theory: t } });
+    refreshCharts(t, transport);
   }
 
   function patchTheory(patch) {
@@ -375,6 +475,16 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
       if (stopped) return;
       core.ensureAudio();
       drawSpectrum(canvas, core.getAnalyser());
+      const t = core.getTheory?.() || {};
+      const transport = resolveTransportTheory({
+        musicTransport: {
+          bpm: t.bpm || core.getBpm?.(),
+          seqOn: core.seqOn,
+          seqStep: core.seqStep,
+          theory: t,
+        },
+      });
+      refreshCharts(t, transport);
       wfRaf = requestAnimationFrame(draw);
     };
     wfRaf = requestAnimationFrame(draw);
@@ -410,7 +520,10 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
       core.selectedNote = note;
       core.playTone(parseFloat(key.dataset.freq));
       if (core.seqOn) core.toggleNoteStep(note, core.seqStep);
-      drawStaff(document.getElementById("ml-staff"), [{ note }]);
+      lastChartNotes = [{ note }];
+      const th = core.getTheory?.() || {};
+      drawStaff(document.getElementById("ml-staff"), lastChartNotes, PIANO_KEYS, th);
+      refreshCharts(th, resolveTransportTheory({ musicTransport: { bpm: th.bpm, theory: th } }));
     });
     document.getElementById("ml-piano")?.addEventListener("pointerup", (ev) => {
       ev.target.closest(".ml-key")?.classList.remove("active");
@@ -470,13 +583,43 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
       });
     });
 
+    document.getElementById("ml-notation-sys")?.addEventListener("change", (ev) => {
+      patchTheory({ notation: { system: ev.target.value } });
+    });
+    document.getElementById("ml-key")?.addEventListener("change", (ev) => {
+      patchTheory({ notation: { key: ev.target.value } });
+    });
+    document.getElementById("ml-mode")?.addEventListener("change", (ev) => {
+      const mode = GREGORIAN_MODES.find((m) => m.id === ev.target.value);
+      patchTheory({ notation: { mode: ev.target.value, key: mode?.finalis || ev.target.value } });
+    });
+    document.getElementById("ml-solfege-mode")?.addEventListener("change", (ev) => {
+      patchTheory({ notation: { solfege: { mode: ev.target.value } } });
+    });
+    document.getElementById("ml-transpose-inst")?.addEventListener("change", (ev) => {
+      patchTheory({ notation: { system: "transposing", transposing: { instrument: ev.target.value } } });
+    });
+    document.getElementById("ml-struct-tmpl")?.addEventListener("change", (ev) => {
+      patchTheory({ structureChart: { template: ev.target.value } });
+    });
+    document.querySelectorAll(".ml-chart-preset").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const preset = CHART_PRESETS[btn.dataset.chart];
+        if (!preset) return;
+        patchTheory(preset.patch);
+      });
+    });
+
     document.getElementById("ml-send-btn")?.addEventListener("click", () => {
       core.sendPattern(document.getElementById("ml-send-target")?.value);
     });
 
     document.getElementById("ml-wf-capture")?.addEventListener("click", () => {
       const cap = core.downloadWaveformCapture();
-      if (cap) drawStaff(document.getElementById("ml-staff"), [{ note: "C4" }]);
+      if (cap) {
+        lastChartNotes = [{ note: "C4" }];
+        drawStaff(document.getElementById("ml-staff"), lastChartNotes, PIANO_KEYS, core.getTheory?.());
+      }
     });
     document.getElementById("ml-autotune")?.addEventListener("click", (ev) => {
       const on = core.toggleAutotune();
@@ -485,7 +628,10 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
     });
     document.getElementById("ml-a2m")?.addEventListener("click", () => {
       const hit = core.audioToMidi();
-      if (hit) drawStaff(document.getElementById("ml-staff"), [{ note: hit.note }]);
+      if (hit) {
+        lastChartNotes = [{ note: hit.note }];
+        drawStaff(document.getElementById("ml-staff"), lastChartNotes, PIANO_KEYS, core.getTheory?.());
+      }
     });
 
     document.getElementById("ml-grand")?.addEventListener("click", () => {
@@ -562,8 +708,12 @@ export function createMusicLab(coreOrOpts, maybeOpts) {
         const oct = m[3] || "4";
         parsed.push({ note: `${base}${acc}${oct}` });
       }
-      if (parsed.length) drawStaff(document.getElementById("ml-staff"), parsed);
+      if (parsed.length) {
+        lastChartNotes = parsed;
+        drawStaff(document.getElementById("ml-staff"), parsed, PIANO_KEYS, t);
+      }
     }
+    refreshCharts(t, resolveTransportTheory({ musicTransport: { bpm, theory: t } }));
     refreshDawChips();
     refreshSendTargets();
     syncUi();
