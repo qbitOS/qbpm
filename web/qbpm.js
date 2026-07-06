@@ -47,6 +47,16 @@ import {
   appendVideoLaneNode,
   videoLanePickerItems,
 } from "./video-lane-presets.js";
+import { drawAllNodeWires, drawLinkPreviewWire } from "./node-wire-routing.js";
+import {
+  applyLayoutPositions,
+  ensureNodeLayoutMeta,
+  layoutBySection,
+  layoutComponent,
+  layoutNodesDag,
+  snapPos,
+  LAYOUT_GRID,
+} from "./node-layout.js";
 
 const GRAPH_NAME = "default";
 const NODE_W = 168;
@@ -210,8 +220,33 @@ function ensureParams(n) {
 
 let ensuringCanvasMeta = false;
 
+function layoutGrid() {
+  return ensureNodeLayoutMeta(graph.meta).grid || LAYOUT_GRID;
+}
+
+function organizeNodes(mode = "auto") {
+  const grid = layoutGrid();
+  let positions;
+  const b = graphBounds();
+  const origin = [b.x + 40, b.y + 40];
+  if (mode === "section") {
+    positions = layoutBySection(graph.nodes, { origin, grid });
+    vizLog.textContent = "organize · sections · horizontal rows";
+  } else if (selectedId && mode !== "all") {
+    positions = layoutComponent(selectedId, graph.nodes, graph.edges, { origin, grid });
+    vizLog.textContent = `organize · component · ${selectedId}`;
+  } else {
+    positions = layoutNodesDag(graph.nodes, graph.edges, { origin, grid });
+    vizLog.textContent = `organize · DAG · ${graph.nodes.length} nodes`;
+  }
+  applyLayoutPositions(graph.nodes, positions);
+  if (!soloGraph) collab?.broadcastPatch?.({ nodes: graph.nodes });
+  draw();
+}
+
 function ensureCanvasMeta() {
   if (!graph.meta || typeof graph.meta !== "object") graph.meta = {};
+  ensureNodeLayoutMeta(graph.meta);
   if (!Array.isArray(graph.meta.frames)) {
     graph.meta.frames = [
       {
@@ -1338,44 +1373,29 @@ function draw() {
   drawFrames();
   drawStudioLanes(ctx, graph, scale);
 
-  for (const e of graph.edges) {
-    const ep = edgeEndpoints(e);
-    if (!ep) continue;
-    const pt = PORT_TYPES[e.port] || PORT_TYPES.data;
-    ctx.strokeStyle = pt.color || "#484f58";
-    ctx.lineWidth = (e.port === "control" ? 1.5 : 2) / scale;
-    const mx = (ep.ax + ep.bx) / 2;
-    ctx.beginPath();
-    ctx.moveTo(ep.ax, ep.ay);
-    ctx.bezierCurveTo(mx, ep.ay, mx, ep.by, ep.bx, ep.by);
-    ctx.stroke();
-    if (e.fromPort && e.fromPort !== "main") {
-      ctx.fillStyle = pt.color || "#6e7681";
-      ctx.font = `${8 / scale}px Menlo, monospace`;
-      ctx.fillText(e.fromPort, ep.ax + 4 / scale, ep.ay - 4 / scale);
-    }
-  }
+  drawAllNodeWires(ctx, graph.edges, (e) => edgeEndpoints(e), scale, {
+    colorFor: (e) => (PORT_TYPES[e?.port] || PORT_TYPES.data).color || "#484f58",
+  });
 
   if (linking) {
     ctx.strokeStyle = "#58a6ff";
     ctx.setLineDash([6 / scale, 4 / scale]);
-    ctx.beginPath();
     if (linking.kind === "frame") {
       const fr = frames().find((f) => f.id === linking.fromId);
       const fp = fr && framePortPositions(fr).find((p) => p.id === linking.fromPort);
       if (fp) {
+        ctx.beginPath();
         ctx.moveTo(fp.x, fp.y);
         ctx.lineTo(linking.wx, linking.wy);
+        ctx.stroke();
       }
     } else {
       const src = graph.nodes.find((n) => n.id === linking.fromId);
       if (src) {
         const pt = linkPointFor(src, linking.fromSide || "out", linking.fromPort || "main");
-        ctx.moveTo(pt.x, pt.y);
-        ctx.lineTo(linking.wx, linking.wy);
+        drawLinkPreviewWire(ctx, pt.x, pt.y, linking.wx, linking.wy, scale);
       }
     }
-    ctx.stroke();
     ctx.setLineDash([]);
   }
 
@@ -1976,6 +1996,7 @@ function exportGraphState() {
   window.qbpm.addNode = addNode;
   window.qbpm.addVideoLaneChain = addVideoLaneChain;
   window.qbpm.addVideoLaneNode = addVideoLaneNode;
+  window.qbpm.organizeNodes = organizeNodes;
   window.qbpm.setRightPanelTab = setRightPanelTab;
   window.qbpm.getFrames = () => structuredClone(frames());
   window.qbpm.getViewports = () => structuredClone(viewports());
@@ -2152,6 +2173,10 @@ document.getElementById("collab-status")?.addEventListener("click", () => {
   vizLog.textContent = soloGraph ? "solo graph · local nodes only" : "live sync · sharing graph patches";
 });
 document.getElementById("btn-center").addEventListener("click", () => alignView(selectedId ? "node" : "graph"));
+document.getElementById("btn-organize-nodes")?.addEventListener("click", (ev) => {
+  const mode = ev.shiftKey ? "all" : ev.altKey ? "section" : "auto";
+  organizeNodes(mode);
+});
 document.getElementById("btn-save").addEventListener("click", saveGraph);
 document.getElementById("btn-run").addEventListener("click", runGraph);
 document.getElementById("btn-agent").addEventListener("click", agentPropose);
@@ -2387,7 +2412,12 @@ function onPointerUp(ev) {
     applyNodeControl(controlDrag.ctrl);
   }
   controlDrag = null;
-  if (wasDragging) collab?.broadcastPatch({ nodes: graph.nodes });
+  if (wasDragging) {
+    const n = graph.nodes.find((x) => x.id === dragging?.id);
+    if (n?.pos) n.pos = snapPos(n.pos, layoutGrid());
+    collab?.broadcastPatch({ nodes: graph.nodes });
+    draw();
+  }
   dragging = null;
   panning = false;
   panStart = null;
