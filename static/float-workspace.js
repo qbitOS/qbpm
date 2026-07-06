@@ -431,6 +431,15 @@ export function createFloatWorkspace(opts = {}) {
     getVideoElement,
     getVideoWall: () => videoWall,
     getDawLink: () => dawLink,
+    getMusicTransport: () => {
+      const core = musicCore;
+      if (!core) return null;
+      return {
+        bpm: getBpm?.() || 120,
+        seqOn: core.seqOn,
+        seqStep: core.seqStep,
+      };
+    },
     ingestWatchUrl,
     ffplayWatchUrl,
     getVideoFeed: () => videoFeed,
