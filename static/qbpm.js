@@ -1392,6 +1392,27 @@ function setPanMode(on) {
 }
 
 const RIGHT_TAB_KEY = "qbpm-right-tab";
+const RIGHT_COLLAPSED_KEY = "qbpm-right-collapsed";
+
+function setRightPanelCollapsed(collapsed) {
+  const on = !!collapsed;
+  workspace.classList.toggle("right-collapsed", on);
+  const btn = document.getElementById("btn-right-collapse");
+  if (btn) {
+    btn.setAttribute("aria-pressed", String(on));
+    btn.title = on ? "Right column collapsed" : "Collapse right column";
+    btn.textContent = on ? "◂" : "▸";
+  }
+  try {
+    localStorage.setItem(RIGHT_COLLAPSED_KEY, on ? "1" : "0");
+  } catch (_) {}
+  setTimeout(resize, 30);
+  if (on) floatWorkspace?.collapseRightColumn?.();
+}
+
+function toggleRightPanelCollapsed() {
+  setRightPanelCollapsed(!workspace.classList.contains("right-collapsed"));
+}
 
 function setRightPanelTab(tab) {
   const panel = tab === "inspector" ? "inspector" : tab;
@@ -1545,7 +1566,7 @@ document.getElementById("btn-refresh").addEventListener("click", () => {
 });
 document.getElementById("btn-add-frame")?.addEventListener("click", addCanvasFrame);
 document.getElementById("btn-add-viewport")?.addEventListener("click", addViewportWindow);
-document.querySelectorAll("#right-tabs button").forEach((btn) => {
+document.querySelectorAll("#right-tabs button[data-tab]").forEach((btn) => {
   btn.addEventListener("click", () => setRightPanelTab(btn.dataset.tab));
 });
 document.getElementById("btn-add").addEventListener("click", addNode);
@@ -1566,6 +1587,15 @@ if (btnPan) {
 document.querySelectorAll("#mobile-tabs button").forEach((btn) => {
   btn.addEventListener("click", () => setMobilePanel(btn.dataset.panel));
 });
+
+document.getElementById("btn-right-collapse")?.addEventListener("click", toggleRightPanelCollapsed);
+document.getElementById("btn-right-expand")?.addEventListener("click", () => setRightPanelCollapsed(false));
+
+try {
+  if (localStorage.getItem(RIGHT_COLLAPSED_KEY) === "1") {
+    setRightPanelCollapsed(true);
+  }
+} catch (_) {}
 
 let vizExpandStep = 0;
 document.getElementById("btn-viz-expand").addEventListener("click", () => {
