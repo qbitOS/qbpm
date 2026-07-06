@@ -1,6 +1,14 @@
-/** DJ / scratch spot — loop, splice, quick FX for live collab */
+/** DJ / scratch spot — loop, splice, quick FX in header play strip row */
 
 import { getTabRuntime } from "./tab-runtime.js";
+
+const FX_HTML = `
+  <label title="LFO depth"><span>lfo</span><input type="range" class="djs-knob" data-fx="lfo" min="0" max="100" value="0" /></label>
+  <label title="Envelope"><span>env</span><input type="range" class="djs-knob" data-fx="env" min="0" max="100" value="50" /></label>
+  <label title="Pan"><span>pan</span><input type="range" class="djs-knob" data-fx="pan" min="-100" max="100" value="0" /></label>
+  <label title="Warp rate"><span>warp</span><input type="range" class="djs-knob" data-fx="warp" min="50" max="200" value="100" /></label>
+  <label title="Echo"><span>echo</span><input type="range" class="djs-knob" data-fx="echo" min="0" max="100" value="0" /></label>
+  <label title="Delay"><span>dly</span><input type="range" class="djs-knob" data-fx="delay" min="0" max="100" value="0" /></label>`;
 
 export function createDjScratchSpot(core, opts = {}) {
   const { onCollabPatch } = opts;
@@ -16,28 +24,31 @@ export function createDjScratchSpot(core, opts = {}) {
   let spliceRegions = [];
 
   function mount(el) {
-    host = el || document.getElementById("header-dj-spot");
+    const playStrip = el || document.getElementById("header-play-strip");
+    host = playStrip?.querySelector(".hps-inner");
     if (!host || host.querySelector(".djs-inner")) return;
 
-    host.innerHTML = `
-      <div class="djs-inner" role="region" aria-label="Scratch loop splice">
-        <canvas class="djs-wave" aria-label="Waveform loop region"></canvas>
-        <div class="djs-fx" aria-label="Quick FX">
-          <label title="LFO depth"><span>lfo</span><input type="range" class="djs-knob" data-fx="lfo" min="0" max="100" value="0" /></label>
-          <label title="Envelope"><span>env</span><input type="range" class="djs-knob" data-fx="env" min="0" max="100" value="50" /></label>
-          <label title="Pan"><span>pan</span><input type="range" class="djs-knob" data-fx="pan" min="-100" max="100" value="0" /></label>
-          <label title="Warp rate"><span>warp</span><input type="range" class="djs-knob" data-fx="warp" min="50" max="200" value="100" /></label>
-          <label title="Echo"><span>echo</span><input type="range" class="djs-knob" data-fx="echo" min="0" max="100" value="0" /></label>
-          <label title="Delay"><span>dly</span><input type="range" class="djs-knob" data-fx="delay" min="0" max="100" value="0" /></label>
-        </div>
-        <div class="djs-tools">
-          <button type="button" class="djs-btn" data-act="loop" title="Toggle loop">↻</button>
-          <button type="button" class="djs-btn" data-act="splice" title="Splice at playhead">✂</button>
-          <button type="button" class="djs-btn" data-act="clear" title="Clear splices">✕</button>
-        </div>
+    const inner = document.createElement("div");
+    inner.className = "djs-inner";
+    inner.setAttribute("role", "region");
+    inner.setAttribute("aria-label", "Scratch loop splice");
+    inner.innerHTML = `
+      <canvas class="djs-wave" aria-label="Waveform loop region"></canvas>
+      <div class="djs-tools">
+        <button type="button" class="djs-btn" data-act="loop" title="Toggle loop">↻</button>
+        <button type="button" class="djs-btn" data-act="splice" title="Splice at playhead">✂</button>
+        <button type="button" class="djs-btn" data-act="clear" title="Clear splices">✕</button>
       </div>`;
 
-    waveCanvas = host.querySelector(".djs-wave");
+    const fx = document.createElement("div");
+    fx.className = "djs-fx";
+    fx.setAttribute("aria-label", "Quick FX");
+    fx.innerHTML = FX_HTML;
+
+    host.appendChild(inner);
+    host.appendChild(fx);
+
+    waveCanvas = inner.querySelector(".djs-wave");
     bind();
     resize();
     window.addEventListener("resize", resize);
@@ -49,7 +60,7 @@ export function createDjScratchSpot(core, opts = {}) {
   }
 
   function bind() {
-    host.querySelectorAll(".djs-knob").forEach((inp) => {
+    host?.querySelectorAll(".djs-knob").forEach((inp) => {
       inp.addEventListener("input", () => {
         const fx = inp.dataset.fx;
         const v = parseFloat(inp.value);
@@ -65,7 +76,7 @@ export function createDjScratchSpot(core, opts = {}) {
       });
     });
 
-    host.querySelectorAll(".djs-btn").forEach((btn) => {
+    host?.querySelectorAll(".djs-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const act = btn.dataset.act;
         if (act === "loop") btn.classList.toggle("active");
@@ -107,10 +118,10 @@ export function createDjScratchSpot(core, opts = {}) {
   }
 
   function resize() {
-    if (!waveCanvas || !host) return;
-    const inner = host.querySelector(".djs-inner");
-    const w = inner?.clientWidth || 200;
-    const h = inner?.clientHeight || 40;
+    if (!waveCanvas) return;
+    const inner = host?.querySelector(".djs-inner");
+    const w = inner?.clientWidth || 160;
+    const h = inner?.clientHeight || 44;
     const dpr = window.devicePixelRatio || 1;
     waveCanvas.width = Math.floor(w * dpr);
     waveCanvas.height = Math.floor(h * dpr);
@@ -133,7 +144,7 @@ export function createDjScratchSpot(core, opts = {}) {
 
     const data = core?.getTimeDomainWave?.(128) || new Float32Array(128).fill(0);
     const top = 4;
-    const bh = h - top - 14;
+    const bh = h - top - 6;
     ctx.strokeStyle = "#58a6ff";
     ctx.lineWidth = 1.2;
     ctx.beginPath();
@@ -202,7 +213,9 @@ export function createDjScratchSpot(core, opts = {}) {
     cancelAnimationFrame(raf);
     getTabRuntime().unregisterVisualLoop("dj-scratch-spot");
     window.removeEventListener("resize", resize);
-    if (host) host.innerHTML = "";
+    host?.querySelector(".djs-inner")?.remove();
+    host?.querySelector(".djs-fx")?.remove();
+    host = null;
   }
 
   return { mount, applyRemote, destroy };

@@ -60,17 +60,9 @@ body.launch-off-kbatch #mobile-tabs button[data-panel="kbatch"] {
   position: relative;
   flex: 1;
   min-width: 0;
+  width: 100%;
   height: 40px;
   min-height: 40px;
-  overflow: hidden;
-}
-.header-dj-spot {
-  flex-shrink: 0;
-  width: min(320px, 38vw);
-  min-width: 200px;
-  height: 40px;
-  border-left: 1px solid #21262d;
-  background: #0a0d12;
   overflow: hidden;
 }
 .header-structure-chart {
@@ -283,10 +275,11 @@ body.launch-off-kbatch #mobile-tabs button[data-panel="kbatch"] {
   .hs-chat { grid-column: 1 / -1; border-top: 1px solid #21262d; max-height: 64px; }
   .header-wave-row { min-height: 32px; }
   .header-waveform-stack { height: 32px; min-height: 32px; }
-  .header-dj-spot { width: min(240px, 42vw); height: 32px; min-width: 160px; }
   .hps-inner { flex-wrap: wrap; min-height: 44px; }
-  .hps-piano { min-width: 100%; order: 3; height: 36px; }
-  .hps-wk { width: 12px; height: 36px; }
+  .hps-piano { min-width: 100%; order: 2; height: 36px; max-width: none; }
+  .djs-inner { order: 3; min-width: 100%; max-width: none; }
+  .djs-fx { order: 4; flex-direction: row; flex-wrap: wrap; width: 100%; border-left: none; border-top: 1px solid #21262d; }
+  .hps-wk { height: 36px; }
   #visualizer.panel-block.active { display: flex; flex-direction: column; }
   .viz-user-rail { max-height: 160px; }
 }
@@ -1263,9 +1256,12 @@ body.launch-off-kbatch #mobile-tabs button[data-panel="kbatch"] {
 .hps-inner {
   display: flex;
   align-items: stretch;
-  gap: 6px;
+  gap: 4px;
   padding: 4px 8px;
   min-height: 52px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 .hps-transport { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .hps-btn {
@@ -1303,59 +1299,85 @@ body.launch-off-kbatch #mobile-tabs button[data-panel="kbatch"] {
 .hps-step.playhead { outline: 1px solid #f0883e; }
 .hps-piano {
   position: relative;
-  flex: 1;
-  min-width: 120px;
+  flex: 1 1 200px;
+  min-width: 160px;
+  max-width: 320px;
   height: 44px;
   overflow: hidden;
 }
-.hps-white, .hps-black { position: absolute; inset: 0; }
-.hps-wk {
+.hps-white {
+  display: flex;
+  gap: 1px;
+  height: 44px;
   position: relative;
-  display: inline-block;
-  width: 14px;
+  z-index: 0;
+}
+.hps-black {
+  position: absolute;
+  inset: 0;
+  height: 28px;
+  pointer-events: none;
+  z-index: 1;
+}
+.hps-wk {
+  flex: 1;
+  min-width: 4px;
+  max-width: 14px;
   height: 44px;
   border: 1px solid #30363d;
   border-radius: 0 0 2px 2px;
   background: #e6edf3;
   cursor: pointer;
   padding: 0;
-  vertical-align: top;
 }
 .hps-bk {
   position: absolute;
-  width: 10px;
-  height: 26px;
+  width: 58%;
+  max-width: 11px;
+  min-width: 6px;
+  height: 28px;
   border: 1px solid #21262d;
   background: #21262d;
+  border-radius: 0 0 2px 2px;
   cursor: pointer;
   padding: 0;
-  z-index: 1;
+  pointer-events: auto;
+  transform: translateX(-50%);
 }
 .hps-key.active { filter: brightness(0.85); }
 
-.djs-inner {
+.hps-inner .djs-inner {
   display: flex;
   align-items: stretch;
-  height: 100%;
-  min-width: 0;
+  flex: 1 1 140px;
+  min-width: 120px;
+  max-width: 220px;
+  height: 44px;
+  border: 1px solid #21262d;
+  border-radius: 4px;
+  background: #0a0d12;
+  overflow: hidden;
 }
-.djs-wave {
+.hps-inner .djs-wave {
   flex: 1;
   min-width: 0;
   display: block;
   cursor: ew-resize;
   touch-action: none;
+  height: 100%;
 }
-.djs-fx {
+.hps-inner .djs-fx {
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 0;
-  padding: 1px 3px;
+  padding: 2px 4px;
   border-left: 1px solid #21262d;
   font-size: 0.38rem;
   color: #6e7681;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  min-width: 88px;
+  background: #0d1117;
 }
 .djs-fx label {
   display: flex;

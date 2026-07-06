@@ -7,10 +7,18 @@ const DAW_ROLES = new Set(["daw", "ai-daw", "vocal", "midi", "editor", "sequence
 
 let ecosystemCache = null;
 
-export async function loadDawEcosystem(url = "/static/jam-ecosystem.json") {
+function jamEcosystemUrl() {
+  if (typeof window !== "undefined" && window.QBPM_PAGES?.asset) {
+    return window.QBPM_PAGES.asset("jam-ecosystem.json");
+  }
+  return "/static/jam-ecosystem.json";
+}
+
+export async function loadDawEcosystem(url) {
   if (ecosystemCache) return ecosystemCache;
+  const fetchUrl = url || jamEcosystemUrl();
   try {
-    const res = await fetch(url);
+    const res = await fetch(fetchUrl);
     ecosystemCache = await res.json();
   } catch (_) {
     ecosystemCache = { tools: [], stacks: { daw: [] } };

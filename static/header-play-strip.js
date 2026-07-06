@@ -1,6 +1,6 @@
 /** Compact piano · beat map · play/record under header waveform */
 
-import { PIANO_KEYS, STEP_COUNT } from "./music-core.js";
+import { GRAND_KEYS, STEP_COUNT } from "./music-core.js";
 
 export function createHeaderPlayStrip(core) {
   let host = null;
@@ -43,8 +43,8 @@ export function createHeaderPlayStrip(core) {
   function buildPiano() {
     const el = document.getElementById("hps-piano");
     if (!el) return;
-    const white = PIANO_KEYS.filter((k) => !k.black);
-    const black = PIANO_KEYS.filter((k) => k.black);
+    const white = GRAND_KEYS.filter((k) => !k.black);
+    const black = GRAND_KEYS.filter((k) => k.black);
     el.innerHTML = `<div class="hps-white"></div><div class="hps-black"></div>`;
     const wEl = el.querySelector(".hps-white");
     const bEl = el.querySelector(".hps-black");
@@ -61,7 +61,7 @@ export function createHeaderPlayStrip(core) {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "hps-key hps-bk";
-      b.style.left = `${k.w * 0.55}px`;
+      if (k.w != null) b.style.left = `${k.w * 100}%`;
       b.dataset.note = k.n;
       b.dataset.freq = String(k.f);
       b.title = k.n;
