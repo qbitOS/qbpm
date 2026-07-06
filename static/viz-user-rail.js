@@ -1,5 +1,7 @@
 /** Per-user collapsible node rail under viz-log — mix · multichannel · share · save */
 
+import { buildCollabInviteUrl } from "./viz-views-rail.js";
+
 function escapeHtml(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -9,6 +11,9 @@ export function createVizUserRail(opts = {}) {
     getPeers = () => [],
     getLocalClient = () => ({ clientId: "local", name: "guest" }),
     getNodesForUser = () => [],
+    getGraphName = () => "default",
+    getCollab = () => null,
+    onInviteUser,
     onMixOut,
     onMultichannelSend,
     onAiLink,
@@ -24,9 +29,52 @@ export function createVizUserRail(opts = {}) {
     host = el || document.getElementById("viz-user-rail");
     if (!host) return;
     if (!host.querySelector(".vur-root")) {
-      host.innerHTML = `<div class="vur-root" aria-label="User node rails"></div>`;
+      host.innerHTML = `
+        <div class="vur-session" aria-label="Collab session">
+          <div class="vur-session-hd">
+            <span class="vur-session-lbl">session</span>
+            <span class="vur-session-count" id="vur-session-count">solo</span>
+            <button type="button" class="vur-add-user" id="vur-add-user" title="Invite collaborator (+ user)">+ user</button>
+          </div>
+          <div class="vur-invite" id="vur-invite" hidden>
+            <input type="text" class="vur-invite-url" id="vur-invite-url" readonly aria-label="Invite URL" />
+            <button type="button" class="vur-btn vur-copy" id="vur-invite-copy" title="Copy link">copy</button>
+            <button type="button" class="vur-btn vur-close" id="vur-invite-close" title="Close">✕</button>
+          </div>
+        </div>
+        <div class="vur-root" aria-label="User node rails"></div>`;
+      bindSession();
     }
     render();
+  }
+
+  function bindSession() {
+    const addBtn = host?.querySelector("#vur-add-user");
+    const invite = host?.querySelector("#vur-invite");
+    const urlEl = host?.querySelector("#vur-invite-url");
+    const copyBtn = host?.querySelector("#vur-invite-copy");
+    const closeBtn = host?.querySelector("#vur-invite-close");
+
+    addBtn?.addEventListener("click", () => {
+      const url = buildCollabInviteUrl(getGraphName());
+      if (urlEl) urlEl.value = url;
+      invite?.removeAttribute("hidden");
+      getCollab?.()?.sendJoin?.();
+      onInviteUser?.(url);
+      urlEl?.select?.();
+    });
+    copyBtn?.addEventListener("click", async () => {
+      const url = urlEl?.value || buildCollabInviteUrl(getGraphName());
+      try {
+        await navigator.clipboard.writeText(url);
+        copyBtn.textContent = "✓";
+        setTimeout(() => { copyBtn.textContent = "copy"; }, 1200);
+      } catch (_) {
+        urlEl?.select?.();
+      }
+      onInviteUser?.(url, { copied: true });
+    });
+    closeBtn?.addEventListener("click", () => invite?.setAttribute("hidden", ""));
   }
 
   function toggleUser(id) {
@@ -40,6 +88,11 @@ export function createVizUserRail(opts = {}) {
     if (!root) return;
     const local = getLocalClient();
     const peers = getPeers();
+    const countEl = host?.querySelector("#vur-session-count");
+    if (countEl) {
+      countEl.textContent = peers.length ? `${peers.length + 1} users` : "solo";
+      countEl.dataset.level = peers.length ? "live" : "solo";
+    }
     const users = [
       { clientId: local.clientId, name: local.name || "you", color: local.color || "#58a6ff", local: true },
       ...peers.map((p) => ({

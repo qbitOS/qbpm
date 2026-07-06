@@ -18,6 +18,7 @@ import { mountInspectorCommandHelp } from "./terminal-commands.js";
 import { resolveTransport, drawNodeCycleBar } from "./node-cycle.js";
 import { getTabRuntime } from "./tab-runtime.js";
 import { createVizUserRail } from "./viz-user-rail.js";
+import { createVizViewsRail } from "./viz-views-rail.js";
 import { createLiveNodePanel, LIVE_PANEL_W, LIVE_PANEL_H } from "./live-node-panel.js";
 
 const GRAPH_NAME = "default";
@@ -72,6 +73,7 @@ let qubeManager = null;
 let jamBridge = null;
 let lastProcessingText = "";
 let vizUserRail = null;
+let vizViewsRail = null;
 let liveNodePanel = null;
 const SOLO_GRAPH_KEY = "qbpm-solo-graph";
 let soloGraph = localStorage.getItem(SOLO_GRAPH_KEY) !== "0";
@@ -492,6 +494,7 @@ function addCanvasFrame() {
   });
   activeFrameId = id;
   broadcastCanvasLayout();
+  vizViewsRail?.render?.();
   draw();
 }
 
@@ -517,6 +520,7 @@ function addDeviceFrame(presetId) {
   });
   activeFrameId = id;
   broadcastCanvasLayout();
+  vizViewsRail?.render?.();
   draw();
   collabShell?.positionOverlays?.();
   vizLog.textContent = `frame ${id} · ${preset.w}×${preset.h} · ${preset.cluster} · vfx`;
@@ -533,6 +537,7 @@ function addViewportWindow() {
   });
   activeWindowId = id;
   broadcastCanvasLayout();
+  vizViewsRail?.render?.();
   draw();
 }
 
@@ -561,6 +566,7 @@ function hopToViewport(vp) {
   if (vp.frameId) activeFrameId = vp.frameId;
   if (vp.windowId) activeWindowId = vp.windowId;
   scheduleViewportBroadcast();
+  vizViewsRail?.render?.();
   draw();
   collabShell?.positionOverlays?.();
 }
@@ -579,6 +585,7 @@ function hopToFrame(frame) {
   selectedFrameId = frame.id;
   selectFrame(frame);
   scheduleViewportBroadcast();
+  vizViewsRail?.render?.();
   draw();
   collabShell?.positionOverlays?.();
 }
@@ -613,6 +620,7 @@ function selectFrame(frame) {
   document.getElementById("insp-id").value = "";
   setInspectorTab(frame.cluster === "user" ? "user" : "node");
   setRightPanelTab("inspector");
+  vizViewsRail?.render?.();
   draw();
 }
 
@@ -690,6 +698,7 @@ function initCollab() {
       graph.nodes.forEach(tagNodeOwner);
       collabShell?.flashSync("ok");
       vizUserRail?.render?.();
+      vizViewsRail?.render?.();
       draw();
     },
     onGraphPatch: (patch, rev, from) => {
@@ -706,12 +715,14 @@ function initCollab() {
       collabShell?.flashSync("ok");
       refreshCanvasTargets();
       vizUserRail?.render?.();
+      vizViewsRail?.render?.();
       draw();
     },
     onFrameUpdate: (f, v, edges) => {
       if (f) graph.meta.frames = f;
       if (v) graph.meta.viewports = v;
       if (edges) graph.meta.frameEdges = edges;
+      vizViewsRail?.render?.();
       draw();
       collabShell?.positionOverlays?.();
     },
@@ -732,6 +743,7 @@ function initCollab() {
           : "Live sync on · click for solo/local graph";
       }
       vizUserRail?.render?.();
+      vizViewsRail?.render?.();
       collabShell?.renderPeers(clients);
       floatWorkspace?.onVideoPresence?.(clients);
       ugradHud?.refresh();
@@ -763,14 +775,36 @@ function initCollab() {
     onDrawOverlay: () => draw(),
   });
 
+  vizViewsRail = createVizViewsRail({
+    getFrames: frames,
+    getViewports: viewports,
+    getPeers: () => collabPeers,
+    getActiveFrameId: () => activeFrameId,
+    getActiveWindowId: () => activeWindowId,
+    getGraphName: () => GRAPH_NAME,
+    onHopFrame: hopToFrame,
+    onHopViewport: hopToViewport,
+    onSelectFrame: selectFrame,
+    onAddFrame: addCanvasFrame,
+    onAddViewport: addViewportWindow,
+  });
+  vizViewsRail.mount();
+
   vizUserRail = createVizUserRail({
     getPeers: () => collabPeers,
+    getGraphName: () => GRAPH_NAME,
+    getCollab: () => collab,
     getLocalClient: () => ({
       clientId: collab?.clientId || localOwnerId(),
       name: localStorage.getItem("qbpm-collab-name") || "you",
       color: localStorage.getItem("qbpm-collab-color") || "#58a6ff",
     }),
     getNodesForUser: nodesForUser,
+    onInviteUser: (url, meta) => {
+      vizLog.textContent = meta?.copied
+        ? `invite copied · ${collabPeers.length + 1} in session`
+        : `invite link · share + user · ${url.slice(0, 64)}…`;
+    },
     onSelectNode: selectNode,
     onMixOut: mixUserNodesOut,
     onMultichannelSend: sendMultichannelToWorkArea,
