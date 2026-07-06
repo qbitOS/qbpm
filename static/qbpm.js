@@ -75,14 +75,26 @@ function canvasPoint(ev) {
   return { sx, sy, wx: (sx - pan.x) / scale, wy: (sy - pan.y) / scale };
 }
 
+function canvasCssSize() {
+  const dpr = window.devicePixelRatio || 1;
+  return {
+    w: Math.max(1, canvas.width / dpr),
+    h: Math.max(1, canvas.height / dpr),
+    dpr,
+  };
+}
+
 function resize() {
   const wrap = document.getElementById("canvas-wrap");
+  if (!wrap) return;
   const rect = wrap.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-  canvas.height = Math.max(1, Math.floor(rect.height * dpr));
-  canvas.style.width = `${rect.width}px`;
-  canvas.style.height = `${rect.height}px`;
+  const cw = Math.max(1, Math.floor(rect.width));
+  const ch = Math.max(1, Math.floor(rect.height));
+  canvas.width = Math.max(1, Math.floor(cw * dpr));
+  canvas.height = Math.max(1, Math.floor(ch * dpr));
+  canvas.style.width = `${cw}px`;
+  canvas.style.height = `${ch}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   floatWorkspace?.positionFramePanels?.();
   draw();
@@ -957,13 +969,16 @@ function graphBounds() {
 }
 
 function focusWorldRect(wx, wy, ww, wh, padding = 48) {
+  const { w: cw, h: ch } = canvasCssSize();
   const wrap = document.getElementById("canvas-wrap");
-  const cw = wrap.clientWidth;
-  const ch = wrap.clientHeight;
+  const dockLeft = Number(wrap?.dataset?.dockLeft) || 0;
+  const dockRight = Number(wrap?.dataset?.dockRight) || cw;
+  const safeW = Math.max(120, dockRight - dockLeft);
+  const safeCx = dockLeft + safeW / 2;
   const sx = ww + padding * 2;
   const sy = wh + padding * 2;
-  scale = Math.min(2.2, Math.max(0.25, Math.min(cw / sx, ch / sy)));
-  pan.x = cw / 2 - (wx + ww / 2) * scale;
+  scale = Math.min(2.2, Math.max(0.25, Math.min(safeW / sx, ch / sy)));
+  pan.x = safeCx - (wx + ww / 2) * scale;
   pan.y = ch / 2 - (wy + wh / 2) * scale;
   draw();
 }
@@ -994,13 +1009,15 @@ function toggleAlignOnRightClick() {
 }
 
 function drawGrid() {
-  const wrap = document.getElementById("canvas-wrap");
-  drawCompGrid(ctx, pan, scale, wrap.clientWidth, wrap.clientHeight);
+  const { w, h } = canvasCssSize();
+  drawCompGrid(ctx, pan, scale, w, h);
 }
 
 function draw() {
-  const wrap = document.getElementById("canvas-wrap");
-  ctx.clearRect(0, 0, wrap.clientWidth, wrap.clientHeight);
+  const { w, h, dpr } = canvasCssSize();
+  if (w < 2 || h < 2) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
   ctx.save();
   ctx.translate(pan.x, pan.y);
   ctx.scale(scale, scale);
@@ -1261,6 +1278,8 @@ async function loadGraph(opts = {}) {
     selectNode(graph.nodes[0].id);
   }
   refreshCanvasTargets();
+  floatWorkspace?.positionFramePanels?.();
+  resize();
   alignView("graph");
   qubeManager?.scheduleFlush?.("all");
 }
