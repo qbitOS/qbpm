@@ -83,8 +83,12 @@ cd Qbpm && git add -A && git commit -m "sync pages" && git push
 Apache-2.0
 MD
 
+# Never commit CI build output
+printf '_site/\n' > "$DEST/.gitignore"
+
 cd "$DEST"
 if git rev-parse --git-dir >/dev/null 2>&1; then
+  git rm -r --cached _site 2>/dev/null || true
   git add -A
   if git diff --staged --quiet; then
     echo "No changes to commit in Qbpm"
