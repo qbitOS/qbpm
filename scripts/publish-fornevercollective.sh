@@ -9,7 +9,7 @@ echo "→ Syncing source into ${DEST}"
 
 mkdir -p "$DEST/deploy" "$DEST/graphs" "$DEST/scripts" "$DEST/.github/workflows"
 
-rsync -a --delete \
+rsync -aL --delete \
   --exclude '.git' \
   "$ROOT/web/" "$DEST/web/"
 

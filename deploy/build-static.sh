@@ -16,14 +16,13 @@ echo "Building static shell → ${OUT} (base ${BASE}/)"
 rm -rf "$OUT"
 mkdir -p "$OUT/static/graphs" "$OUT/static/icons" "$OUT/static/piano"
 
-# Static assets (everything under web/ except root index/manifest/sw)
-for item in "$ROOT/web/"*; do
-  name="$(basename "$item")"
-  case "$name" in
-    index.html|manifest.webmanifest|sw.js) continue ;;
-  esac
-  cp -a "$item" "$OUT/static/"
-done
+# Static assets (everything under web/ except root index/manifest/sw).
+# rsync -aL dereferences symlinks so CI never ships dangling links.
+rsync -aL --delete \
+  --exclude 'index.html' \
+  --exclude 'manifest.webmanifest' \
+  --exclude 'sw.js' \
+  "$ROOT/web/" "$OUT/static/"
 
 cp "$ROOT/web/index.html" "$OUT/index.html"
 cp "$ROOT/web/manifest.webmanifest" "$OUT/manifest.webmanifest"
