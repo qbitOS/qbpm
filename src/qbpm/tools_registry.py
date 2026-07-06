@@ -94,7 +94,7 @@ def discover_tools(root: Path) -> list[dict[str, Any]]:
             "category": "collab · strudel · TD",
             "label": "live jam hub",
             "description": "DAW ecosystem refs · () flare · mass collab routing",
-            "url": "/static/jam-ecosystem.json",
+            "url": "jam-ecosystem.json",
             "stack": ["strudel", "touchdesigner", "grok", "kbatch", "vexflow"],
             "channels": ["qbpm-jam", "qbpm-live", "piano-buddy-state"],
             "external": True,

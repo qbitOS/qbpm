@@ -42,25 +42,6 @@ export function midiToName(m) {
   return `${NOTE_NAMES[m % 12]}${oct}`;
 }
 
-function buildTwoOctaveKeys() {
-  const keys = [];
-  let whitePos = 0;
-  for (let m = 48; m <= 72; m++) {
-    const name = midiToName(m);
-    const black = name.includes("#");
-    const w = black ? null : whitePos * 11;
-    if (!black) whitePos++;
-    keys.push({ n: name, midi: m, f: midiToFreq(m), w: w ?? 0, black });
-  }
-  let blackIdx = 0;
-  const blackOffsets = [8, 19, 30, 50, 61, 72, 83, 94, 114, 125];
-  keys.filter((k) => k.black).forEach((k, i) => {
-    k.w = blackOffsets[i] ?? blackIdx * 11 + 8;
-    blackIdx++;
-  });
-  return keys;
-}
-
 const GRAND_MIDI_LO = 48;
 const GRAND_MIDI_HI = 83;
 
@@ -91,8 +72,8 @@ function buildGrandKeys() {
   return keys;
 }
 
-export const PIANO_KEYS = buildTwoOctaveKeys();
 export const GRAND_KEYS = buildGrandKeys();
+export const PIANO_KEYS = GRAND_KEYS;
 
 export function emptySteps() {
   return Array.from({ length: STEP_COUNT }, () => false);

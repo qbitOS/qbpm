@@ -13,7 +13,7 @@
       "role": "live-jam",
       "category": "collab · strudel · TD",
       "label": "live jam hub",
-      "url": "./static/jam-ecosystem.json",
+      "url": "./jam-ecosystem.json",
       "external": true
     },
     {
@@ -21,8 +21,8 @@
       "role": "imagine",
       "category": "grok play · theatre",
       "label": "grok play",
-      "url": "./static/grok-playground.html",
-      "embed": "./static/grok-playground.html?qbpm=1"
+      "url": "./grok-playground.html",
+      "embed": "./grok-playground.html?qbpm=1"
     }
   ]
 }

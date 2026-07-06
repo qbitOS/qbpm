@@ -219,7 +219,7 @@ export function createFloatWorkspace(opts = {}) {
     djScratchSpot = createDjScratchSpot(musicCore, {
       onCollabPatch: (patch) => onMusicSend?.({ targetType: "broadcast", target: "all", payload: { scratch: patch } }),
     });
-    djScratchSpot.mount(document.getElementById("header-dj-spot"));
+    djScratchSpot.mount(document.getElementById("header-play-strip"));
     processingWing = createProcessingWing();
     processingWing.mount(document.getElementById("float-processing-host"));
     videoWall = createVideoWall({
