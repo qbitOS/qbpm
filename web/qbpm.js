@@ -118,7 +118,18 @@ function canvasCssSize() {
   };
 }
 
+function syncFooterInsets() {
+  const footer = document.getElementById("app-footer");
+  if (!footer || window.matchMedia("(max-width: 900px)").matches === false) {
+    document.documentElement.style.removeProperty("--mobile-footer-h");
+    return;
+  }
+  const h = Math.ceil(footer.getBoundingClientRect().height);
+  document.documentElement.style.setProperty("--mobile-footer-h", `${h}px`);
+}
+
 function resize() {
+  syncFooterInsets();
   const wrap = document.getElementById("canvas-wrap");
   if (!wrap) return;
   const rect = wrap.getBoundingClientRect();
@@ -144,7 +155,10 @@ function resizeViz() {
 }
 new ResizeObserver(resize).observe(document.getElementById("canvas-wrap"));
 new ResizeObserver(resizeViz).observe(vizCanvas);
+const appFooter = document.getElementById("app-footer");
+if (appFooter) new ResizeObserver(syncFooterInsets).observe(appFooter);
 window.addEventListener("resize", resize);
+syncFooterInsets();
 
 function nodeRect(n) {
   const [x, y] = n.pos;
@@ -1815,6 +1829,7 @@ function setMobilePanel(name) {
   if (name && name !== "canvas") {
     setRightPanelTab(name === "terminal" ? "terminal" : name);
   }
+  syncFooterInsets();
   setTimeout(resize, 30);
 }
 

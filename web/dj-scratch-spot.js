@@ -2,13 +2,25 @@
 
 import { getTabRuntime } from "./tab-runtime.js";
 
-const FX_HTML = `
-  <label title="LFO depth"><span>lfo</span><input type="range" class="djs-knob" data-fx="lfo" min="0" max="100" value="0" /></label>
-  <label title="Envelope"><span>env</span><input type="range" class="djs-knob" data-fx="env" min="0" max="100" value="50" /></label>
-  <label title="Pan"><span>pan</span><input type="range" class="djs-knob" data-fx="pan" min="-100" max="100" value="0" /></label>
-  <label title="Warp rate"><span>warp</span><input type="range" class="djs-knob" data-fx="warp" min="50" max="200" value="100" /></label>
-  <label title="Echo"><span>echo</span><input type="range" class="djs-knob" data-fx="echo" min="0" max="100" value="0" /></label>
-  <label title="Delay"><span>dly</span><input type="range" class="djs-knob" data-fx="delay" min="0" max="100" value="0" /></label>`;
+const FX_KNOBS = [
+  { fx: "lfo", label: "lfo", title: "LFO depth", min: 0, max: 100, value: 0 },
+  { fx: "env", label: "env", title: "Envelope", min: 0, max: 100, value: 50 },
+  { fx: "pan", label: "pan", title: "Pan", min: -100, max: 100, value: 0 },
+  { fx: "warp", label: "warp", title: "Warp rate", min: 50, max: 200, value: 100 },
+  { fx: "echo", label: "echo", title: "Echo", min: 0, max: 100, value: 0 },
+  { fx: "delay", label: "dly", title: "Delay", min: 0, max: 100, value: 0 },
+];
+
+function fxKnobHtml(k) {
+  return `<div class="djs-knob-col" title="${k.title}">
+    <span class="djs-knob-lbl">${k.label}</span>
+    <div class="djs-knob-wrap">
+      <input type="range" class="djs-knob" data-fx="${k.fx}" min="${k.min}" max="${k.max}" value="${k.value}" orient="vertical" aria-label="${k.title}" />
+    </div>
+  </div>`;
+}
+
+const FX_HTML = FX_KNOBS.map(fxKnobHtml).join("");
 
 export function createDjScratchSpot(core, opts = {}) {
   const { onCollabPatch } = opts;
@@ -59,21 +71,33 @@ export function createDjScratchSpot(core, opts = {}) {
     loop();
   }
 
+  function applyKnob(inp) {
+    const fx = inp.dataset.fx;
+    const v = parseFloat(inp.value);
+    const patch = {};
+    if (fx === "pan") patch.pan = v / 100;
+    else if (fx === "warp") patch.warp = v / 100;
+    else if (fx === "env") patch.env = v / 100;
+    else if (fx === "lfo") patch.lfo = v / 100;
+    else if (fx === "echo") patch.echo = v / 100;
+    else if (fx === "delay") patch.delay = v / 100;
+    core?.setScratchFx?.(patch);
+    onCollabPatch?.({ scratchFx: core?.getScratchFx?.() });
+    inp.closest(".djs-knob-col")?.classList.toggle("djs-knob-active", v !== parseFloat(inp.defaultValue));
+  }
+
   function bind() {
     host?.querySelectorAll(".djs-knob").forEach((inp) => {
-      inp.addEventListener("input", () => {
-        const fx = inp.dataset.fx;
-        const v = parseFloat(inp.value);
-        const patch = {};
-        if (fx === "pan") patch.pan = v / 100;
-        else if (fx === "warp") patch.warp = v / 100;
-        else if (fx === "env") patch.env = v / 100;
-        else if (fx === "lfo") patch.lfo = v / 100;
-        else if (fx === "echo") patch.echo = v / 100;
-        else if (fx === "delay") patch.delay = v / 100;
-        core?.setScratchFx?.(patch);
-        onCollabPatch?.({ scratchFx: core?.getScratchFx?.() });
+      inp.addEventListener("input", () => applyKnob(inp));
+      inp.addEventListener("change", () => applyKnob(inp));
+      inp.addEventListener("pointerdown", (ev) => {
+        ev.stopPropagation();
+        inp.setPointerCapture?.(ev.pointerId);
       });
+      inp.addEventListener("pointermove", (ev) => {
+        if (inp.hasPointerCapture?.(ev.pointerId)) ev.preventDefault();
+      });
+      applyKnob(inp);
     });
 
     host?.querySelectorAll(".djs-btn").forEach((btn) => {

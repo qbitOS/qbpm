@@ -46,15 +46,6 @@
     <div id="header-play-strip" class="header-play-strip" aria-label="Piano · beat · record"></div>
   </div>
 
-  <nav id="mobile-tabs" class="mobile-only" aria-label="Panels">
-    <button type="button" data-panel="canvas" class="active">graph</button>
-    <button type="button" data-panel="viz">viz</button>
-    <button type="button" data-panel="inspector">edit</button>
-    <button type="button" data-panel="kbatch">kbatch</button>
-    <button type="button" data-panel="tools">tools</button>
-    <button type="button" data-panel="terminal">grok</button>
-  </nav>
-
   <main id="workspace">
     <section id="canvas-wrap" data-panel="canvas">
       <div id="canvas-toolbar">
@@ -203,16 +194,26 @@
     </aside>
   </main>
 
-  <section id="prompt-bar" class="prompt-bar grok-prompt-bar" aria-label="Main prompt">
-    <div class="prompt-search-row">
-      <span id="prompt-char" class="prompt-char" title="qbpm prompt">qbpm&gt;</span>
-      <input id="prompt-search-in" type="search" placeholder="prompt · strudel · Fail-safe · ingest URL · imagine…" autocomplete="off" spellcheck="false" />
-      <button id="prompt-search-go" type="button" title="Search / run">↵</button>
-      <button id="prompt-video-ingest" type="button" title="Video ingest (yt-dlp)" class="hide-mobile">▶ ingest</button>
-      <button id="prompt-imagine" type="button" title="Imagine presets" class="hide-mobile">✦ imagine</button>
-    </div>
-    <pre id="prompt-search-out" class="prompt-search-out" aria-live="polite"></pre>
-  </section>
+  <footer id="app-footer" class="app-footer">
+    <section id="prompt-bar" class="prompt-bar grok-prompt-bar" aria-label="Main prompt">
+      <div class="prompt-search-row">
+        <span id="prompt-char" class="prompt-char" title="qbpm prompt">qbpm&gt;</span>
+        <input id="prompt-search-in" type="search" placeholder="prompt · strudel · Fail-safe · ingest URL · imagine…" autocomplete="off" spellcheck="false" />
+        <button id="prompt-search-go" type="button" title="Search / run">↵</button>
+        <button id="prompt-video-ingest" type="button" title="Video ingest (yt-dlp)" class="hide-mobile">▶ ingest</button>
+        <button id="prompt-imagine" type="button" title="Imagine presets" class="hide-mobile">✦ imagine</button>
+      </div>
+      <pre id="prompt-search-out" class="prompt-search-out" aria-live="polite"></pre>
+    </section>
+    <nav id="mobile-tabs" class="mobile-only" aria-label="Panels">
+      <button type="button" data-panel="canvas" class="active">graph</button>
+      <button type="button" data-panel="viz">viz</button>
+      <button type="button" data-panel="inspector">edit</button>
+      <button type="button" data-panel="kbatch">kbatch</button>
+      <button type="button" data-panel="tools">tools</button>
+      <button type="button" data-panel="terminal">grok</button>
+    </nav>
+  </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.5/build/cjs/vexflow.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
