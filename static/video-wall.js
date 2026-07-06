@@ -72,8 +72,9 @@ export function createVideoWall(opts = {}) {
   const pinBindings = new Map(PIN_SLOTS.map((s) => [s.role, s.id]));
   let localStream = null;
   let hostEl = null;
-  let thumbStrip = null;
+  const feedStrips = new Set();
   let thumbRaf = 0;
+  let headerOpenVideo = null;
   let localMeta = { width: 0, height: 0, capacity: 0 };
 
   PIN_SLOTS.forEach((slot) => {
@@ -139,7 +140,7 @@ export function createVideoWall(opts = {}) {
     const report = capacityReport();
     onCapacityChange?.(report);
     renderWall();
-    renderThumbStrip();
+    renderFeedStrips();
     return report;
   }
 
@@ -392,14 +393,33 @@ export function createVideoWall(opts = {}) {
     renderWall();
   }
 
-  function mountThumbStrip(el) {
-    thumbStrip = el;
-    renderThumbStrip();
-    const loop = () => {
-      if (thumbStrip) renderThumbStrip(true);
+  function registerFeedStrip(el) {
+    if (!el) return;
+    feedStrips.add(el);
+    renderFeedStrips(false);
+    if (!thumbRaf) {
+      const loop = () => {
+        if (feedStrips.size) renderFeedStrips(true);
+        thumbRaf = requestAnimationFrame(loop);
+      };
       thumbRaf = requestAnimationFrame(loop);
-    };
-    thumbRaf = requestAnimationFrame(loop);
+    }
+  }
+
+  function unregisterFeedStrip(el) {
+    if (el) feedStrips.delete(el);
+    if (!feedStrips.size) {
+      cancelAnimationFrame(thumbRaf);
+      thumbRaf = 0;
+    }
+  }
+
+  function mountThumbStrip(el) {
+    registerFeedStrip(el);
+  }
+
+  function setHeaderOpenVideo(fn) {
+    headerOpenVideo = fn;
   }
 
   function renderWall() {
@@ -512,7 +532,7 @@ export function createVideoWall(opts = {}) {
     } else {
       pinBindings.set(role, slot.id);
     }
-    renderThumbStrip();
+    renderFeedStrips();
     return pinBindings.get(role);
   }
 
@@ -531,17 +551,25 @@ export function createVideoWall(opts = {}) {
 
   let floatDockOpen = null;
 
-  function renderThumbStrip(drawOnly = false) {
-    if (!thumbStrip) return;
+  function getFeedEntries() {
     const report = capacityReport();
     const pins = getPinnedEntries();
     const liveUsers = report.users.filter((u) => !tiles.get(u.id)?.pinned);
-    const allEntries = [...pins, ...liveUsers];
+    return [...pins, ...liveUsers];
+  }
+
+  function renderFeedStrips(drawOnly = false) {
+    for (const strip of feedStrips) renderFeedStrip(strip, drawOnly);
+  }
+
+  function renderFeedStrip(thumbStrip, drawOnly = false) {
+    if (!thumbStrip) return;
+    const allEntries = getFeedEntries();
 
     if (!drawOnly) {
       thumbStrip.innerHTML = "";
       if (!allEntries.length) {
-        thumbStrip.innerHTML = '<span class="viz-thumb-empty">pin mod · mus · live</span>';
+        thumbStrip.innerHTML = '<span class="viz-thumb-empty">pin mod · mus · vwall live</span>';
       }
     }
 
@@ -566,6 +594,12 @@ export function createVideoWall(opts = {}) {
         item.style.borderColor = u.color;
         thumbStrip.appendChild(item);
         if (u.pinned) bindPinClick(item, u);
+        else {
+          item.addEventListener("click", () => {
+            onStatus?.(`feed · ${u.name} · ${u.width}×${u.height}`);
+            headerOpenVideo?.() || floatDockOpen?.();
+          });
+        }
       }
       if (!item) continue;
       item.classList.toggle("offline", !!u.pinned && !u.active);
@@ -635,9 +669,12 @@ export function createVideoWall(opts = {}) {
   function destroy() {
     cancelAnimationFrame(thumbRaf);
     stopLocal();
-    for (const item of thumbStrip?.querySelectorAll(".viz-thumb") || []) {
-      item._hiddenVid?.remove();
+    for (const strip of feedStrips) {
+      for (const item of strip?.querySelectorAll(".viz-thumb") || []) {
+        item._hiddenVid?.remove();
+      }
     }
+    feedStrips.clear();
     tiles.clear();
     pcs.clear();
     pendingIce.clear();
@@ -646,6 +683,10 @@ export function createVideoWall(opts = {}) {
   return {
     mountWall,
     mountThumbStrip,
+    registerFeedStrip,
+    unregisterFeedStrip,
+    setHeaderOpenVideo,
+    getFeedEntries,
     toggleLocal,
     startLocal,
     stopLocal,
@@ -658,7 +699,8 @@ export function createVideoWall(opts = {}) {
     capacityReport,
     getTiles: () => [...tiles.values()],
     renderWall,
-    renderThumbStrip,
+    renderFeedStrips,
+    renderThumbStrip: renderFeedStrips,
     getPinnedEntries,
     assignPinRole,
     setFloatDockOpen: (fn) => { floatDockOpen = fn; },
