@@ -1,0 +1,364 @@
+<div id="piano-panel-inner" class="app piano-buddy">
+<!-- Always-visible score + key map -->
+    <section id="score-dock" class="score-dock" aria-label="Sheet music and piano keys">
+      <div class="score-dock-head">
+        <div class="dock-song">
+          <span id="dock-song-emoji" class="dock-emoji">⭐</span>
+          <div>
+            <div id="dock-song-title" class="dock-title">Twinkle Twinkle Little Star</div>
+            <div id="dock-song-meta" class="dock-meta">96 BPM · 4/4 · <span id="dock-measure">m1</span></div>
+          </div>
+        </div>
+        <div class="dock-view-btns">
+          <button id="dock-flip-btn" class="dock-icon-btn" title="Flip horizontal" aria-label="Flip horizontal">↔</button>
+          <button id="dock-rotate-btn" class="dock-icon-btn" title="Phone mode — rotate" aria-label="Phone rotate mode">↻</button>
+        </div>
+      </div>
+
+      <div id="score-dock-flip" class="score-dock-flip">
+        <div id="notation-scroll" class="notation-scroll">
+          <div id="notation-viewport" class="notation-viewport">
+            <div id="notation-letters" class="notation-letters"></div>
+            <div id="notation-container"></div>
+            <div id="notation-playhead" class="notation-playhead" aria-hidden="true"></div>
+          </div>
+        </div>
+
+        <div id="piano-roll-scroll" class="piano-roll-scroll" aria-label="Piano roll">
+          <canvas id="piano-roll-canvas"></canvas>
+        </div>
+
+        <div class="keymap-wrap">
+          <canvas id="keymap-canvas" aria-label="Live piano key colors"></canvas>
+        </div>
+      </div>
+
+      <div class="dock-transport-bar">
+        <button id="dock-measure-prev" class="dock-tbtn" title="Previous measure">⏮</button>
+        <button id="dock-restart-btn" class="dock-tbtn" title="Restart">↺</button>
+        <button id="dock-play-btn" class="dock-btn dock-btn-play" title="Play / Pause">▶</button>
+        <button id="dock-measure-next" class="dock-tbtn" title="Next measure">⏭</button>
+        <button id="dock-mirror-btn" class="dock-btn dock-btn-mirror" title="Mirror keys">◇</button>
+      </div>
+
+      <div class="dock-speed">
+        <label class="dock-speed-label">Speed</label>
+        <div class="speed-presets" id="speed-presets">
+          <button type="button" class="speed-chip" data-mult="0.5">½×</button>
+          <button type="button" class="speed-chip" data-mult="0.75">¾×</button>
+          <button type="button" class="speed-chip active" data-mult="1">1×</button>
+          <button type="button" class="speed-chip" data-mult="1.25">1¼×</button>
+          <button type="button" class="speed-chip" data-mult="1.5">1½×</button>
+        </div>
+        <input type="range" id="tempo-slider" min="40" max="180" value="96" class="dock-tempo-slider">
+        <span id="tempo-val" class="cal-val">96</span>
+      </div>
+
+      <div class="legend-row" id="legend-row" aria-hidden="true">
+        <span class="legend-chip" data-note="C">C</span>
+        <span class="legend-chip" data-note="D">D</span>
+        <span class="legend-chip" data-note="E">E</span>
+        <span class="legend-chip" data-note="F">F</span>
+        <span class="legend-chip" data-note="G">G</span>
+        <span class="legend-chip" data-note="A">A</span>
+        <span class="legend-chip" data-note="B">B</span>
+      </div>
+
+      <div class="progress-bar dock-progress"><div id="progress-fill" class="progress-fill"></div></div>
+      <div id="now-playing" class="now-playing dock-now"></div>
+      <p id="grandma-msg-display" class="dock-msg"></p>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab active" data-panel="play">Play</button>
+      <button class="tab" data-panel="mirror">Mirror</button>
+      <button class="tab" data-panel="camera">Camera</button>
+      <button class="tab" data-panel="live">Live</button>
+      <button class="tab" data-panel="family">Family</button>
+    </nav>
+
+    <!-- PLAY -->
+    <section id="panel-play" class="panel active">
+      <div class="card">
+        <h2>Pick a song</h2>
+        <div class="album-controls">
+          <label class="album-ctrl">
+            <span>Album</span>
+            <select id="album-filter"></select>
+          </label>
+          <label class="album-ctrl">
+            <span>Sort</span>
+            <select id="album-sort">
+              <option value="order">Catalog order</option>
+              <option value="title">Title A–Z</option>
+              <option value="year">Year (newest)</option>
+            </select>
+          </label>
+        </div>
+        <div id="song-list" class="song-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="controls">
+          <button id="play-btn" class="btn btn-primary">▶ Play</button>
+          <button id="restart-btn" class="btn btn-secondary">↺ Restart</button>
+          <button id="measure-prev-btn" class="btn btn-secondary">⏮</button>
+          <button id="measure-next-btn" class="btn btn-secondary">⏭</button>
+          <button id="mirror-btn" class="btn btn-accent">Mirror</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:0.85rem;color:var(--muted)">
+          <input type="checkbox" id="guide-audio"> Guide tones (speaker)
+        </label>
+        <p style="font-size:0.75rem;color:var(--muted);margin-top:8px">Transport &amp; speed live in the score bar above — letters scroll with the keys.</p>
+      </div>
+
+    </section>
+
+    <!-- MIRROR -->
+    <section id="panel-mirror" class="panel">
+      <div class="card">
+        <h2>Mirror — light keys</h2>
+        <p style="font-size:0.85rem;color:var(--muted);line-height:1.5;margin-bottom:12px">
+          <strong>How to set up:</strong> Turn brightness to max. Lay the phone flat above the keyboard (screen facing <em>down</em> toward the keys) or prop it on the music stand angled at the keys. Hit Mirror + Play — colored lights land on the keys you press!
+        </p>
+        <button id="mirror-btn-2" class="btn btn-gold" style="width:100%;margin-bottom:12px" onclick="document.getElementById('mirror-btn').click()">
+          Open mirror fullscreen
+        </button>
+      </div>
+
+      <div class="card calibration">
+        <h2>Align to your piano</h2>
+        <div class="cal-row">
+          <label>First key</label>
+          <input type="range" id="cal-startMidi" min="36" max="60" value="48">
+          <span id="cal-startMidi-val" class="cal-val">C3</span>
+        </div>
+        <div class="cal-row">
+          <label>Last key</label>
+          <input type="range" id="cal-endMidi" min="60" max="84" value="72">
+          <span id="cal-endMidi-val" class="cal-val">C5</span>
+        </div>
+        <div class="cal-row">
+          <label>Shift ↔</label>
+          <input type="range" id="cal-offsetX" min="-0.5" max="0.5" step="0.01" value="0">
+          <span id="cal-offsetX-val" class="cal-val">0.00</span>
+        </div>
+        <div class="cal-row">
+          <label>Key width</label>
+          <input type="range" id="cal-keyWidth" min="0.5" max="1.5" step="0.01" value="1">
+          <span id="cal-keyWidth-val" class="cal-val">1.00</span>
+        </div>
+        <div class="cal-row">
+          <label>Glow power</label>
+          <input type="range" id="cal-brightness" min="0.5" max="2" step="0.1" value="1">
+          <span id="cal-brightness-val" class="cal-val">1.00</span>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem">
+          <input type="checkbox" id="cal-flipH" checked> Flip horizontal (mirror)
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem">
+          <input type="checkbox" id="cal-flipV"> Flip vertical
+        </label>
+      </div>
+    </section>
+
+    <!-- CAMERA -->
+    <section id="panel-camera" class="panel">
+      <div class="card">
+        <h2>📷 Camera overlay</h2>
+        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:10px">
+          Point the camera at the keyboard. Colors highlight the keys to play in real time.
+        </p>
+        <div class="camera-wrap">
+          <div id="camera-placeholder" class="camera-placeholder">
+            Tap here — camera will start<br><small>(uses back camera)</small>
+          </div>
+          <video id="camera-video" playsinline muted style="display:none"></video>
+          <canvas id="camera-overlay"></canvas>
+        </div>
+      </div>
+
+      <div class="card calibration">
+        <h2>Camera key zone</h2>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-bottom:10px">
+          <input type="checkbox" id="show-cam-cal" checked> Show alignment box
+        </label>
+        <div class="cal-row">
+          <label>Left</label>
+          <input type="range" id="cam-left" min="0" max="0.5" step="0.01" value="0.05">
+          <span id="cam-left-val" class="cal-val">0.05</span>
+        </div>
+        <div class="cal-row">
+          <label>Top</label>
+          <input type="range" id="cam-top" min="0.3" max="0.8" step="0.01" value="0.55">
+          <span id="cam-top-val" class="cal-val">0.55</span>
+        </div>
+        <div class="cal-row">
+          <label>Width</label>
+          <input type="range" id="cam-width" min="0.5" max="1" step="0.01" value="0.9">
+          <span id="cam-width-val" class="cal-val">0.90</span>
+        </div>
+        <div class="cal-row">
+          <label>Height</label>
+          <input type="range" id="cam-height" min="0.15" max="0.5" step="0.01" value="0.35">
+          <span id="cam-height-val" class="cal-val">0.35</span>
+        </div>
+        <div class="controls" style="margin-top:10px">
+          <button class="btn btn-primary" onclick="document.getElementById('play-btn').click()">▶ Play with overlay</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVE (hexcast + overview + ffmpeg + X) -->
+    <section id="panel-live" class="panel">
+      <div class="card">
+        <h2>📡 Live lesson room</h2>
+        <p style="font-size:0.82rem;color:var(--muted);line-height:1.5;margin-bottom:10px">
+          Hooks into <a href="https://mueee.qbitos.ai/kbatch.html" target="_blank" rel="noopener">kbatch</a>
+          hexcast, <a href="https://fornevercollective.github.io/overview/" target="_blank" rel="noopener">overview</a>
+          Video Feeds Lab, ffmpeg, and X Spaces / video calls.
+        </p>
+        <p style="font-size:0.8rem;margin-bottom:8px">Room: <code id="room-id-display">—</code></p>
+        <div class="controls">
+          <button id="btn-new-room" class="btn btn-secondary">New room</button>
+          <button id="btn-copy-room" class="btn btn-gold">Copy room link</button>
+        </div>
+        <div class="share-link" style="margin-top:8px">
+          <input id="room-share-url" readonly placeholder="Piano Buddy room URL">
+        </div>
+        <div class="share-link" style="margin-top:6px">
+          <input id="overview-room-url" readonly placeholder="Overview Video Feeds Lab URL">
+          <button id="btn-copy-overview" class="btn btn-secondary" style="padding:10px 14px">📋</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Hexcast broadcast</h2>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:10px">
+          Publishes camera + key overlay to <code>hexcast-stream</code> (same as
+          <a href="https://mueee.qbitos.ai/hexcast.html" target="_blank" rel="noopener">hexcast</a>).
+          Grandma opens hexcast → Receive, or overview with the room link above.
+        </p>
+        <div class="cal-row">
+          <label>Hex FPS</label>
+          <input type="range" id="hex-fps" min="4" max="15" value="8">
+          <span id="hex-fps-val" class="cal-val">8</span>
+        </div>
+        <div class="controls" style="margin-top:10px">
+          <button id="btn-broadcast" class="btn btn-primary">📡 Start hexcast</button>
+          <button id="btn-receive" class="btn btn-secondary">👀 Grandma watch</button>
+          <button id="btn-kbatch-sync" class="btn btn-secondary">⌨ kbatch</button>
+        </div>
+        <p id="stream-status" class="status-line" style="margin-top:10px"></p>
+      </div>
+
+      <div class="card" id="grandma-view-wrap" style="display:none">
+        <h2>👵 Grandma view (hexcast receive)</h2>
+        <div class="camera-wrap" style="aspect-ratio:16/9">
+          <canvas id="grandma-hex-canvas"></canvas>
+        </div>
+        <p style="font-size:0.75rem;color:var(--muted);margin-top:6px">Feed: <code id="grandma-feed-key">—</code></p>
+        <div id="grandma-song-title" style="font-weight:800;margin-top:8px">—</div>
+        <div id="grandma-notes" class="now-playing" style="min-height:36px"></div>
+        <div style="font-size:0.8rem;color:var(--muted)">Beat: <span id="grandma-beat">—</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Camera (live tab)</h2>
+        <div class="camera-wrap">
+          <div id="camera-placeholder-live" class="camera-placeholder" onclick="document.querySelector('[data-panel=camera]').click()">
+            Camera runs on Camera tab — switch there or it auto-starts here
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>ffmpeg streaming</h2>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:8px">
+          Terminal commands for local HLS preview or OBS → X Spaces.
+          Pairs with <code>~/dev/ffmpeg/repel</code> for playback.
+        </p>
+        <pre id="ffmpeg-camera-cmd" class="cmd-block"></pre>
+        <button id="btn-copy-ffmpeg" class="btn btn-secondary" style="width:100%;margin-top:8px">Copy ffmpeg command</button>
+        <pre id="ffmpeg-obs-cmd" class="cmd-block" style="margin-top:10px"></pre>
+      </div>
+
+      <div class="card">
+        <h2>X Spaces &amp; video calls</h2>
+        <p style="font-size:0.82rem;color:var(--muted);line-height:1.5;margin-bottom:10px">
+          For grandma on another phone: host a piano lesson Space, or start an audio/video call in DMs.
+        </p>
+        <div class="controls">
+          <a class="btn btn-primary" href="https://help.x.com/en/using-x/spaces" target="_blank" rel="noopener" style="text-decoration:none;text-align:center">🎙 X Spaces guide</a>
+          <a class="btn btn-gold" href="https://help.x.com/en/using-x/direct-messages/audio-video-calls" target="_blank" rel="noopener" style="text-decoration:none;text-align:center">📞 X video call</a>
+        </div>
+        <p style="font-size:0.75rem;color:var(--muted);margin-top:10px;line-height:1.4">
+          Workflow: fullscreen Mirror mode → OBS window capture → go live in X Spaces.
+          Or tap video call in your DM with grandma while hexcast broadcasts key colors to her overview tab.
+        </p>
+      </div>
+    </section>
+
+    <!-- FAMILY -->
+    <section id="panel-family" class="panel">
+      <div class="card">
+        <span id="role-badge" class="role-badge kid">Player</span>
+        <div class="controls">
+          <button id="role-grandma" class="btn btn-secondary">Teacher</button>
+          <button id="role-kid" class="btn btn-primary">Player</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Your stars</h2>
+        <div id="total-stars" class="stars-display">—</div>
+        <div id="sticker-grid" class="sticker-grid"></div>
+        <button id="send-stars" class="btn btn-gold" style="width:100%;margin-top:12px">Send stars to Grandma ⭐</button>
+        <p id="stars-received" class="status-line" style="margin-top:10px"></p>
+      </div>
+
+      <div class="card" id="builder-card" style="display:none">
+        <h2>👵 Create a lesson</h2>
+        <input id="builder-title" placeholder="Song name" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0.2);margin-bottom:8px">
+        <div class="cal-row">
+          <label>Tempo</label>
+          <input type="number" id="builder-tempo" value="96" min="60" max="160" style="width:80px;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0.2)">
+        </div>
+        <div id="builder-notes" style="min-height:24px;margin:8px 0;font-weight:700"></div>
+        <div id="mini-kb" class="mini-kb"></div>
+        <div class="controls">
+          <button id="builder-save" class="btn btn-primary">Save lesson</button>
+          <button id="builder-clear" class="btn btn-secondary">Clear</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>💌 Share with family</h2>
+        <textarea id="lesson-message" class="message-box" placeholder="Grandma: leave an encouraging note for your grandkid!"></textarea>
+        <button id="share-lesson" class="btn btn-primary" style="width:100%;margin-top:10px">Copy share link</button>
+        <div class="share-link">
+          <input id="share-url" readonly placeholder="Share link appears here">
+        </div>
+        <p id="share-status" class="status-line" style="margin-top:8px"></p>
+      </div>
+    </section>
+  </div>
+
+  <button type="button" id="phone-rotate-exit" class="phone-rotate-exit">Exit phone mode</button>
+
+  <!-- Full-screen mirror -->
+  <div id="mirror-screen" class="mirror-screen">
+    <p class="mirror-hint">MAX BRIGHTNESS · screen faces keys · tap ✕ to exit</p>
+    <button id="mirror-close" class="mirror-close">✕</button>
+    <canvas id="mirror-canvas"></canvas>
+  </div>
+
+  <!-- Celebration -->
+  <div id="celebrate" class="celebrate">
+    <div class="big">✓</div>
+    <h2 id="celebrate-text">Song complete</h2>
+    <button id="celebrate-dismiss" class="btn btn-primary">Continue</button>
+  </div>
+
+  
+</div>

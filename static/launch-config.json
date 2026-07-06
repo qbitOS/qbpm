@@ -1,0 +1,67 @@
+{
+  "desktop": {
+    "components": {
+      "collab": true,
+      "grok": true,
+      "live": true,
+      "td": true,
+      "video": true,
+      "daw": true,
+      "strudel": true,
+      "kbatch": "local",
+      "agent": true
+    }
+  },
+  "pages": {
+    "components": {
+      "collab": "bridge",
+      "grok": "bridge",
+      "live": "bridge",
+      "td": "bridge",
+      "video": "bridge",
+      "daw": true,
+      "strudel": true,
+      "kbatch": "remote",
+      "agent": false
+    }
+  },
+  "forge": {
+    "components": {
+      "collab": "bridge",
+      "grok": "bridge",
+      "live": "bridge",
+      "td": "bridge",
+      "video": "bridge",
+      "daw": true,
+      "strudel": true,
+      "kbatch": "remote",
+      "agent": false
+    }
+  },
+  "cloudflare": {
+    "components": {
+      "collab": "bridge",
+      "grok": "bridge",
+      "live": "bridge",
+      "td": "bridge",
+      "video": "bridge",
+      "daw": true,
+      "strudel": true,
+      "kbatch": "remote",
+      "agent": false
+    }
+  },
+  "cloud": {
+    "components": {
+      "collab": true,
+      "grok": true,
+      "live": true,
+      "td": true,
+      "video": true,
+      "daw": true,
+      "strudel": true,
+      "kbatch": "local",
+      "agent": true
+    }
+  }
+}

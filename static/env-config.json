@@ -1,0 +1,9 @@
+{
+  "variant": "pages",
+  "label": "GitHub Pages",
+  "origin": "https://qbitos.github.io/qbpm/",
+  "basePath": "/qbpm",
+  "staticShell": true,
+  "defaultApiBase": "https://api.qbitos.ai",
+  "buildTs": "2026-07-06T04:31:31.742001Z"
+}

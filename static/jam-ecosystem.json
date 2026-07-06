@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "mission": "mass collaboration · live code jam · () flare · comp lanes",
+  "stacks": {
+    "livecode": ["strudel", "grok", "touchdesigner", "hydra", "kbatch"],
+    "daw": ["openDAW", "gridSound", "zrythm", "butterDAWg", "generic-daw"],
+    "notation": ["lilypalooza", "vexflow", "echos", "musica"],
+    "collab": ["nearoo-music-tool", "qbpm-canvas", "overview-vfl", "hexcast"]
+  },
+  "tools": [
+    { "id": "nearoo", "label": "Nearoo music-tool", "repo": "https://github.com/Nearoo/music-tool", "role": "collab", "flare": "()" },
+    { "id": "drumhaus", "label": "drumhaus", "repo": "https://github.com/mxfng/drumhaus", "role": "drums", "stack": ["web", "samples"] },
+    { "id": "gridsound", "label": "gridSound DAW", "repo": "https://github.com/gridsound/daw", "role": "daw", "stack": ["webaudio", "midi"] },
+    { "id": "opendaw", "label": "openDAW", "repo": "https://github.com/andremichelle/openDAW", "role": "daw", "stack": ["typescript", "worklets"] },
+    { "id": "tuneflow-py", "label": "TuneFlow Py", "repo": "https://github.com/tuneflow/tuneflow-py", "role": "ai-daw", "stack": ["python"] },
+    { "id": "tuneflow", "label": "TuneFlow", "repo": "https://github.com/tuneflow/tuneflow", "role": "ai-daw" },
+    { "id": "eim", "label": "EchoInMirror", "repo": "https://github.com/eimsound/EchoInMirror", "role": "player" },
+    { "id": "eim-core", "label": "EIM", "repo": "https://github.com/eimsound/EIM", "role": "engine" },
+    { "id": "butterdawg", "label": "butterDAWg", "repo": "https://github.com/Jaybee18/butterDAWg", "role": "daw" },
+    { "id": "generic-daw", "label": "generic-daw", "repo": "https://github.com/generic-daw/generic-daw", "role": "daw" },
+    { "id": "thedaw", "label": "theDAW", "repo": "https://github.com/gantasmo/theDAW", "role": "daw" },
+    { "id": "harmonicon", "label": "Harmonicon", "repo": "https://github.com/JamesRyanATX/Harmonicon", "role": "notation" },
+    { "id": "vocalshaper", "label": "VocalShaper", "repo": "https://github.com/Do-sth-sharp/VocalShaper", "role": "vocal" },
+    { "id": "zrythm", "label": "Zrythm", "repo": "https://github.com/zrythm/zrythm", "role": "daw", "stack": ["gtk", "lv2"] },
+    { "id": "maolan", "label": "maolan", "repo": "https://github.com/maolan/maolan", "role": "daw" },
+    { "id": "gary4juce", "label": "gary4juce", "repo": "https://github.com/betweentwomidnights/gary4juce", "role": "plugin" },
+    { "id": "audio-dev-tools", "label": "audio-development-tools", "repo": "https://github.com/Yuan-ManX/audio-development-tools", "role": "reference" },
+    { "id": "strauss", "label": "Strauss", "repo": "https://github.com/Noahdw/Strauss", "role": "notation" },
+    { "id": "beets", "label": "beets", "repo": "https://github.com/brandongregoryscott/beets", "role": "library" },
+    { "id": "waveform-playlist", "label": "waveform-playlist", "repo": "https://github.com/naomiaro/waveform-playlist", "role": "editor" },
+    { "id": "infinite-crate", "label": "the-infinite-crate", "repo": "https://github.com/magenta/the-infinite-crate", "role": "ml-audio" },
+    { "id": "mgen", "label": "MGen", "repo": "https://github.com/rualark/MGen", "role": "generator" },
+    { "id": "pulseq", "label": "pulseq", "repo": "https://github.com/Valent-in/pulseq", "role": "sequencer" },
+    { "id": "midimech", "label": "midimech", "repo": "https://github.com/flipcoder/midimech", "role": "midi" },
+    { "id": "lilypalooza", "label": "lilypalooza", "repo": "https://github.com/ales-tsurko/lilypalooza", "role": "notation" },
+    { "id": "echos", "label": "echos", "repo": "https://github.com/Linzwcs/echos", "role": "notation" },
+    { "id": "strudel", "label": "Strudel", "repo": "https://strudel.cc", "role": "livecode", "pattern": "d1 $ s 'bd sd'" },
+    { "id": "failsafe", "label": "Fail-safe", "repo": "https://github.com/algorave-dave/Fail-safe", "role": "livecode", "pattern": "blockArrange · algorave" },
+    { "id": "overview-vfl", "label": "overview Video Feeds Lab", "repo": "https://fornevercollective.github.io/overview/", "role": "video-lab" },
+    { "id": "touchdesigner", "label": "TouchDesigner", "repo": "https://derivative.ca", "role": "vfx", "note": "OSC/MIDI bridge via qbpm comp lanes" }
+  ]
+}

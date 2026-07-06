@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0d1117" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="qbpm spatial node graph — JSON, JAX, Grok terminal, piano" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./static/icons/icon-192.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./static/icons/icon-192.svg" />
+  <title>qbpm</title>
+  <script src="./static/pages-boot.js"></script>
+  <link rel="stylesheet" href="./static/qbpm.css" />
+  <link rel="stylesheet" href="./static/ugrad-hud.css" />
+  <link rel="stylesheet" href="./static/ui-buttons.css" />
+  <link rel="stylesheet" href="./static/float-workspace.css" />
+  <link rel="stylesheet" href="./static/piano/piano-panel.css" />
+</head>
+<body>
+  <header id="header">
+    <div class="brand">
+      <button id="btn-refresh" type="button" title="Hard refresh canvas" aria-label="Hard refresh canvas">↻</button>
+      <span class="title">qbpm</span>
+      <span class="sub hide-mobile">JSON · JAX · kbatch · tools</span>
+    </div>
+    <div id="header-dock" class="header-dock" aria-label="User and session"></div>
+    <div class="actions">
+      <span id="collab-status" class="collab-status" title="Live canvas collaborators">● solo</span>
+      <button id="btn-grok-terminal" type="button" aria-pressed="false" title="Grok terminal">.grok</button>
+      <button id="btn-run" type="button">run</button>
+      <button id="btn-save" type="button">save</button>
+      <button id="btn-agent" type="button" class="hide-mobile">agent</button>
+    </div>
+  </header>
+
+  <div id="video-float-bar" class="video-float-bar" aria-label="Moderator and musician video pins"></div>
+  <div id="header-waveform" class="header-waveform" aria-label="Live audio spectrum"></div>
+
+  <nav id="mobile-tabs" class="mobile-only" aria-label="Panels">
+    <button type="button" data-panel="canvas" class="active">graph</button>
+    <button type="button" data-panel="viz">viz</button>
+    <button type="button" data-panel="inspector">edit</button>
+    <button type="button" data-panel="kbatch">kbatch</button>
+    <button type="button" data-panel="tools">tools</button>
+    <button type="button" data-panel="terminal">grok</button>
+  </nav>
+
+  <main id="workspace">
+    <section id="canvas-wrap" data-panel="canvas">
+      <div id="canvas-toolbar">
+        <button id="btn-add" type="button" title="Add node">+</button>
+        <button id="btn-center" type="button" title="Center view">◎</button>
+        <button id="btn-add-frame" type="button" title="Add canvas frame">▢</button>
+        <button id="btn-add-device" type="button" title="Add device frame (phone, AR, server…)">📐</button>
+        <button id="btn-add-viewport" type="button" title="Add viewport window">⊞</button>
+        <div id="device-picker" class="device-picker" aria-label="Device frames"></div>
+        <button id="btn-pan-mode" type="button" title="Pan mode (mobile)" class="mobile-only" aria-pressed="false">✥</button>
+      </div>
+      <div id="canvas-hint" class="hide-mobile">vfx comp · in◉ in♪ midi · out▶ out♪ · shift+wire · alt+collab lane</div>
+      <div id="canvas-resolution" class="canvas-resolution" aria-live="polite">—</div>
+      <canvas id="canvas"></canvas>
+    </section>
+
+    <aside id="right-panel">
+      <nav id="right-tabs" class="right-tabs" aria-label="Right panel">
+        <button type="button" data-tab="viz" class="active">viz</button>
+        <button type="button" data-tab="inspector">edit</button>
+        <button type="button" data-tab="kbatch">kbatch</button>
+        <button type="button" data-tab="tools">tools</button>
+        <button type="button" data-tab="terminal">grok</button>
+      </nav>
+
+      <div id="right-panel-body">
+        <section id="visualizer" class="panel-block active" data-panel="viz">
+          <div class="panel-head">
+            <h2>visualizer</h2>
+            <button id="btn-viz-expand" type="button" title="Expand">⤢</button>
+          </div>
+          <canvas id="viz-canvas"></canvas>
+          <div id="viz-stream-strip" class="viz-stream-strip" aria-label="Live stream thumbnails"></div>
+          <pre id="viz-log">idle</pre>
+        </section>
+
+        <section id="inspector" class="panel-block" data-panel="inspector">
+          <h2>edit</h2>
+          <nav class="insp-tabs" aria-label="Edit target">
+            <button type="button" class="insp-tab active" data-insp="node">node</button>
+            <button type="button" class="insp-tab" data-insp="user">user</button>
+          </nav>
+          <div id="insp-node-panel" class="insp-panel active">
+            <label>id <input id="insp-id" readonly /></label>
+            <label>type
+              <select id="insp-type">
+                <option value="core.clock">core.clock</option>
+                <option value="python.exec">python.exec</option>
+                <option value="python.jax">python.jax</option>
+                <option value="kernel.cuda">kernel.cuda</option>
+                <option value="agent.mutator">agent.mutator</option>
+                <option value="core.output">core.output</option>
+                <option value="music.score">music.score</option>
+                <option value="music.clock">music.clock</option>
+                <option value="tool.kbatch">tool.kbatch</option>
+                <option value="wasm.classify">wasm.classify</option>
+                <option value="repel.play">repel.play</option>
+              </select>
+            </label>
+            <label>code<textarea id="insp-code" rows="8" spellcheck="false"></textarea></label>
+            <div class="insp-actions">
+              <button type="button" id="insp-run-node" class="insp-btn" title="Run graph">run</button>
+              <button type="button" id="insp-align-node" class="insp-btn" title="Align to node">◎ node</button>
+            </div>
+          </div>
+          <div id="insp-user-panel" class="insp-panel">
+            <label>frame <input id="insp-frame-id" readonly /></label>
+            <label>user <input id="insp-user-name" readonly /></label>
+            <label>client <input id="insp-user-cid" readonly /></label>
+            <div class="insp-actions">
+              <button type="button" id="insp-hop-user" class="insp-btn" title="Hop to user frame">◎ hop</button>
+              <button type="button" id="insp-send-user" class="insp-btn" title="Set music send target">♪ send</button>
+            </div>
+          </div>
+          <details id="insp-cmd-help" class="insp-cmd-help">
+            <summary>terminal commands</summary>
+            <div id="insp-cmd-help-body" class="insp-cmd-help-body"></div>
+          </details>
+        </section>
+
+        <section id="kbatch-panel" class="panel-block" data-panel="kbatch">
+          <div class="panel-head">
+            <h2>kbatch</h2>
+            <div class="kbatch-toolbar kbatch-toolbar-panel">
+              <span id="kbatch-status" class="live-status">● idle</span>
+              <label class="kbatch-tab-pick">tab
+                <select id="kbatch-tab-select" title="kbatch tab">
+                  <option value="analyzer">Analyzer</option>
+                  <option value="layouts">Layouts</option>
+                  <option value="dictionary">Dictionary</option>
+                  <option value="quantum">Quantum</option>
+                  <option value="training">Training</option>
+                  <option value="capsules">Capsules</option>
+                  <option value="contrails">Contrails</option>
+                  <option value="musica">Musica</option>
+                  <option value="symbollab">Symbols</option>
+                  <option value="lattice">Lattice</option>
+                </select>
+              </label>
+              <button type="button" id="btn-kbatch-focus" title="Focus input">⌨</button>
+              <button type="button" id="btn-kbatch-reload" title="Reload">↻</button>
+              <button type="button" id="btn-kbatch-full" title="Open full window">⤢</button>
+            </div>
+          </div>
+          <p class="kbatch-tools-hint">keyboard batch — analyzer · layouts · dictionary · quantum · training · capsules · contrails · musica · symbols · lattice · code cell · terminal</p>
+          <iframe id="kbatch-frame" class="kbatch-frame" title="kbatch" loading="lazy"></iframe>
+        </section>
+
+        <section id="tools-panel" class="panel-block" data-panel="tools">
+          <div class="panel-head">
+            <h2>tools</h2>
+            <div class="tools-hub-actions">
+              <button id="tools-expand-all" type="button" title="Expand all">⊞</button>
+              <button id="tools-collapse-all" type="button" title="Collapse all">⊟</button>
+            </div>
+          </div>
+          <div id="tools-accordion" class="tools-accordion" aria-label="qbpm tools"></div>
+        </section>
+
+        <section id="grok-terminal" class="panel-block" data-panel="terminal">
+          <div class="panel-head">
+            <h2>.grok terminal</h2>
+            <button id="grok-terminal-clear" type="button">clear</button>
+          </div>
+          <pre id="grok-terminal-out" aria-live="polite">connecting…</pre>
+          <div class="grok-input-row">
+            <span class="grok-prompt" translate="no">❯</span>
+            <input id="grok-terminal-in" type="text" enterkeyhint="send" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="run · save · agent · help" />
+            <button id="grok-terminal-send" type="button">↵</button>
+          </div>
+          <p class="grok-hint">Inject: <code>window.grokTools.inject('run')</code> · WS <code>/api/grok/ws</code></p>
+        </section>
+      </div>
+    </aside>
+  </main>
+
+  <section id="prompt-bar" class="prompt-bar grok-prompt-bar" aria-label="Main prompt">
+    <div class="prompt-search-row">
+      <span id="prompt-char" class="prompt-char" title="qbpm prompt">qbpm&gt;</span>
+      <input id="prompt-search-in" type="search" placeholder="prompt · strudel · Fail-safe · ingest URL · imagine…" autocomplete="off" spellcheck="false" />
+      <button id="prompt-search-go" type="button" title="Search / run">↵</button>
+      <button id="prompt-video-ingest" type="button" title="Video ingest (yt-dlp)" class="hide-mobile">▶ ingest</button>
+      <button id="prompt-imagine" type="button" title="Imagine presets" class="hide-mobile">✦ imagine</button>
+    </div>
+    <pre id="prompt-search-out" class="prompt-search-out" aria-live="polite"></pre>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.5/build/cjs/vexflow.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+  <script type="module" src="./static/qbpm.js"></script>
+  <script src="./static/grok-terminal.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js").catch(function () {});
+    }
+    document.getElementById("grok-terminal-clear")?.addEventListener("click", function () {
+      window.grokTools?.clearTerminal?.();
+    });
+  </script>
+</body>
+</html>

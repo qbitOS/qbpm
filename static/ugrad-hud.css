@@ -1,0 +1,116 @@
+#ugrad-hud-shell {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9;
+  overflow: hidden;
+}
+#ugrad-hud-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.ugrad-fui-brackets {
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+}
+.ugrad-plus {
+  position: absolute;
+  font: 700 11px/1 Menlo, ui-monospace, monospace;
+  color: rgba(156, 163, 175, 0.45);
+  width: 14px;
+  text-align: center;
+  line-height: 14px;
+}
+.ugrad-plus--tl { top: -6px; left: -6px; }
+.ugrad-plus--tr { top: -6px; right: -6px; }
+.ugrad-plus--bl { bottom: -6px; left: -6px; }
+.ugrad-plus--br { bottom: -6px; right: -6px; }
+.ugrad-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 0 solid rgba(139, 148, 158, 0.4);
+}
+.ugrad-corner--tl { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
+.ugrad-corner--tr { top: -1px; right: -1px; border-top-width: 2px; border-right-width: 2px; }
+.ugrad-corner--bl { bottom: -1px; left: -1px; border-bottom-width: 2px; border-left-width: 2px; }
+.ugrad-corner--br { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }
+
+.ugrad-target-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ugrad-target-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+  contain: layout style paint;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 2px;
+  background: rgba(1, 4, 9, 0.92);
+  border: 1px solid #58a6ff;
+  border-radius: 6px;
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+  max-width: 160px;
+}
+.ugrad-target-card--local {
+  opacity: 0.92;
+  z-index: 2;
+}
+.ugrad-target-video {
+  width: 48px;
+  height: 32px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #161b22;
+  flex-shrink: 0;
+  position: relative;
+}
+.ugrad-target-video video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ugrad-target-ph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  color: #6e7681;
+}
+.ugrad-target-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ugrad-target-name {
+  font: 600 0.58rem Menlo, monospace;
+  color: #c9d1d9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ugrad-target-coord {
+  font: 500 0.5rem Menlo, monospace;
+  color: #6e7681;
+}
+
+#ugrad-hud-canvas {
+  contain: strict;
+}
+#ugrad-hud-shell {
+  contain: layout style;
+}
+
+#canvas { cursor: crosshair; }
