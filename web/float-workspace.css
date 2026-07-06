@@ -85,7 +85,12 @@
   max-height: min(58vh, 540px);
   overflow: auto;
 }
-.float-video { width: min(200px, 36vw); z-index: 12; }
+.float-video {
+  width: min(300px, 40vw);
+  z-index: 12;
+  max-height: min(62vh, 560px);
+  overflow: auto;
+}
 
 .float-chat-log {
   max-height: 88px;
@@ -412,23 +417,34 @@
 .proc-osc-freq { flex: 1; min-width: 60px; accent-color: #58a6ff; }
 .proc-osc-hz { font-size: 0.48rem; color: #6e7681; min-width: 42px; }
 
-.float-video-box {
+/* video feed wing */
+.vid-wing { display: flex; flex-direction: column; gap: 5px; }
+.vid-status {
+  font-size: 0.48rem;
+  color: #8b949e;
+  margin: 0;
+  line-height: 1.3;
+  max-height: 28px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+.vid-stage {
   position: relative;
   width: 100%;
-  aspect-ratio: 4/3;
+  aspect-ratio: 16/10;
   background: #010409;
   border-radius: 6px;
   overflow: hidden;
-  margin-bottom: 4px;
   border: 1px solid #21262d;
 }
-#float-video-el {
+.vid-el {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: none;
+  transform-origin: center center;
 }
-.float-video-ph {
+.vid-ph {
   position: absolute;
   inset: 0;
   display: flex;
@@ -437,29 +453,77 @@
   color: #6e7681;
   font-size: 1.2rem;
 }
-#float-video-url {
+.vid-meta {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  font-size: 0.42rem;
+  color: #8b949e;
+  background: rgba(1, 4, 9, 0.75);
+  padding: 2px 4px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+.vid-scrub { display: flex; flex-direction: column; gap: 2px; }
+.vid-seek { width: 100%; accent-color: #58a6ff; height: 14px; }
+.vid-time { font-size: 0.45rem; color: #6e7681; text-align: right; }
+.vid-transport,
+.vid-src-btns,
+.vid-controls,
+.vid-filters,
+.vid-out {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+.vid-source { display: flex; flex-direction: column; gap: 3px; }
+.vid-url {
   width: 100%;
   background: #161b22;
   border: 1px solid #30363d;
   border-radius: 4px;
   color: #c9d1d9;
   font: inherit;
-  font-size: 0.55rem;
+  font-size: 0.52rem;
   padding: 4px 6px;
-  margin-bottom: 4px;
 }
-.float-video-btns { display: flex; gap: 4px; }
-.float-video-btns button {
-  flex: 1;
+.vid-btn {
   border: 1px solid #30363d;
   border-radius: 4px;
   background: #21262d;
   color: #c9d1d9;
   cursor: pointer;
   font: inherit;
-  font-size: 0.7rem;
-  padding: 4px;
+  font-size: 0.55rem;
+  padding: 3px 6px;
+  line-height: 1.2;
 }
+.vid-btn:hover,
+.vid-btn.active { border-color: #58a6ff; color: #58a6ff; }
+.vid-rate,
+.vid-fit {
+  font: inherit;
+  font-size: 0.48rem;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #8b949e;
+  padding: 2px 4px;
+}
+.vid-knob {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 48px;
+  font-size: 0.4rem;
+  color: #6e7681;
+  gap: 1px;
+}
+.vid-knob input { width: 100%; height: 10px; accent-color: #58a6ff; }
+.vid-filters .vid-knob { min-width: 56px; }
+.vid-src-btns .vid-btn { flex: 1; }
+.vid-out { justify-content: flex-end; }
 
 .float-peer-chats {
   display: none;

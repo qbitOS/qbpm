@@ -36,7 +36,7 @@ export function createFloatDock() {
     rail.className = "float-dock-rail";
     rail.setAttribute("aria-label", "Workspace dock");
     rail.innerHTML = `
-      <button type="button" data-dock="video" title="Video feed">📹</button>
+      <button type="button" data-dock="video" title="Video · transport · ingest">📹</button>
       <button type="button" data-dock="chat" title="Chat">💬</button>
       <button type="button" data-dock="music" title="Music lab">♪</button>
       <button type="button" data-dock="proc" title="Processing · bloch · EQ · bus">∿</button>
@@ -97,7 +97,7 @@ export function createFloatDock() {
     const proc = document.getElementById("float-panel-br");
 
     if (!open.video) hidePanel(video);
-    else showPanel(video, RAIL_W + EDGE, TOP);
+    else showPanel(video, RAIL_W + EDGE, TOP + 2);
 
     if (!open.chat) hidePanel(chat);
     else showPanel(chat, ww - (chat?.offsetWidth || 220) - EDGE, TOP);

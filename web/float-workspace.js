@@ -3,6 +3,7 @@
 import { createMusicLab } from "./music-lab.js";
 import { createFloatDock } from "./float-dock.js";
 import { createProcessingWing } from "./processing-wing.js";
+import { createVideoFeed } from "./video-feed.js";
 
 const floatDock = createFloatDock();
 
@@ -23,7 +24,7 @@ export function createFloatWorkspace(opts = {}) {
 
   let musicLab = null;
   let processingWing = null;
-  let localStream = null;
+  let videoFeed = null;
 
   const wrap = document.getElementById("canvas-wrap");
   if (!wrap) return stub();
@@ -65,17 +66,8 @@ export function createFloatWorkspace(opts = {}) {
         <div id="float-processing-host"></div>
       </aside>
       <aside id="float-panel-video" class="float-panel float-video" aria-label="Video feed">
-        <div class="float-hd">video · blank</div>
-        <div class="float-video-box">
-          <video id="float-video-el" muted playsinline autoplay></video>
-          <span id="float-video-ph" class="float-video-ph">📹</span>
-        </div>
-        <input id="float-video-url" type="url" placeholder="paste URL · blank ingest" autocomplete="off" />
-        <div class="float-video-btns">
-          <button type="button" id="float-video-cam" title="Camera">📷</button>
-          <button type="button" id="float-video-ingest" title="Ingest URL">▶</button>
-          <button type="button" id="float-video-file" title="Open file">📁</button>
-        </div>
+        <div class="float-hd">video · transport · ingest</div>
+        <div id="float-video-host"></div>
       </aside>
       <div id="float-peer-chats" class="float-peer-chats"></div>
     `;
@@ -93,6 +85,8 @@ export function createFloatWorkspace(opts = {}) {
     musicLab.mount(document.getElementById("float-music-lab-host"));
     processingWing = createProcessingWing();
     processingWing.mount(document.getElementById("float-processing-host"));
+    videoFeed = createVideoFeed({ onIngestUrl: onPromptIngest });
+    videoFeed.mount(document.getElementById("float-video-host"));
     requestAnimationFrame(() => floatDock.layoutPanels());
   }
 
@@ -108,50 +102,6 @@ export function createFloatWorkspace(opts = {}) {
       if (ev.key === "Enter") { ev.preventDefault(); sendChat(); }
     });
 
-    document.getElementById("float-video-cam")?.addEventListener("click", async () => {
-      if (localStream) {
-        localStream.getTracks().forEach((t) => t.stop());
-        localStream = null;
-        const v = document.getElementById("float-video-el");
-        if (v) v.srcObject = null;
-        document.getElementById("float-video-ph").style.display = "flex";
-        return;
-      }
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        const v = document.getElementById("float-video-el");
-        if (v) {
-          v.srcObject = localStream;
-          v.style.display = "block";
-        }
-        document.getElementById("float-video-ph").style.display = "none";
-      } catch (err) {
-        appendChatLine({ fromName: "sys", text: `camera: ${err.message}`, color: "#f85149" });
-      }
-    });
-
-    document.getElementById("float-video-ingest")?.addEventListener("click", () => {
-      const url = document.getElementById("float-video-url")?.value?.trim();
-      if (url) onPromptIngest?.(url);
-    });
-
-    document.getElementById("float-video-file")?.addEventListener("click", () => {
-      const inp = document.createElement("input");
-      inp.type = "file";
-      inp.accept = "video/*,image/*";
-      inp.onchange = () => {
-        const f = inp.files?.[0];
-        if (!f) return;
-        const v = document.getElementById("float-video-el");
-        if (v) {
-          v.srcObject = null;
-          v.src = URL.createObjectURL(f);
-          v.style.display = "block";
-          document.getElementById("float-video-ph").style.display = "none";
-        }
-      };
-      inp.click();
-    });
   }
 
   function appendChatLine(msg) {
@@ -184,13 +134,13 @@ export function createFloatWorkspace(opts = {}) {
   }
 
   function getVideoElement() {
-    return document.getElementById("float-video-el");
+    return videoFeed?.getVideoElement?.() || null;
   }
 
   function destroy() {
     musicLab?.destroy?.();
     processingWing?.destroy?.();
-    if (localStream) localStream.getTracks().forEach((t) => t.stop());
+    videoFeed?.destroy?.();
   }
 
   return {
