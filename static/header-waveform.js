@@ -1,6 +1,7 @@
 /** Page-top spectrum bar — mirrors music lab waveform */
 
 import { drawSpectrum } from "./music-core.js";
+import { getTabRuntime } from "./tab-runtime.js";
 
 export function createHeaderWaveform(core) {
   let canvas = null;
@@ -16,6 +17,10 @@ export function createHeaderWaveform(core) {
     host.appendChild(canvas);
     resize();
     window.addEventListener("resize", resize);
+    getTabRuntime().registerVisualLoop("header-waveform", {
+      start: () => loop(),
+      stop: () => { cancelAnimationFrame(raf); raf = 0; },
+    });
     loop();
   }
 
@@ -41,6 +46,7 @@ export function createHeaderWaveform(core) {
   function destroy() {
     stopped = true;
     cancelAnimationFrame(raf);
+    getTabRuntime().unregisterVisualLoop("header-waveform");
     window.removeEventListener("resize", resize);
   }
 

@@ -1,6 +1,8 @@
 /** Video feed wing — transport, timeline, display, yt-dlp ingest */
 
 import { spawnFfplay } from "./video-ingest.js";
+import { createLiveVideoRail } from "./live-video-rail.js";
+import { getTabRuntime } from "./tab-runtime.js";
 
 function fmtTime(s) {
   if (!Number.isFinite(s) || s < 0) return "0:00";
@@ -21,6 +23,8 @@ export function createVideoFeed(opts = {}) {
   let localStream = null;
   let objectUrl = null;
   let raf = 0;
+  let tickRunning = false;
+  let liveRail = null;
   let sourceKind = "none";
 
   const state = {
@@ -44,6 +48,7 @@ export function createVideoFeed(opts = {}) {
           <button type="button" class="vid-btn vid-vwall-live" title="Join group stream">📡 live</button>
         </div>
         <div id="vid-vwall-host" class="vid-vwall-host" aria-label="Video wall"></div>
+        <div id="vid-live-rail-host" class="vid-live-rail-host" aria-label="Multi-video live rail"></div>
         <pre class="vid-status">no source</pre>
         <div class="vid-stage">
           <video class="vid-el" playsinline></video>
@@ -105,9 +110,18 @@ export function createVideoFeed(opts = {}) {
 
     video = host.querySelector(".vid-el");
     videoWall?.mountWall?.(document.getElementById("vid-vwall-host"));
+    liveRail = createLiveVideoRail({
+      onStatus: setStatus,
+      loadDirectVideo: (url) => loadUrl(url, "direct"),
+    });
+    liveRail.mount(document.getElementById("vid-live-rail-host"));
     applyDisplay();
     bindEvents();
-    tickTime();
+    getTabRuntime().registerVisualLoop("video-feed-scrub", {
+      start: startTickTime,
+      stop: stopTickTime,
+    });
+    startTickTime();
     setStatus("no source");
   }
 
@@ -397,9 +411,25 @@ export function createVideoFeed(opts = {}) {
     }
   }
 
-  function tickTime() {
-    updateTimeLabel();
-    raf = requestAnimationFrame(tickTime);
+  function startTickTime() {
+    if (tickRunning) return;
+    tickRunning = true;
+    const loop = () => {
+      if (!tickRunning || !getTabRuntime().isVisible()) {
+        tickRunning = false;
+        raf = 0;
+        return;
+      }
+      updateTimeLabel();
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+  }
+
+  function stopTickTime() {
+    tickRunning = false;
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
   }
 
   function snapshot() {
@@ -474,7 +504,9 @@ export function createVideoFeed(opts = {}) {
   }
 
   function destroy() {
-    cancelAnimationFrame(raf);
+    stopTickTime();
+    getTabRuntime().unregisterVisualLoop("video-feed-scrub");
+    liveRail?.destroy?.();
     clearSource(true);
     video = null;
   }
@@ -487,6 +519,8 @@ export function createVideoFeed(opts = {}) {
     clearSource,
     getVideoElement,
     setStatus,
+    loadLiveVideos: (urls) => liveRail?.loadVideos?.(urls),
+    getLiveRail: () => liveRail,
     destroy,
   };
 }

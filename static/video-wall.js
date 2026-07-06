@@ -1,5 +1,7 @@
 /** vwall — multi-stream group room (X-style) with capacity / lag hints */
 
+import { getTabRuntime } from "./tab-runtime.js";
+
 const STUN = [{ urls: "stun:stun.l.google.com:19302" }];
 const ROOM_CAPACITY_MAX = 16;
 
@@ -393,24 +395,40 @@ export function createVideoWall(opts = {}) {
     renderWall();
   }
 
+  function startThumbLoop() {
+    if (thumbRaf) return;
+    const loop = () => {
+      if (!feedStrips.size || !getTabRuntime().isVisible()) {
+        thumbRaf = 0;
+        return;
+      }
+      renderFeedStrips(true);
+      thumbRaf = requestAnimationFrame(loop);
+    };
+    thumbRaf = requestAnimationFrame(loop);
+  }
+
+  function stopThumbLoop() {
+    if (thumbRaf) cancelAnimationFrame(thumbRaf);
+    thumbRaf = 0;
+  }
+
   function registerFeedStrip(el) {
     if (!el) return;
     feedStrips.add(el);
     renderFeedStrips(false);
-    if (!thumbRaf) {
-      const loop = () => {
-        if (feedStrips.size) renderFeedStrips(true);
-        thumbRaf = requestAnimationFrame(loop);
-      };
-      thumbRaf = requestAnimationFrame(loop);
-    }
+    getTabRuntime().registerVisualLoop("vwall-thumbs", {
+      start: startThumbLoop,
+      stop: stopThumbLoop,
+    });
+    if (getTabRuntime().isVisible()) startThumbLoop();
   }
 
   function unregisterFeedStrip(el) {
     if (el) feedStrips.delete(el);
     if (!feedStrips.size) {
-      cancelAnimationFrame(thumbRaf);
-      thumbRaf = 0;
+      stopThumbLoop();
+      getTabRuntime().unregisterVisualLoop("vwall-thumbs");
     }
   }
 
@@ -617,6 +635,7 @@ export function createVideoWall(opts = {}) {
               hidden.width = 32;
               hidden.height = 32;
               hidden.style.cssText = "position:fixed;left:-9999px;width:32px;height:32px";
+              hidden.dataset.qbpmThumbVid = "1";
               document.body.appendChild(hidden);
               item._hiddenVid = hidden;
             }
@@ -667,7 +686,8 @@ export function createVideoWall(opts = {}) {
   }
 
   function destroy() {
-    cancelAnimationFrame(thumbRaf);
+    stopThumbLoop();
+    getTabRuntime().unregisterVisualLoop("vwall-thumbs");
     stopLocal();
     for (const strip of feedStrips) {
       for (const item of strip?.querySelectorAll(".viz-thumb") || []) {

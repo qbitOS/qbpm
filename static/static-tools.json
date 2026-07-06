@@ -15,6 +15,14 @@
       "label": "live jam hub",
       "url": "./static/jam-ecosystem.json",
       "external": true
+    },
+    {
+      "id": "grok-play",
+      "role": "imagine",
+      "category": "grok play · theatre",
+      "label": "grok play",
+      "url": "./static/grok-playground.html",
+      "embed": "./static/grok-playground.html?qbpm=1"
     }
   ]
 }

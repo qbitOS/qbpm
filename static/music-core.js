@@ -1,5 +1,7 @@
 /** Shared music engine — audio bus, MPC/beat state, waveform helpers */
 
+import { getTabRuntime } from "./tab-runtime.js";
+
 export const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 export const STEP_COUNT = 16;
 
@@ -228,7 +230,9 @@ export function createMusicCore(opts = {}) {
       masterGain.connect(analyser);
       analyser.connect(audioCtx.destination);
       masterGain.gain.value = 0.12;
+      getTabRuntime().registerAudioContext(audioCtx);
     }
+    getTabRuntime().resumeAllAudioContexts();
     return audioCtx;
   }
 
@@ -421,11 +425,13 @@ export function createMusicCore(opts = {}) {
     stopSeq();
     seqOn = true;
     seqStep = 0;
+    getTabRuntime().setAudioSession(true);
     const bpm = getBpm() || 120;
     const ms = (60 / bpm / 4) * 1000;
     triggerStep(0);
     notify();
     seqTimer = setInterval(() => {
+      ensureAudio();
       seqStep = (seqStep + 1) % STEP_COUNT;
       triggerStep(seqStep);
       notify();
@@ -434,6 +440,7 @@ export function createMusicCore(opts = {}) {
 
   function stopSeq() {
     seqOn = false;
+    getTabRuntime().setAudioSession(false);
     if (seqTimer) clearInterval(seqTimer);
     seqTimer = null;
     seqStep = 0;
@@ -540,7 +547,10 @@ export function createMusicCore(opts = {}) {
   function destroy() {
     stopSeq();
     listeners.clear();
-    if (audioCtx) audioCtx.close();
+    if (audioCtx) {
+      getTabRuntime().unregisterAudioContext(audioCtx);
+      audioCtx.close();
+    }
     audioCtx = null;
     analyser = null;
   }
