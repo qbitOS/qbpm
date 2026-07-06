@@ -137,7 +137,10 @@ export function createQubeManager(opts = {}) {
       } else if (row.type === "viewport" && s.viewport) {
         patch.viewports.push(s.viewport);
       } else if (row.type === "node" && s.node) {
-        patch.nodes.push(s.node);
+        const nodeOwner = s.node.owner || row.owner;
+        if (nodeOwner === clientId || row.qubeId === `node:${s.node.id}` && row.owner === clientId) {
+          patch.nodes.push(s.node);
+        }
       } else if (row.type === "workspace" && row.qubeId === `workspace:${clientId}`) {
         patch.workspace = s;
       }

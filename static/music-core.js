@@ -111,16 +111,22 @@ export function drawSpectrum(canvas, analyser, opts = {}) {
     analyser.getByteFrequencyData(freqBuf);
     data = freqBuf;
   }
-  ctx.fillStyle = opts.bg || "#0a0d12";
-  ctx.fillRect(0, 0, w, h);
+  if (!opts.transparent) {
+    ctx.fillStyle = opts.bg || "#0a0d12";
+    ctx.fillRect(0, 0, w, h);
+  } else {
+    ctx.clearRect(0, 0, w, h);
+  }
   const barCount = Math.min(data.length, Math.max(16, Math.floor(w / (opts.barW || 4))));
   const step = w / barCount;
+  ctx.globalAlpha = opts.alpha ?? 1;
   ctx.fillStyle = opts.color || "#7d8590";
   for (let i = 0; i < barCount; i++) {
     const norm = analyser ? data[i] / 255 : 0.04;
     const bh = Math.max(1, norm * h * (opts.height || 0.92));
     ctx.fillRect(Math.floor(i * step), h - bh, Math.max(1, Math.ceil(step) - 1), bh);
   }
+  ctx.globalAlpha = 1;
 }
 
 export function drawEditableWave(canvas, envelope, opts = {}) {

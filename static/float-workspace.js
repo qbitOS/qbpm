@@ -5,6 +5,7 @@ import { createMusicLab } from "./music-lab.js";
 import { createMusicPanes } from "./music-panes.js";
 import { createHeaderWaveform } from "./header-waveform.js";
 import { createHeaderStage } from "./header-stage.js";
+import { createHeaderPlayStrip } from "./header-play-strip.js";
 import { createFloatDock } from "./float-dock.js";
 import { createProcessingWing } from "./processing-wing.js";
 import { createVideoFeed } from "./video-feed.js";
@@ -57,6 +58,7 @@ export function createFloatWorkspace(opts = {}) {
   let strudelPane = null;
   let dawLink = null;
   let headerStage = null;
+  let headerPlayStrip = null;
   const chatHistory = [];
 
   const wrap = document.getElementById("canvas-wrap");
@@ -200,8 +202,18 @@ export function createFloatWorkspace(opts = {}) {
     musicPanes.mountMpc(document.getElementById("float-mpc-host"));
     musicPanes.mountBeat(document.getElementById("float-beat-host"));
     musicPanes.mountWave(document.getElementById("float-wave-host"));
-    headerWaveform = createHeaderWaveform(musicCore);
+    headerWaveform = createHeaderWaveform(musicCore, {
+      getTheory: () => musicCore?.getTheory?.() || getTheory?.(),
+      getMusicTransport: () => ({
+        bpm: getBpm?.() || 120,
+        seqOn: musicCore?.seqOn,
+        seqStep: musicCore?.seqStep,
+        theory: musicCore?.getTheory?.(),
+      }),
+    });
     headerWaveform.mount();
+    headerPlayStrip = createHeaderPlayStrip(musicCore);
+    headerPlayStrip.mount(document.getElementById("header-play-strip"));
     processingWing = createProcessingWing();
     processingWing.mount(document.getElementById("float-processing-host"));
     videoWall = createVideoWall({
@@ -411,6 +423,7 @@ export function createFloatWorkspace(opts = {}) {
 
   function destroy() {
     headerWaveform?.destroy?.();
+    headerPlayStrip?.destroy?.();
     musicLab?.destroy?.();
     musicPanes?.destroy?.();
     musicCore?.destroy?.();
