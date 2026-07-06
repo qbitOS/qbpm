@@ -31,6 +31,17 @@ import {
 } from "./canvas-groups.js";
 import { fetchApiJson, isBridgeOnline, resolveApiUrl } from "./api-bridge.js";
 import { createLiveNodePanel, LIVE_PANEL_W, LIVE_PANEL_H } from "./live-node-panel.js";
+import {
+  nodeSize,
+  hasWaveform,
+  portsCompatible,
+  portTypeForNode,
+  defaultNodeData,
+  defaultNodeCode,
+  PORT_TYPES,
+} from "./node-registry.js";
+import { drawNodeWaveform } from "./node-waveform.js";
+import { applyStudioPreset, drawStudioLanes } from "./studio-presets.js";
 
 const GRAPH_NAME = "default";
 const NODE_W = 168;
@@ -70,6 +81,8 @@ let lastRun = null;
 let alignPrefer = "node";
 let vizPhase = 0;
 let hoverControl = null;
+let controlDrag = null;
+const CONTROL_DRAG_THRESH = 6;
 let activeFrameId = null;
 let activeWindowId = null;
 let collab = null;
@@ -166,10 +179,23 @@ function nodeRect(n) {
   if (n.type?.startsWith("live.") && n.id === selectedId) {
     return { x, y, w: LIVE_PANEL_W, h: LIVE_PANEL_H };
   }
-  if (n.type?.startsWith("live.")) {
-    return { x, y, w: LIVE_NODE_W, h: LIVE_NODE_H };
+  const sz = nodeSize(n);
+  return { x, y, w: sz.w, h: sz.h };
+}
+
+function linkPointFor(n, side, portId = "main") {
+  const r = nodeRect(n);
+  if (portId === "main") {
+    return { x: side === "in" ? r.x : r.x + r.w, y: r.y + r.h / 2, side, port: portId };
   }
-  return { x, y, w: NODE_W, h: NODE_H };
+  const btn = nodeBtnSize();
+  const stackH = NODE_CTRL.length * btn + (NODE_CTRL.length - 1) * NODE_BTN_GAP;
+  const y0 = r.y + (r.h - stackH) / 2;
+  const i = NODE_CTRL.indexOf(portId);
+  if (i < 0) return { x: side === "in" ? r.x : r.x + r.w, y: r.y + r.h / 2, side, port: portId };
+  const x = side === "left" ? r.x - NODE_BTN_PAD - btn / 2 : r.x + r.w + NODE_BTN_PAD + btn / 2;
+  const y = y0 + i * (btn + NODE_BTN_GAP) + btn / 2;
+  return { x, y, side: side === "left" ? "in" : "out", port: portId };
 }
 
 function ensureParams(n) {
@@ -1196,18 +1222,44 @@ function nodeAt(wx, wy) {
 }
 
 function portAt(wx, wy) {
+  const hitR = (PORT_R * 2.4) ** 2;
   for (let i = graph.nodes.length - 1; i >= 0; i--) {
     const n = graph.nodes[i];
-    const r = nodeRect(n);
-    const out = { x: r.x + r.w, y: r.y + r.h / 2, side: "out", node: n };
-    const inn = { x: r.x, y: r.y + r.h / 2, side: "in", node: n };
-    for (const p of [out, inn]) {
+    const ports = [
+      { ...linkPointFor(n, "in", "main"), node: n, portType: portTypeForNode(n, "in") },
+      { ...linkPointFor(n, "out", "main"), node: n, portType: portTypeForNode(n, "out") },
+    ];
+    for (const side of ["left", "right"]) {
+      for (const action of NODE_CTRL) {
+        const pt = linkPointFor(n, side, action);
+        ports.push({
+          ...pt,
+          node: n,
+          portType: "control",
+          control: action,
+        });
+      }
+    }
+    for (const p of ports) {
       const dx = wx - p.x;
       const dy = wy - p.y;
-      if (dx * dx + dy * dy <= (PORT_R * 2.2) ** 2) return p;
+      if (dx * dx + dy * dy <= hitR) return p;
     }
   }
   return null;
+}
+
+function edgeEndpoints(e) {
+  const a = graph.nodes.find((n) => n.id === e.from);
+  const b = graph.nodes.find((n) => n.id === e.to);
+  if (!a || !b) return null;
+  const fromPort = e.fromPort || "main";
+  const toPort = e.toPort || "main";
+  const fromSide = NODE_CTRL.includes(fromPort) ? "right" : "out";
+  const toSide = NODE_CTRL.includes(toPort) ? "left" : "in";
+  const ap = linkPointFor(a, fromSide, fromPort);
+  const bp = linkPointFor(b, toSide, toPort);
+  return { ax: ap.x, ay: ap.y, bx: bp.x, by: bp.y, edge: e };
 }
 
 function graphBounds() {
@@ -1279,19 +1331,24 @@ function draw() {
   ctx.scale(scale, scale);
   drawGrid();
   drawFrames();
+  drawStudioLanes(ctx, graph, scale);
 
   for (const e of graph.edges) {
-    const a = graph.nodes.find((n) => n.id === e.from);
-    const b = graph.nodes.find((n) => n.id === e.to);
-    if (!a || !b) continue;
-    const ar = nodeRect(a);
-    const br = nodeRect(b);
-    ctx.strokeStyle = "#484f58";
-    ctx.lineWidth = 2 / scale;
+    const ep = edgeEndpoints(e);
+    if (!ep) continue;
+    const pt = PORT_TYPES[e.port] || PORT_TYPES.data;
+    ctx.strokeStyle = pt.color || "#484f58";
+    ctx.lineWidth = (e.port === "control" ? 1.5 : 2) / scale;
+    const mx = (ep.ax + ep.bx) / 2;
     ctx.beginPath();
-    ctx.moveTo(ar.x + ar.w, ar.y + ar.h / 2);
-    ctx.lineTo(br.x, br.y + br.h / 2);
+    ctx.moveTo(ep.ax, ep.ay);
+    ctx.bezierCurveTo(mx, ep.ay, mx, ep.by, ep.bx, ep.by);
     ctx.stroke();
+    if (e.fromPort && e.fromPort !== "main") {
+      ctx.fillStyle = pt.color || "#6e7681";
+      ctx.font = `${8 / scale}px Menlo, monospace`;
+      ctx.fillText(e.fromPort, ep.ax + 4 / scale, ep.ay - 4 / scale);
+    }
   }
 
   if (linking) {
@@ -1307,9 +1364,9 @@ function draw() {
       }
     } else {
       const src = graph.nodes.find((n) => n.id === linking.fromId);
-      if (src && linking.sx != null) {
-        const ar = nodeRect(src);
-        ctx.moveTo(ar.x + ar.w, ar.y + ar.h / 2);
+      if (src) {
+        const pt = linkPointFor(src, linking.fromSide || "out", linking.fromPort || "main");
+        ctx.moveTo(pt.x, pt.y);
         ctx.lineTo(linking.wx, linking.wy);
       }
     }
@@ -1354,11 +1411,13 @@ function draw() {
     ctx.fillRect(r.x, r.y, r.w, r.h);
     ctx.strokeRect(r.x, r.y, r.w, r.h);
 
-    ctx.fillStyle = "#3fb950";
+    const inT = portTypeForNode(n, "in");
+    const outT = portTypeForNode(n, "out");
+    ctx.fillStyle = PORT_TYPES[inT]?.color || "#3fb950";
     ctx.beginPath();
     ctx.arc(r.x, r.y + r.h / 2, PORT_R, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#d29922";
+    ctx.fillStyle = PORT_TYPES[outT]?.color || "#d29922";
     ctx.beginPath();
     ctx.arc(r.x + r.w, r.y + r.h / 2, PORT_R, 0, Math.PI * 2);
     ctx.fill();
@@ -1370,27 +1429,36 @@ function draw() {
     ctx.font = `${9 / scale}px Menlo, monospace`;
     ctx.fillText(n.type, r.x + 10, r.y + 36);
     if (n.type?.startsWith("live.")) {
+      const feat = n.data?.label || n.data?.feature || n.type.split(".")[1] || "rail";
       if (n.id === selectedId) {
         ctx.fillStyle = "rgba(33, 38, 45, 0.35)";
         ctx.fillRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4);
         ctx.fillStyle = "#6e7681";
         ctx.font = `${8 / scale}px Menlo, monospace`;
-        ctx.fillText("live editor · drag ports · dbl-click", r.x + 8, r.y + 14);
+        ctx.fillText(`${feat} · dbl-click editor`, r.x + 8, r.y + 14);
       } else {
         const urls = n.data?.urls?.length || 0;
-        const feat = n.data?.feature || n.type.split(".")[1] || "rail";
         ctx.fillStyle = "#d29922";
         ctx.font = `${7 / scale}px Menlo, monospace`;
         ctx.fillText(`${feat} · ${urls} src`, r.x + 10, r.y + 48);
       }
     }
+    if (n.section) {
+      ctx.fillStyle = "#484f58";
+      ctx.font = `${7 / scale}px Menlo, monospace`;
+      ctx.fillText(n.section, r.x + r.w - 52, r.y + 12);
+    }
+    if (hasWaveform(n) && !(n.type?.startsWith("live.") && n.id === selectedId)) {
+      drawNodeWaveform(ctx, r, n, scale);
+    }
     if (!(n.type?.startsWith("live.") && n.id === selectedId)) {
       const lk = nodeParamKey(n, "left");
       const rk = nodeParamKey(n, "right");
+      const yParam = hasWaveform(n) ? r.y + r.h - 14 : r.y + 50;
       ctx.fillStyle = "#6e7681";
       ctx.font = `${8 / scale}px Menlo, monospace`;
-      ctx.fillText(`L ${lk}=${p[lk] ?? nodeParamDefault(n, lk)}`, r.x + 8, r.y + 50);
-      ctx.fillText(`R ${rk}=${p[rk] ?? nodeParamDefault(n, rk)}`, r.x + 8, r.y + 60);
+      ctx.fillText(`L ${lk}=${p[lk] ?? nodeParamDefault(n, lk)}`, r.x + 8, yParam);
+      ctx.fillText(`R ${rk}=${p[rk] ?? nodeParamDefault(n, rk)}`, r.x + 8, yParam + 10);
       drawNodeCycleBar(ctx, r, n, transport, scale);
     }
   }
@@ -1725,15 +1793,30 @@ function addNode(type = "python.exec") {
   const b = graphBounds();
   const cx = b.x + b.w / 2;
   const cy = b.y + b.h / 2;
+  const def = defaultNodeData(type);
   graph.nodes.push(tagNodeOwner({
     id,
     type,
     pos: [cx, cy + graph.nodes.length * 24],
-    code: type.startsWith("live.") ? JSON.stringify({ urls: [], features: ["rail", "ingest", "pip"] }, null, 2) : 'result = {"hello": "qbpm"}',
-    data: type.startsWith("live.") ? { urls: [], features: ["rail", "ingest", "pip", "vwall"] } : undefined,
+    code: defaultNodeCode(type),
+    data: def,
+    section: type.startsWith("live.") ? "video" : type.startsWith("music.") ? "music" : type.startsWith("audio.") ? "percussion" : undefined,
+    params: { in: 1, out: 1 },
   }));
   selectNode(id);
   refreshCanvasTargets();
+  draw();
+}
+
+function loadStudioPreset(presetId = "underoath-gillespie") {
+  graph = applyStudioPreset(graph, presetId, localOwnerId());
+  ensureCanvasMeta();
+  graph.nodes.forEach(tagNodeOwner);
+  if (graph.nodes[0]) selectNode(graph.nodes[0].id);
+  alignView("graph");
+  if (!soloGraph) collab?.broadcastPatch?.({ nodes: graph.nodes, edges: graph.edges, meta: graph.meta });
+  vizLog.textContent = `studio preset · ${presetId} · ${graph.nodes.length} nodes`;
+  draw();
 }
 
 function addLiveRailNode() {
@@ -1863,6 +1946,8 @@ function exportGraphState() {
   window.qbpm.reloadGraph = () => loadGraph();
   window.qbpm.hardRefresh = () => hardRefreshCanvas();
   window.qbpm.setMobilePanel = setMobilePanel;
+  window.qbpm.loadStudioPreset = loadStudioPreset;
+  window.qbpm.addNode = addNode;
   window.qbpm.setRightPanelTab = setRightPanelTab;
   window.qbpm.getFrames = () => structuredClone(frames());
   window.qbpm.getViewports = () => structuredClone(viewports());
@@ -1987,6 +2072,7 @@ document.querySelectorAll("#right-tabs button[data-tab]").forEach((btn) => {
 });
 document.getElementById("btn-add").addEventListener("click", () => addNode());
 document.getElementById("btn-add-live-rail")?.addEventListener("click", addLiveRailNode);
+document.getElementById("btn-studio-preset")?.addEventListener("click", () => loadStudioPreset("underoath-gillespie"));
 document.getElementById("btn-del-node")?.addEventListener("click", deleteSelectedNode);
 document.getElementById("insp-del-node")?.addEventListener("click", deleteSelectedNode);
 document.getElementById("insp-clear-nodes")?.addEventListener("click", clearLocalNodes);
@@ -2062,13 +2148,14 @@ function onPointerDown(ev) {
   const { sx, sy, wx, wy } = canvasPoint(ev);
   const ctrl = controlAt(wx, wy);
   if (ctrl && !spaceDown && !touchPanMode) {
-    applyNodeControl(ctrl);
+    controlDrag = { ctrl, sx, sy, wx, wy, moved: false };
     ev.preventDefault();
+    canvas.setPointerCapture(ev.pointerId);
     return;
   }
   canvas.setPointerCapture(ev.pointerId);
   const fport = ev.shiftKey ? framePortAt(wx, wy) : null;
-  const port = ev.shiftKey && !fport ? portAt(wx, wy) : null;
+  const port = !fport ? portAt(wx, wy) : null;
 
   if (spaceDown || touchPanMode || ev.button === 1) {
     panning = true;
@@ -2084,8 +2171,18 @@ function onPointerDown(ev) {
     return;
   }
 
-  if (port && port.side === "out") {
-    linking = { kind: "node", fromId: port.node.id, wx, wy, sx, sy };
+  if (port && (port.side === "out" || port.control)) {
+    linking = {
+      kind: "node",
+      fromId: port.node.id,
+      fromPort: port.port || port.control || "main",
+      fromSide: port.side || "out",
+      portType: port.portType || "data",
+      wx,
+      wy,
+      sx,
+      sy,
+    };
     selectNode(port.node.id);
     return;
   }
@@ -2114,6 +2211,30 @@ function onPointerDown(ev) {
 
 function onPointerMove(ev) {
   const { sx, sy, wx, wy } = canvasPoint(ev);
+  if (controlDrag && !controlDrag.moved) {
+    const dx = sx - controlDrag.sx;
+    const dy = sy - controlDrag.sy;
+    if (Math.hypot(dx, dy) >= CONTROL_DRAG_THRESH) {
+      controlDrag.moved = true;
+      const c = controlDrag.ctrl;
+      if (c.side === "left") {
+        controlDrag = null;
+        return;
+      }
+      linking = {
+        kind: "node",
+        fromId: c.node.id,
+        fromPort: c.action,
+        fromSide: "out",
+        portType: "control",
+        wx,
+        wy,
+        sx,
+        sy,
+      };
+      selectNode(c.node.id);
+    }
+  }
   if (!panning && !dragging && !linking && !spaceDown && !touchPanMode) {
     const ctrl = controlAt(wx, wy);
     if (ctrl !== hoverControl) {
@@ -2172,14 +2293,35 @@ function onPointerUp(ev) {
       }
     } else {
       const port = portAt(wx, wy);
-      if (port && port.side === "in" && port.node.id !== linking.fromId) {
-        const exists = graph.edges.some((e) => e.from === linking.fromId && e.to === port.node.id);
-        if (!exists) graph.edges.push({ from: linking.fromId, to: port.node.id, port: "data" });
+      const tgt = port && (port.side === "in" || port.control) ? port : null;
+      if (tgt && tgt.node.id !== linking.fromId) {
+        const outType = linking.portType || portTypeForNode(graph.nodes.find((n) => n.id === linking.fromId), "out", linking.fromPort);
+        const inType = tgt.portType || portTypeForNode(tgt.node, "in", tgt.port);
+        if (portsCompatible(outType, inType)) {
+          const toPort = tgt.port || tgt.control || "main";
+          const exists = graph.edges.some(
+            (e) => e.from === linking.fromId && e.to === tgt.node.id && e.fromPort === linking.fromPort && e.toPort === toPort,
+          );
+          if (!exists) {
+            graph.edges.push({
+              from: linking.fromId,
+              to: tgt.node.id,
+              port: outType === "control" ? "control" : outType || "data",
+              fromPort: linking.fromPort || "main",
+              toPort,
+            });
+            if (!soloGraph) collab?.broadcastPatch?.({ edges: graph.edges });
+          }
+        }
       }
     }
     linking = null;
     draw();
   }
+  if (controlDrag && !controlDrag.moved) {
+    applyNodeControl(controlDrag.ctrl);
+  }
+  controlDrag = null;
   if (wasDragging) collab?.broadcastPatch({ nodes: graph.nodes });
   dragging = null;
   panning = false;

@@ -104,6 +104,8 @@ export function createLiveNodePanel(opts = {}) {
 
     const entry = ensureFeed(n);
     if (!entry) return;
+    const feat = n.data?.label || n.type.split(".")[1] || "live";
+    entry.panel.querySelector(".lnp-type").textContent = feat;
     applyNodeData(n, entry.feed);
     positionPanel(n, entry.panel);
     entry.panel.classList.add("open");
