@@ -21,6 +21,7 @@ export function createFloatWorkspace(opts = {}) {
     getPanScale,
     getFrames,
     onJamEval,
+    onWorkspaceChange,
   } = opts;
 
   let chatToId = "all";
@@ -28,6 +29,7 @@ export function createFloatWorkspace(opts = {}) {
   let musicLab = null;
   let processingWing = null;
   let videoFeed = null;
+  const chatHistory = [];
 
   const wrap = document.getElementById("canvas-wrap");
   if (!wrap) return stub();
@@ -136,6 +138,7 @@ export function createFloatWorkspace(opts = {}) {
       chatToId = to;
       const fromName = getLocalHandle() || "guest";
       onChatSend?.({ text, to, toName, fromName });
+      onWorkspaceChange?.();
       document.getElementById("float-chat-in").value = "";
     };
     document.getElementById("float-chat-send")?.addEventListener("click", sendChat);
@@ -162,8 +165,53 @@ export function createFloatWorkspace(opts = {}) {
       </div>
       <div class="float-chat-text">${escapeHtml(msg.text)}</div>`;
     log.appendChild(line);
+    chatHistory.push({ from, to, text, color: msg.color, ts: Date.now() });
+    while (chatHistory.length > 64) chatHistory.shift();
     while (log.children.length > 48) log.firstChild?.remove();
     log.scrollTop = log.scrollHeight;
+  }
+
+  function exportState() {
+    let dock = {};
+    try {
+      dock = JSON.parse(localStorage.getItem("qbpm-dock-v1") || "{}");
+    } catch (_) {}
+    return {
+      dock,
+      chatHistory: chatHistory.slice(-48),
+      chatToId,
+      musicLab: musicLab?.getState?.(),
+    };
+  }
+
+  function importState(s) {
+    if (!s) return;
+    if (s.musicLab) musicLab?.setState?.(s.musicLab);
+    if (s.dock) {
+      try {
+        localStorage.setItem("qbpm-dock-v1", JSON.stringify(s.dock));
+      } catch (_) {}
+      floatDock.layoutPanels();
+    }
+    if (s.chatToId) {
+      chatToId = s.chatToId;
+      const toEl = document.getElementById("float-chat-to");
+      if (toEl) toEl.value = chatToId;
+    }
+    if (Array.isArray(s.chatHistory)) {
+      const log = document.getElementById("float-chat-log");
+      if (log) log.innerHTML = "";
+      chatHistory.length = 0;
+      s.chatHistory.forEach((m) =>
+        appendChatLine({
+          fromName: m.from,
+          toName: m.to,
+          to: m.to,
+          text: m.text,
+          color: m.color,
+        }),
+      );
+    }
   }
 
   function setProcessing(text) {
@@ -200,6 +248,8 @@ export function createFloatWorkspace(opts = {}) {
   return {
     appendChatLine,
     refreshChatRoute,
+    exportState,
+    importState,
     setProcessing,
     drawNotation,
     setPeerChats,

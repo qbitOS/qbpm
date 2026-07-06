@@ -54,6 +54,17 @@ export function drawCompWindow(ctx, frame, rect, active, scale, linking) {
   ctx.fillStyle = VFX.compHeader;
   ctx.fillRect(x, y, w, headerH);
 
+  if (frame.qubePersistent || frame.cluster === "user" || frame.qubeId) {
+    const stripe = 5 / scale;
+    ctx.fillStyle = frame.qubeColor || "#58a6ff";
+    ctx.fillRect(x, y, stripe, h);
+    ctx.fillStyle = VFX.compHeader;
+    ctx.fillRect(x + stripe, y, w - stripe, headerH);
+    ctx.fillStyle = active ? VFX.text : VFX.textDim;
+    ctx.font = `${7 / scale}px Menlo, monospace`;
+    ctx.fillText("⬢ qube", x + stripe + 6 / scale, y + 14 / scale);
+  }
+
   ctx.strokeStyle = active ? VFX.compStrokeActive : VFX.compStroke;
   ctx.lineWidth = (active ? 1.5 : 1) / scale;
   ctx.setLineDash(active ? [] : [10 / scale, 7 / scale]);
@@ -70,7 +81,8 @@ export function drawCompWindow(ctx, frame, rect, active, scale, linking) {
   ctx.fillStyle = active ? VFX.text : VFX.textDim;
   ctx.font = `${10 / scale}px Menlo, ui-monospace, monospace`;
   const title = frame.label || frame.id;
-  ctx.fillText(title, x + 8 / scale, y + 14 / scale);
+  const titleX = frame.qubePersistent || frame.cluster === "user" ? x + 52 / scale : x + 8 / scale;
+  ctx.fillText(title, titleX, y + 14 / scale);
 
   if (frame.device || frame.owner || frame.cluster) {
     ctx.fillStyle = VFX.textDim;

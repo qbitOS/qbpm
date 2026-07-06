@@ -1,4 +1,4 @@
-const CACHE = "qbpm-v18";
+const CACHE = "qbpm-v19";
 const SHELL = [
   "./",
   "./static/pages-boot.js",
@@ -17,6 +17,8 @@ const SHELL = [
   "./static/music-lab.js",
   "./static/processing-wing.js",
   "./static/video-feed.js",
+  "./static/qube-store.js",
+  "./static/qube-manager.js",
   "./static/float-dock.js",
   "./static/live-jam-bridge.js",
   "./static/jam-ecosystem.json",

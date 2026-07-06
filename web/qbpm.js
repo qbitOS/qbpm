@@ -10,6 +10,8 @@ import { DEVICE_PRESETS, presetById, presetColor, nextDeviceFrameRect } from "./
 import { framePipelinePorts, VFX, compFillForDevice } from "./vfx-palette.js";
 import { drawCompGrid, drawCompWindow, drawBusEdge } from "./vfx-compositor.js";
 import { pages } from "./pages.js";
+import { createQubeManager } from "./qube-manager.js";
+import { getLocalQubeClientId } from "./qube-store.js";
 
 const GRAPH_NAME = "default";
 const NODE_W = 168;
@@ -56,6 +58,7 @@ let liveState = null;
 let collabShell = null;
 let ugradHud = null;
 let floatWorkspace = null;
+let qubeManager = null;
 let jamBridge = null;
 let lastProcessingText = "";
 
@@ -157,6 +160,91 @@ function frameAt(wx, wy) {
 
 function broadcastCanvasLayout() {
   collab?.broadcastFrames(frames(), viewports(), frameEdges());
+  qubeManager?.scheduleFlush?.("frames");
+}
+
+function buildQubeSnapshot() {
+  const owner = collab?.clientId || qubeManager?.clientId || getLocalQubeClientId();
+  return {
+    owner,
+    ownerName: localStorage.getItem("qbpm-collab-name") || "guest",
+    session: {
+      pan: { x: pan.x, y: pan.y },
+      scale,
+      activeFrameId,
+      activeWindowId,
+      selectedId,
+      liveState: liveState ? { ...liveState } : null,
+      rightTab: localStorage.getItem(RIGHT_TAB_KEY),
+    },
+    frames: frames().map((f) => {
+      const c = structuredClone(f);
+      return qubeManager?.tagFrame?.(c) || c;
+    }),
+    viewports: viewports().map((v) => structuredClone(v)),
+    nodes: graph.nodes.map((n) => structuredClone(n)),
+    workspace: floatWorkspace?.exportState?.() || {},
+  };
+}
+
+function applyQubePatch(patch) {
+  if (!patch) return;
+  const meta = ensureCanvasMeta();
+
+  for (const f of patch.frames || []) {
+    const tagged = qubeManager?.tagFrame?.(f) || f;
+    const i = meta.frames.findIndex((x) => x.id === f.id);
+    if (i >= 0) meta.frames[i] = { ...meta.frames[i], ...tagged };
+    else meta.frames.push(tagged);
+  }
+
+  for (const vp of patch.viewports || []) {
+    const i = meta.viewports.findIndex((x) => x.id === vp.id);
+    if (i >= 0) meta.viewports[i] = { ...meta.viewports[i], ...vp };
+    else meta.viewports.push(vp);
+  }
+
+  for (const n of patch.nodes || []) {
+    const i = graph.nodes.findIndex((x) => x.id === n.id);
+    if (i >= 0) graph.nodes[i] = { ...graph.nodes[i], ...n };
+    else graph.nodes.push(n);
+  }
+
+  if (patch.session) {
+    const s = patch.session;
+    if (s.pan) { pan.x = s.pan.x; pan.y = s.pan.y; }
+    if (s.scale) scale = s.scale;
+    if (s.activeFrameId) activeFrameId = s.activeFrameId;
+    if (s.activeWindowId) activeWindowId = s.activeWindowId;
+    if (s.liveState) liveState = s.liveState;
+    if (s.rightTab) setRightPanelTab(s.rightTab);
+    if (s.selectedId) selectNode(s.selectedId);
+  }
+
+  if (patch.workspace) floatWorkspace?.importState?.(patch.workspace);
+
+  normalizeFramePalette();
+  draw();
+  collabShell?.positionOverlays?.();
+  vizLog.textContent = "qube compartments restored";
+}
+
+function initQubeManager() {
+  qubeManager = createQubeManager({
+    graphName: GRAPH_NAME,
+    getSnapshot: buildQubeSnapshot,
+    applySnapshot: applyQubePatch,
+  });
+
+  window.addEventListener("beforeunload", () => {
+    qubeManager?.flush?.("all");
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") qubeManager?.flush?.("all");
+  });
+  setInterval(() => qubeManager?.scheduleFlush?.("workspace"), 20000);
+  window.qbpm = window.qbpm || {};
+  window.qbpm.qubes = () => qubeManager;
 }
 
 function ensureUserFrame(clientId, name, color) {
@@ -171,7 +259,7 @@ function ensureUserFrame(clientId, name, color) {
     y: (main?.rect[1] ?? 0) + (main?.rect[3] ?? 1200) + 80,
   };
   const rect = nextDeviceFrameRect(preset, frames(), origin);
-  frames().push({
+  const frame = {
     id,
     label: name || clientId,
     rect,
@@ -181,7 +269,8 @@ function ensureUserFrame(clientId, name, color) {
     owner: name || clientId,
     clientId,
     lane: "collab",
-  });
+  };
+  frames().push(qubeManager?.tagFrame?.(frame) || frame);
   broadcastCanvasLayout();
   return id;
 }
@@ -354,6 +443,7 @@ function scheduleViewportBroadcast() {
       vp.pan = [pan.x, pan.y];
       vp.scale = scale;
     }
+    qubeManager?.scheduleFlush?.("session");
   }, 120);
 }
 
@@ -527,6 +617,7 @@ function initCollab() {
       floatWorkspace?.openDockPanel?.("music");
       floatWorkspace?.setProcessing?.(`() ${p?.musica?.slice(0, 36) || src.slice(0, 36)}`);
     },
+    onWorkspaceChange: () => qubeManager?.scheduleFlush?.("workspace"),
   });
 
   ugradHud = createUgradHud({
@@ -549,9 +640,11 @@ function initCollab() {
     onHopViewport: hopToViewport,
     onPromptSearch: runPromptSearch,
     onSyncPush: () => {
-      saveGraph().catch(() => {});
-      collab?.broadcastGraph(graph);
-      broadcastCanvasLayout();
+      qubeManager?.flush?.("all").then(() => {
+        saveGraph().catch(() => {});
+        collab?.broadcastGraph(graph);
+        broadcastCanvasLayout();
+      });
     },
   });
 
@@ -925,8 +1018,13 @@ async function loadGraph(opts = {}) {
     if (!Array.isArray(n.pos)) n.pos = [80, 80];
     n.pos = [Number(n.pos[0]), Number(n.pos[1])];
   }
-  if (graph.nodes[0]) selectNode(graph.nodes[0].id);
+  if (qubeManager) {
+    await qubeManager.restore();
+  } else if (graph.nodes[0]) {
+    selectNode(graph.nodes[0].id);
+  }
   alignView("graph");
+  qubeManager?.scheduleFlush?.("all");
 }
 
 async function hardRefreshCanvas() {
@@ -957,10 +1055,11 @@ async function hardRefreshCanvas() {
 }
 
 async function saveGraph() {
+  await qubeManager?.flush?.("all");
   const api = pages().api(`api/graph/${GRAPH_NAME}`);
   if (!api) {
     localStorage.setItem(`qbpm-graph-${GRAPH_NAME}`, JSON.stringify(graph));
-    vizLog.textContent = "saved locally (static shell)";
+    vizLog.textContent = "saved locally · qube compartments";
     return;
   }
   const res = await fetch(api, {
@@ -1009,6 +1108,7 @@ function selectNode(id) {
   document.getElementById("insp-type").value = n.type;
   document.getElementById("insp-code").value = n.code || "";
   draw();
+  qubeManager?.scheduleFlush?.("nodes");
 }
 
 function syncInspector() {
@@ -1017,6 +1117,7 @@ function syncInspector() {
   n.type = document.getElementById("insp-type").value;
   n.code = document.getElementById("insp-code").value;
   draw();
+  qubeManager?.scheduleFlush?.("nodes");
 }
 
 function addNode() {
@@ -1052,6 +1153,7 @@ function setRightPanelTab(tab) {
   workspace.classList.toggle("right-kbatch", tab === "kbatch");
   workspace.classList.toggle("right-tools", tab === "tools");
   try { localStorage.setItem(RIGHT_TAB_KEY, tab); } catch (_) {}
+  qubeManager?.scheduleFlush?.("session");
   setTimeout(resize, 30);
 }
 
@@ -1446,6 +1548,7 @@ if (pages().staticShell) {
   }
 }
 
+initQubeManager();
 initCollab();
 resize();
 requestAnimationFrame(vizAnimLoop);

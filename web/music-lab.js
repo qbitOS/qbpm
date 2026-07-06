@@ -555,6 +555,31 @@ export function createMusicLab(opts = {}) {
     refreshSendTargets();
   }
 
+  function getState() {
+    return {
+      padSteps,
+      noteSteps,
+      selectedPad,
+      selectedNote,
+      seqStep,
+      strudel: document.getElementById("ml-strudel")?.value || "",
+    };
+  }
+
+  function setState(s) {
+    if (!s) return;
+    if (s.padSteps) padSteps = s.padSteps;
+    if (s.noteSteps) noteSteps = s.noteSteps;
+    if (s.selectedPad != null) selectedPad = s.selectedPad;
+    if (s.selectedNote) selectedNote = s.selectedNote;
+    if (s.seqStep != null) seqStep = s.seqStep;
+    buildPads();
+    buildSteps();
+    buildPiano();
+    const str = document.getElementById("ml-strudel");
+    if (str && s.strudel) str.value = s.strudel;
+  }
+
   function destroy() {
     stopSeq();
     cancelAnimationFrame(wfRaf);
@@ -562,5 +587,5 @@ export function createMusicLab(opts = {}) {
     audioCtx = null;
   }
 
-  return { mount, drawNotation, buildPayload, refreshSendTargets, destroy };
+  return { mount, drawNotation, buildPayload, refreshSendTargets, getState, setState, destroy };
 }
