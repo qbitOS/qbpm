@@ -14,7 +14,6 @@ export function createCollabShell(opts) {
     onSyncPush,
   } = opts;
 
-  const chatLog = [];
   const videoStreams = new Map();
   let localVideo = null;
 
@@ -43,18 +42,6 @@ export function createCollabShell(opts) {
       wrap.appendChild(badge);
     }
 
-    let chat = document.getElementById("window-chat-strip");
-    if (!chat) {
-      chat = document.createElement("div");
-      chat.id = "window-chat-strip";
-      chat.innerHTML = `
-        <div class="wcs-messages" id="wcs-messages"></div>
-        <input id="wcs-input" type="text" placeholder="chat…" enterkeyhint="send" autocomplete="off" />
-        <button type="button" id="wcs-send">↵</button>
-      `;
-      wrap.appendChild(chat);
-    }
-
     let overlays = document.getElementById("canvas-overlays");
     if (!overlays) {
       overlays = document.createElement("div");
@@ -64,14 +51,11 @@ export function createCollabShell(opts) {
 
     return {
       badge,
-      chat,
       overlays,
       handle: badge.querySelector("#uwt-handle"),
       peers: badge.querySelector("#uwt-peers"),
       syncDot: badge.querySelector("#uwt-sync-dot"),
       clientIdEl: badge.querySelector("#ufb-client-id"),
-      messages: chat.querySelector("#wcs-messages"),
-      chatInput: chat.querySelector("#wcs-input"),
     };
   }
 
@@ -96,17 +80,6 @@ export function createCollabShell(opts) {
     });
 
     document.getElementById("uwt-video")?.addEventListener("click", () => toggleLocalVideo());
-
-    const sendChat = () => {
-      const text = els.chatInput?.value?.trim();
-      if (!text) return;
-      getCollab?.()?.sendChat(text);
-      els.chatInput.value = "";
-    };
-    document.getElementById("wcs-send")?.addEventListener("click", sendChat);
-    els.chatInput?.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter") { ev.preventDefault(); sendChat(); }
-    });
 
     const promptIn = document.getElementById("prompt-search-in");
     const promptGo = document.getElementById("prompt-search-go");
@@ -148,16 +121,8 @@ export function createCollabShell(opts) {
     }
   }
 
-  function appendChat(msg) {
-    chatLog.push(msg);
-    if (chatLog.length > 80) chatLog.shift();
-    if (!els.messages) return;
-    const line = document.createElement("div");
-    line.className = "wcs-line";
-    const who = msg.fromName || msg.from || "sys";
-    line.innerHTML = `<span class="wcs-who" style="color:${msg.color || '#8b949e'}">${who}</span> <span class="wcs-text">${escapeHtml(msg.text)}</span>`;
-    els.messages.appendChild(line);
-    els.messages.scrollTop = els.messages.scrollHeight;
+  function appendChat(_msg) {
+    /* chat routed via float-workspace */
   }
 
   function appendPromptOutput(text) {
@@ -239,18 +204,28 @@ export function createCollabShell(opts) {
     const frameList = getFrames?.() || [];
     const mainFrame = frameList.find((f) => f.id === "frame-main") || frameList[0];
     const cid = getLocalClientId?.() || "local";
-    if (els.clientIdEl) els.clientIdEl.textContent = cid.slice(-6);
-    if (els.clientIdEl) els.clientIdEl.style.color = getLocalColor?.() || "#58a6ff";
+    if (els.clientIdEl && els.clientIdEl.textContent !== cid.slice(-6)) {
+      els.clientIdEl.textContent = cid.slice(-6);
+      els.clientIdEl.style.color = getLocalColor?.() || "#58a6ff";
+    }
     if (!mainFrame) {
-      badge.style.left = "10px";
-      badge.style.top = "48px";
+      if (badge._lx !== 10) {
+        badge._lx = 10;
+        badge._ly = 48;
+        badge.style.transform = "translate3d(10px,48px,0)";
+      }
       return;
     }
     const [fx, fy] = mainFrame.rect;
     const scr = worldToScreen(fx, fy, pan, scale);
-    const bw = badge.offsetWidth || 180;
-    badge.style.left = `${Math.max(8, scr.x - bw - 6)}px`;
-    badge.style.top = `${Math.max(48, scr.y - 4)}px`;
+    const bw = badge._bw || 180;
+    const lx = Math.max(8, Math.round(scr.x - bw - 6));
+    const ly = Math.max(48, Math.round(scr.y - 4));
+    if (badge._lx !== lx || badge._ly !== ly) {
+      badge._lx = lx;
+      badge._ly = ly;
+      badge.style.transform = `translate3d(${lx}px,${ly}px,0)`;
+    }
   }
 
   function positionOverlays() {

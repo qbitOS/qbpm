@@ -1,0 +1,244 @@
+#float-workspace {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 11;
+  contain: strict;
+}
+
+.float-panel {
+  position: absolute;
+  pointer-events: auto;
+  background: rgba(1, 4, 9, 0.92);
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  padding: 6px 8px;
+  contain: layout style paint;
+  will-change: transform;
+}
+.float-hd {
+  font: 600 0.55rem Menlo, monospace;
+  color: #6e7681;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.float-tr { top: 8px; right: 8px; width: min(220px, 38vw); z-index: 13; }
+.float-bl { bottom: 52px; left: 8px; width: min(260px, 44vw); z-index: 13; }
+.float-br { bottom: 52px; right: 8px; width: min(220px, 38vw); z-index: 13; }
+.float-video {
+  top: 48px;
+  left: 8px;
+  width: min(200px, 36vw);
+  z-index: 12;
+}
+
+.float-chat-log {
+  max-height: 88px;
+  overflow: auto;
+  font-size: 0.58rem;
+  line-height: 1.35;
+  margin-bottom: 4px;
+}
+.float-chat-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.float-chat-who { font-weight: 600; margin-right: 4px; }
+.float-chat-row { display: flex; gap: 4px; }
+#float-chat-in {
+  flex: 1;
+  min-width: 0;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #c9d1d9;
+  font: inherit;
+  font-size: 0.6rem;
+  padding: 4px 6px;
+}
+#float-chat-send {
+  min-width: 26px;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  background: #21262d;
+  color: #c9d1d9;
+  cursor: pointer;
+  font: inherit;
+}
+
+#float-notation {
+  width: 100%;
+  height: 40px;
+  display: block;
+  border-radius: 4px;
+  border: 1px solid #21262d;
+}
+.float-meta { font-size: 0.52rem; color: #6e7681; margin-top: 3px; }
+
+.float-piano {
+  position: relative;
+  height: 52px;
+  margin-top: 6px;
+  user-select: none;
+  touch-action: none;
+}
+.float-piano .fp-white {
+  display: flex;
+  gap: 1px;
+  height: 52px;
+}
+.float-piano .fp-black {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 32px;
+  pointer-events: none;
+}
+.fp-key {
+  border: 1px solid #30363d;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+.fp-white-key {
+  flex: 1;
+  background: linear-gradient(180deg, #e6edf3, #c9d1d9);
+  border-radius: 0 0 3px 3px;
+  min-width: 12px;
+}
+.fp-black-key {
+  position: absolute;
+  width: 14px;
+  height: 32px;
+  background: #161b22;
+  border-radius: 0 0 2px 2px;
+  pointer-events: auto;
+  z-index: 2;
+}
+.fp-key.active { filter: brightness(0.85); }
+
+.float-processing {
+  font-size: 0.52rem;
+  color: #8b949e;
+  line-height: 1.4;
+  max-height: 64px;
+  overflow: auto;
+  margin: 0 0 6px;
+  white-space: pre-wrap;
+}
+.float-osc-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#float-osc-toggle {
+  width: 28px;
+  height: 24px;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  background: #21262d;
+  color: #8b949e;
+  cursor: pointer;
+  font: inherit;
+}
+#float-osc-toggle.active { border-color: #3fb950; color: #3fb950; }
+#float-osc-freq { flex: 1; min-width: 0; }
+
+.float-video-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: #010409;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 4px;
+  border: 1px solid #21262d;
+}
+#float-video-el {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+}
+.float-video-ph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6e7681;
+  font-size: 1.2rem;
+}
+#float-video-url {
+  width: 100%;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #c9d1d9;
+  font: inherit;
+  font-size: 0.55rem;
+  padding: 4px 6px;
+  margin-bottom: 4px;
+}
+.float-video-btns { display: flex; gap: 4px; }
+.float-video-btns button {
+  flex: 1;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  background: #21262d;
+  color: #c9d1d9;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.7rem;
+  padding: 4px;
+}
+
+.float-peer-chats {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+.float-peer-chat {
+  position: absolute;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 4px;
+  background: rgba(1, 4, 9, 0.9);
+  border: 1px solid #58a6ff;
+  border-radius: 6px;
+  font-size: 0.55rem;
+  max-width: 180px;
+}
+.fpc-name {
+  font-weight: 600;
+  color: #c9d1d9;
+  max-width: 48px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fpc-in {
+  flex: 1;
+  min-width: 0;
+  width: 72px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 3px;
+  color: #c9d1d9;
+  font: inherit;
+  font-size: 0.52rem;
+  padding: 2px 4px;
+}
+.fpc-send {
+  border: 1px solid #30363d;
+  border-radius: 3px;
+  background: #21262d;
+  color: #8b949e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.55rem;
+  padding: 1px 4px;
+}

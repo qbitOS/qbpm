@@ -14,6 +14,7 @@
   <title>qbpm</title>
   <link rel="stylesheet" href="/static/qbpm.css" />
   <link rel="stylesheet" href="/static/ugrad-hud.css" />
+  <link rel="stylesheet" href="/static/float-workspace.css" />
   <link rel="stylesheet" href="/static/piano/piano-panel.css" />
 </head>
 <body>
@@ -21,7 +22,7 @@
     <div class="brand">
       <button id="btn-refresh" type="button" title="Hard refresh canvas" aria-label="Hard refresh canvas">↻</button>
       <span class="title">qbpm</span>
-      <span class="sub hide-mobile">JSON · JAX · WASM · Repel · kbatch</span>
+      <span class="sub hide-mobile">JSON · JAX · kbatch · tools</span>
     </div>
     <div class="actions">
       <span id="collab-status" class="collab-status" title="Live canvas collaborators">● solo</span>
@@ -32,23 +33,11 @@
     </div>
   </header>
 
-  <section id="prompt-bar" class="prompt-bar" aria-label="Prompt search">
-    <div class="prompt-search-row">
-      <span class="prompt-icon" aria-hidden="true">⌕</span>
-      <input id="prompt-search-in" type="search" placeholder="prompt · search · ingest URL · imagine slug · kbatch…" autocomplete="off" spellcheck="false" />
-      <button id="prompt-search-go" type="button" title="Search / run">↵</button>
-      <button id="prompt-video-ingest" type="button" title="Video ingest (yt-dlp)" class="hide-mobile">▶ ingest</button>
-      <button id="prompt-imagine" type="button" title="Imagine presets" class="hide-mobile">✦ imagine</button>
-    </div>
-    <pre id="prompt-search-out" class="prompt-search-out" aria-live="polite"></pre>
-  </section>
-
   <nav id="mobile-tabs" class="mobile-only" aria-label="Panels">
     <button type="button" data-panel="canvas" class="active">graph</button>
     <button type="button" data-panel="viz">viz</button>
     <button type="button" data-panel="inspector">edit</button>
-    <button type="button" data-panel="piano">piano</button>
-    <button type="button" data-panel="kbatch">kbatch</button>
+    <button type="button" data-panel="tools">tools</button>
     <button type="button" data-panel="terminal">grok</button>
   </nav>
 
@@ -72,8 +61,7 @@
       <nav id="right-tabs" class="right-tabs" aria-label="Right panel">
         <button type="button" data-tab="viz" class="active">viz</button>
         <button type="button" data-tab="inspector">edit</button>
-        <button type="button" data-tab="piano">piano</button>
-        <button type="button" data-tab="kbatch">kbatch</button>
+        <button type="button" data-tab="tools">tools</button>
         <button type="button" data-tab="terminal">grok</button>
       </nav>
 
@@ -108,24 +96,15 @@
           <label>code<textarea id="insp-code" rows="8" spellcheck="false"></textarea></label>
         </section>
 
-        <section id="piano-panel" class="panel-block" data-panel="piano">
+        <section id="tools-panel" class="panel-block" data-panel="tools">
           <div class="panel-head">
-            <h2>piano buddy</h2>
-          </div>
-          <div id="piano-panel-body" class="piano-panel-body">open piano tab…</div>
-        </section>
-
-        <section id="kbatch-panel" class="panel-block" data-panel="kbatch">
-          <div class="panel-head">
-            <h2>kbatch live</h2>
-            <div class="kbatch-toolbar">
-              <span id="kbatch-status" class="live-status">● idle</span>
-              <button id="btn-kbatch-focus" type="button" title="Focus input">⌨</button>
-              <button id="btn-kbatch-reload" type="button" title="Reload">↻</button>
-              <button id="btn-kbatch-full" type="button" title="Open full kbatch">⤢</button>
+            <h2>tools</h2>
+            <div class="tools-hub-actions">
+              <button id="tools-expand-all" type="button" title="Expand all">⊞</button>
+              <button id="tools-collapse-all" type="button" title="Collapse all">⊟</button>
             </div>
           </div>
-          <iframe id="kbatch-frame" class="kbatch-frame" title="kbatch live tool" loading="lazy"></iframe>
+          <div id="tools-accordion" class="tools-accordion" aria-label="qbpm tools"></div>
         </section>
 
         <section id="grok-terminal" class="panel-block" data-panel="terminal">
@@ -144,6 +123,17 @@
       </div>
     </aside>
   </main>
+
+  <section id="prompt-bar" class="prompt-bar grok-prompt-bar" aria-label="Main prompt">
+    <div class="prompt-search-row">
+      <span id="prompt-char" class="prompt-char" title="qbpm prompt">qbpm&gt;</span>
+      <input id="prompt-search-in" type="search" placeholder="prompt · run · agent · ingest URL · imagine · kbatch…" autocomplete="off" spellcheck="false" />
+      <button id="prompt-search-go" type="button" title="Search / run">↵</button>
+      <button id="prompt-video-ingest" type="button" title="Video ingest (yt-dlp)" class="hide-mobile">▶ ingest</button>
+      <button id="prompt-imagine" type="button" title="Imagine presets" class="hide-mobile">✦ imagine</button>
+    </div>
+    <pre id="prompt-search-out" class="prompt-search-out" aria-live="polite"></pre>
+  </section>
 
   <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.5/build/cjs/vexflow.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>

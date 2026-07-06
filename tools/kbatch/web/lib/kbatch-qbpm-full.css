@@ -1,0 +1,71 @@
+/* Full kbatch.html embedded in qbpm — all tabs/tools, trimmed outer chrome */
+html.qbpm-embed-full,
+body.qbpm-embed-full {
+    height: 100%;
+    overflow: hidden;
+}
+body.qbpm-embed-full {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+body.qbpm-embed-full .schd,
+body.qbpm-embed-full .kb-rainbow {
+    display: none !important;
+}
+body.qbpm-embed-full #header {
+    flex-shrink: 0;
+    padding: 4px 10px;
+}
+body.qbpm-embed-full #header .hdr-sub {
+    display: none;
+}
+body.qbpm-embed-full #tab-bar {
+    flex-shrink: 0;
+}
+body.qbpm-embed-full #footer {
+    display: none;
+}
+body.qbpm-embed-full .tab-panel {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+body.qbpm-embed-full .tab-panel.active {
+    display: flex;
+    flex-direction: column;
+}
+body.qbpm-embed-full #panel-analyzer #main-area {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+}
+body.qbpm-embed-full #bottom-panels {
+    flex-shrink: 0;
+    max-height: 38vh;
+    overflow: auto;
+}
+body.qbpm-embed-full > .tab-panel,
+body.qbpm-embed-full > #tab-bar,
+body.qbpm-embed-full > #header,
+body.qbpm-embed-full > #bottom-panels {
+    /* direct children after header in body - kbatch structure uses tab panels as siblings */
+}
+/* kbatch body: header, tab-bar, tab-panels, footer, bottom-panels */
+body.qbpm-embed-full {
+    padding: 0;
+}
+body.qbpm-embed-full #panel-analyzer.active,
+body.qbpm-embed-full #panel-layouts.active,
+body.qbpm-embed-full #panel-dictionary.active,
+body.qbpm-embed-full #panel-quantum.active,
+body.qbpm-embed-full #panel-training.active,
+body.qbpm-embed-full #panel-capsules.active,
+body.qbpm-embed-full #panel-contrails.active,
+body.qbpm-embed-full #panel-musica.active,
+body.qbpm-embed-full #panel-symbollab.active,
+body.qbpm-embed-full #panel-lattice.active {
+    flex: 1;
+    min-height: 120px;
+    overflow: auto;
+}

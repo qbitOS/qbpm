@@ -1,6 +1,8 @@
-/** Lazy-load kbatch tool panel into qbpm right panel */
+/** Lazy-load full kbatch into qbpm tools panel */
 
 let kbatchMounted = false;
+
+const KBATCH_EMBED = "/tools/kbatch/kbatch.html?qbpm=1";
 
 function frameEl() {
   return document.getElementById("kbatch-frame");
@@ -15,54 +17,55 @@ function setStatus(text, ok = true) {
   if (!el) return;
   el.textContent = text;
   el.classList.toggle("error", !ok);
+  el.classList.toggle("active", ok);
 }
 
-export function ensureKbatchPanel() {
+export function ensureKbatchPanel(tab) {
   const frame = frameEl();
   if (!frame) return;
+  const base = tab ? `${KBATCH_EMBED}&tab=${encodeURIComponent(tab)}` : KBATCH_EMBED;
   if (!frame.src || frame.src === "about:blank") {
-    frame.src = "/tools/kbatch/kbatch-qbpm.html?qbpm=1";
+    frame.src = base;
   }
   frame.classList.add("loading");
-  setStatus("loading…");
+  setStatus("loading kbatch…");
 }
 
-export function reloadKbatchPanel() {
+export function reloadKbatchPanel(tab) {
   const frame = frameEl();
   if (!frame) return;
   kbatchMounted = false;
-  const base = "/tools/kbatch/kbatch-qbpm.html?qbpm=1";
+  const base = tab ? `${KBATCH_EMBED}&tab=${encodeURIComponent(tab)}` : KBATCH_EMBED;
   frame.src = `${base}&t=${Date.now()}`;
   setStatus("reloading…");
 }
 
-export function openKbatchFull() {
-  window.open("/tools/kbatch/kbatch.html?qbpm=1", "_blank", "noopener");
+export function openKbatchFull(tab) {
+  const url = tab ? `${KBATCH_EMBED}&tab=${encodeURIComponent(tab)}` : KBATCH_EMBED;
+  window.open(url, "_blank", "noopener");
 }
 
 export function initKbatchLoader() {
   const frame = frameEl();
-  if (!frame) return;
+  if (!frame || frame.dataset.bound === "1") return;
+  frame.dataset.bound = "1";
 
   frame.addEventListener("load", () => {
     frame.classList.remove("loading");
     if (frame.contentWindow?.kbatch) {
       kbatchMounted = true;
-      setStatus("● live");
+      setStatus("● kbatch");
     }
   });
 
-  window.addEventListener("message", (ev) => {
-    const data = ev.data || {};
-    if (data.source !== "kbatch-qbpm") return;
-    if (data.type === "ready") {
-      kbatchMounted = true;
-      setStatus("● ready");
-    }
+  document.getElementById("btn-kbatch-reload")?.addEventListener("click", () => {
+    const tab = document.getElementById("kbatch-tab-select")?.value;
+    reloadKbatchPanel(tab);
   });
-
-  document.getElementById("btn-kbatch-reload")?.addEventListener("click", reloadKbatchPanel);
-  document.getElementById("btn-kbatch-full")?.addEventListener("click", openKbatchFull);
+  document.getElementById("btn-kbatch-full")?.addEventListener("click", () => {
+    const tab = document.getElementById("kbatch-tab-select")?.value;
+    openKbatchFull(tab);
+  });
   document.getElementById("btn-kbatch-focus")?.addEventListener("click", () => {
     frame.contentWindow?.postMessage({ type: "qbpm-focus-input" }, "*");
     frame.focus();

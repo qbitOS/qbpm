@@ -47,6 +47,10 @@
 }
 .ugrad-target-card {
   position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+  contain: layout style paint;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -102,81 +106,11 @@
   color: #6e7681;
 }
 
-.ugrad-hud-panel {
-  position: absolute;
-  pointer-events: auto;
-  background: rgba(1, 4, 9, 0.9);
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  backdrop-filter: blur(10px);
-  padding: 6px 8px;
-  max-width: min(240px, 42vw);
+#ugrad-hud-canvas {
+  contain: strict;
 }
-.ugrad-hud-hd {
-  font: 600 0.55rem Menlo, monospace;
-  color: #6e7681;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 4px;
-}
-.ugrad-hud-tr {
-  top: 36px;
-  right: 8px;
-  z-index: 13;
-  max-width: min(200px, 38vw);
-}
-.ugrad-hud-bl {
-  bottom: 8px;
-  left: 8px;
-  z-index: 13;
-}
-.ugrad-hud-br {
-  bottom: 8px;
-  right: 8px;
-  z-index: 13;
-}
-.ugrad-chat-toasts {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 120px;
-  overflow: hidden;
-}
-.ugrad-chat-toast {
-  font-size: 0.58rem;
-  line-height: 1.35;
-  padding: 4px 6px;
-  background: #161b22;
-  border-radius: 4px;
-  border-left: 3px solid #8b949e;
-  transition: opacity 0.4s;
-}
-.ugrad-chat-toast.fade { opacity: 0.45; }
-.ugrad-toast-who { font-weight: 600; margin-right: 4px; }
-.ugrad-toast-text { color: #c9d1d9; }
-#ugrad-notation-mini {
-  width: 100%;
-  height: 48px;
-  display: block;
-  border-radius: 4px;
-  border: 1px solid #21262d;
-}
-.ugrad-hud-meta {
-  font-size: 0.52rem;
-  color: #6e7681;
-  margin-top: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ugrad-processing-out {
-  font-size: 0.52rem;
-  color: #8b949e;
-  line-height: 1.4;
-  max-height: 72px;
-  overflow: auto;
-  margin: 0;
-  white-space: pre-wrap;
+#ugrad-hud-shell {
+  contain: layout style;
 }
 
 #canvas { cursor: crosshair; }

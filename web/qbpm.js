@@ -1,9 +1,9 @@
 import { createCanvasCollab } from "./canvas-collab.js";
 import { createCollabShell } from "./collab-shell.js";
 import { createLiveMusicBridge } from "./live-music-bridge.js";
-import { ensureKbatchPanel, initKbatchLoader } from "./kbatch-loader.js";
+import { initToolsPanel } from "./tools-panel.js";
 import { createUgradHud } from "./ugrad-hud.js";
-import { ensurePianoPanel } from "./piano/piano-loader.js";
+import { createFloatWorkspace } from "./float-workspace.js";
 import { DEVICE_PRESETS, presetById, presetColor, nextDeviceFrameRect } from "./device-presets.js";
 
 const GRAPH_NAME = "default";
@@ -50,6 +50,8 @@ let liveBridge = null;
 let liveState = null;
 let collabShell = null;
 let ugradHud = null;
+let floatWorkspace = null;
+let lastProcessingText = "";
 
 function canvasPoint(ev) {
   const r = canvas.getBoundingClientRect();
@@ -143,6 +145,54 @@ function frameAt(wx, wy) {
 
 function broadcastCanvasLayout() {
   collab?.broadcastFrames(frames(), viewports(), frameEdges());
+}
+
+function ensureUserFrame(clientId, name, color) {
+  if (!clientId) return null;
+  const id = `frame-user-${clientId}`;
+  if (frames().some((f) => f.id === id)) return id;
+  const preset = presetById("desktop");
+  const main = frames().find((f) => f.id === "frame-main");
+  const n = frames().filter((f) => f.cluster === "user").length;
+  const origin = {
+    x: (main?.rect[0] ?? 0) + 320 + n * 140,
+    y: (main?.rect[1] ?? 0) + (main?.rect[3] ?? 1200) + 80,
+  };
+  const rect = nextDeviceFrameRect(preset, frames(), origin);
+  frames().push({
+    id,
+    label: name || clientId,
+    rect,
+    color: color ? `${color}18` : presetColor("desktop"),
+    device: "desktop",
+    cluster: "user",
+    owner: name || clientId,
+    clientId,
+  });
+  broadcastCanvasLayout();
+  return id;
+}
+
+function buildProcessingText() {
+  const lines = [];
+  if (liveState?.flow) lines.push(`flow: ${liveState.flow}`);
+  if (liveState?.text) lines.push(`text: ${String(liveState.text).slice(0, 40)}`);
+  if (liveState?.bpm || liveState?.cpm) lines.push(`bpm: ${liveState.bpm || liveState.cpm}`);
+  if (lastRun?.ok != null) lines.push(`run: ${lastRun.ok ? "ok" : "err"} · ${(lastRun.order || []).join("→")}`);
+  if (lastRun?.trace?.length) lines.push(`trace: ${lastRun.trace.length} steps`);
+  const meta = graph.meta || {};
+  if (meta.frames?.length) lines.push(`frames: ${meta.frames.length}`);
+  if (collabPeers.length) lines.push(`peers: ${collabPeers.length}`);
+  return lines.length ? lines.join("\n") : "idle · awaiting ingest";
+}
+
+function syncFloatPanels() {
+  const proc = buildProcessingText();
+  if (proc !== lastProcessingText) {
+    lastProcessingText = proc;
+    floatWorkspace?.setProcessing(proc);
+  }
+  floatWorkspace?.drawNotation(liveState);
 }
 
 function updateCanvasResolutionLabel() {
@@ -387,6 +437,7 @@ async function runPromptSearch(q) {
     return;
   }
   window.qbpmLive?.ingest?.({ text: q, flow: q.slice(0, 32) }, "prompt-search");
+  window.qbpmTools?.openTool?.("kbatch", { tab: "analyzer" });
   const frame = document.getElementById("kbatch-frame");
   if (frame?.contentWindow) {
     frame.contentWindow.postMessage({ type: "qbpm-prompt-search", query: q }, "*");
@@ -421,13 +472,16 @@ function initCollab() {
     },
     onPresence: (clients) => {
       collabPeers = clients;
+      for (const p of clients) {
+        ensureUserFrame(p.clientId, p.name, p.color);
+      }
       const el = document.getElementById("collab-status");
       if (el) el.textContent = clients.length ? `● ${clients.length + 1} live` : "● solo";
       collabShell?.renderPeers(clients);
+      ugradHud?.refresh();
       draw();
     },
     onChat: (msg) => {
-      collabShell?.appendChat(msg);
       ugradHud?.notifyChat(msg);
     },
     onHop: (msg) => {
@@ -438,15 +492,18 @@ function initCollab() {
     onDrawOverlay: () => draw(),
   });
 
+  floatWorkspace = createFloatWorkspace({
+    onChatSend: (text) => collab?.sendChat(text),
+    onPromptIngest: (url) => runPromptSearch(url),
+    onNotePlay: (n) => window.qbpmLive?.ingest?.({ musica: n.note, bpm: liveState?.bpm }, "piano"),
+  });
+
   ugradHud = createUgradHud({
     getPanScale: () => ({ pan, scale }),
     getLocalHandle: () => localStorage.getItem("qbpm-collab-name") || "guest",
-    getLocalClientId: () => collab?.clientId || "local",
     getLocalColor: () => localStorage.getItem("qbpm-collab-color") || "#58a6ff",
     getPeers: () => collabPeers,
-    getLiveState: () => liveState,
-    getLastRun: () => lastRun,
-    getGraphMeta: () => graph.meta || {},
+    getFloatWorkspace: () => floatWorkspace,
   });
 
   collabShell = createCollabShell({
@@ -465,6 +522,14 @@ function initCollab() {
       broadcastCanvasLayout();
     },
   });
+
+  setTimeout(() => {
+    const cid = collab?.clientId;
+    const name = localStorage.getItem("qbpm-collab-name") || "guest";
+    const color = localStorage.getItem("qbpm-collab-color") || "#58a6ff";
+    ensureUserFrame(cid, name, color);
+    draw();
+  }, 400);
 }
 
 function nodeControlButtons(n) {
@@ -873,7 +938,7 @@ async function runGraph() {
   const res = await fetch(`/api/graph/${GRAPH_NAME}/run`, { method: "POST" });
   lastRun = await res.json();
   vizLog.textContent = JSON.stringify(lastRun, null, 2);
-  ugradHud?.refresh();
+  syncFloatPanels();
   drawViz();
 }
 
@@ -943,29 +1008,19 @@ function setRightPanelTab(tab) {
   document.querySelectorAll("#right-panel-body .panel-block").forEach((blk) => {
     blk.classList.toggle("active", blk.dataset.panel === panel);
   });
-  if (tab === "piano") {
-    ensurePianoPanel().catch((err) => {
-      const body = document.getElementById("piano-panel-body");
-      if (body) body.textContent = `piano error: ${err}`;
-    });
-  }
-  if (tab === "kbatch") ensureKbatchPanel();
-  workspace.classList.toggle("right-piano", tab === "piano");
-  workspace.classList.toggle("right-kbatch", tab === "kbatch");
+  if (tab === "tools") initToolsPanel().catch(() => {});
+  workspace.classList.toggle("right-tools", tab === "tools");
   try { localStorage.setItem(RIGHT_TAB_KEY, tab); } catch (_) {}
   setTimeout(resize, 30);
 }
 
 function setMobilePanel(name) {
-  workspace.classList.remove("panel-viz", "panel-inspector", "panel-terminal", "panel-piano", "panel-kbatch");
+  workspace.classList.remove("panel-viz", "panel-inspector", "panel-terminal", "panel-tools");
   if (name && name !== "canvas") workspace.classList.add(`panel-${name}`);
   document.querySelectorAll("#mobile-tabs button").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.panel === name);
   });
-  if (name === "piano") {
-    setRightPanelTab("piano");
-    ensurePianoPanel().catch(() => {});
-  } else if (name && name !== "canvas") {
+  if (name && name !== "canvas") {
     setRightPanelTab(name === "terminal" ? "terminal" : name);
   }
   setTimeout(resize, 30);
@@ -1006,7 +1061,7 @@ function initLiveMusic() {
         statusEl.textContent = flow ? `● ${flow} · ${bpm} bpm` : `● live · ${bpm || "—"} bpm`;
         statusEl.classList.add("active");
       }
-      ugradHud?.refresh();
+      syncFloatPanels();
     },
     onEvent: (ev) => {
       if (ev.type === "close" && statusEl) {
@@ -1050,7 +1105,6 @@ function initDevicePicker() {
 
 exportGraphState();
 initLiveMusic();
-initKbatchLoader();
 initDevicePicker();
 
 document.getElementById("insp-type").addEventListener("change", syncInspector);
@@ -1343,6 +1397,7 @@ loadGraph().catch((err) => {
   vizLog.textContent = `load error: ${err}`;
 });
 try {
-  const savedTab = localStorage.getItem(RIGHT_TAB_KEY);
+  let savedTab = localStorage.getItem(RIGHT_TAB_KEY);
+  if (savedTab === "kbatch" || savedTab === "piano" || savedTab === "pattern-flow") savedTab = "tools";
   if (savedTab) setRightPanelTab(savedTab);
 } catch (_) {}

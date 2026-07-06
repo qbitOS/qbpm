@@ -27,6 +27,16 @@
         if (data.type === 'qbpm-focus-input') {
             global.document.getElementById('typing-input')?.focus();
         }
+        if (data.type === 'qbpm-pattern-mode') {
+            var modeEl = global.document.getElementById('kbatch-ct-mode');
+            if (modeEl && data.mode) {
+                modeEl.value = data.mode;
+                modeEl.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            if (global.Contrails && typeof global.Contrails.start === 'function') {
+                global.Contrails.start();
+            }
+        }
     });
 
     function onReady() {

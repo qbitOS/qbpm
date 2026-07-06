@@ -56,28 +56,39 @@ body {
 
 .prompt-bar {
   flex-shrink: 0;
-  border-bottom: 1px solid #30363d;
-  background: #0d1117;
-  padding: 6px 10px 4px;
+  border-top: 1px solid #30363d;
+  background: #010409;
+  padding: 6px 12px 8px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+.grok-prompt-bar {
+  border-bottom: none;
+  contain: layout style;
 }
 .prompt-search-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
-.prompt-icon { color: #6e7681; font-size: 0.9rem; }
+.prompt-char {
+  color: #3fb950;
+  font: 600 0.72rem Menlo, monospace;
+  flex-shrink: 0;
+  user-select: none;
+}
 #prompt-search-in {
   flex: 1;
-  min-height: 32px;
-  background: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 6px;
+  min-height: 36px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   color: #c9d1d9;
   font: inherit;
-  font-size: 0.72rem;
-  padding: 6px 10px;
+  font-size: 0.78rem;
+  padding: 6px 4px;
 }
-#prompt-search-in:focus { border-color: #58a6ff; outline: none; }
+#prompt-search-in:focus { outline: none; }
+#prompt-search-in::placeholder { color: #484f58; }
 #prompt-search-go, #prompt-video-ingest, #prompt-imagine {
   background: #21262d;
   border: 1px solid #30363d;
@@ -104,6 +115,10 @@ body {
 
 #user-frame-badge {
   position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+  contain: layout style paint;
   z-index: 14;
   display: flex;
   align-items: center;
@@ -173,63 +188,11 @@ body {
 }
 .uwt-actions button:hover { border-color: #58a6ff; color: #58a6ff; }
 
-#window-chat-strip {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 12;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  width: min(440px, calc(100% - 280px));
-  background: rgba(1, 4, 9, 0.92);
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  backdrop-filter: blur(10px);
-  pointer-events: auto;
-}
-.wcs-messages {
-  flex: 1;
-  min-width: 0;
-  max-height: 36px;
-  overflow: auto;
-  font-size: 0.58rem;
-  line-height: 1.35;
-}
-.wcs-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wcs-who { font-weight: 600; margin-right: 4px; }
-#wcs-input {
-  width: 120px;
-  min-height: 28px;
-  background: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 4px;
-  color: #c9d1d9;
-  font: inherit;
-  font-size: 0.62rem;
-  padding: 4px 6px;
-}
 @media (max-width: 720px) {
-  #window-chat-strip {
-    width: calc(100% - 24px);
-    bottom: 56px;
-  }
   #user-frame-badge {
     max-width: calc(100vw - 24px);
   }
-}
-
-#wcs-send {
-  min-width: 28px;
-  min-height: 28px;
-  border: 1px solid #30363d;
-  border-radius: 4px;
-  background: #21262d;
-  color: #c9d1d9;
-  cursor: pointer;
-  font: inherit;
+  .float-bl, .float-br, .float-tr { max-width: 46vw; }
 }
 
 #canvas-overlays {
@@ -585,21 +548,168 @@ body {
 #workspace.right-piano {
   grid-template-columns: 1fr min(480px, 42vw);
 }
-#workspace.right-kbatch {
-  grid-template-columns: 1fr min(520px, 46vw);
+#workspace.right-tools {
+  grid-template-columns: 1fr min(540px, 48vw);
 }
-#kbatch-panel {
+#tools-panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
-.kbatch-frame {
+.tools-hub-actions {
+  display: flex;
+  gap: 4px;
+}
+.tools-hub-actions button {
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  border-radius: 4px;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.7rem;
+}
+.tools-hub-actions button:hover { color: #58a6ff; border-color: #58a6ff; }
+.tools-accordion {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 0;
+}
+.tool-section {
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #0d1117;
+  overflow: hidden;
+}
+.tool-section.open { flex: 1; min-height: 120px; display: flex; flex-direction: column; }
+.tool-section-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: #161b22;
+  color: #c9d1d9;
+  font: inherit;
+  font-size: 0.68rem;
+  text-align: left;
+  cursor: pointer;
+}
+.tool-section-head:hover { background: #1c2129; }
+.tool-chevron {
+  color: #58a6ff;
+  font-size: 0.6rem;
+  transition: transform 0.15s;
+}
+.tool-section.open .tool-chevron { transform: rotate(90deg); }
+.tool-label { font-weight: 700; }
+.tool-cat {
+  font-size: 0.55rem;
+  color: #6e7681;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #21262d;
+}
+.tool-status {
+  margin-left: auto;
+  font-size: 0.55rem;
+  color: #6e7681;
+}
+.tool-status.active { color: #3fb950; }
+.tool-status.error { color: #f85149; }
+.tool-section-actions { display: flex; gap: 2px; margin-left: 6px; }
+.tool-act {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #8b949e;
+  border-radius: 3px;
+  width: 22px;
+  height: 18px;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.65rem;
+}
+.tool-act:hover { color: #f0883e; border-color: #30363d; }
+.tool-section-body {
+  display: none;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.tool-section.open .tool-section-body { display: flex; }
+.kbatch-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px 6px;
+  background: #161b22;
+  border-bottom: 1px solid #21262d;
+  flex-shrink: 0;
+}
+.kbatch-toolbar-title {
+  font-weight: 700;
+  color: #f0883e;
+  font-size: 0.65rem;
+}
+.kbatch-tab-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.58rem;
+  color: #8b949e;
+}
+.kbatch-tab-pick select {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  color: #c9d1d9;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.58rem;
+  max-width: 110px;
+}
+.kbatch-toolbar button {
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  border-radius: 4px;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.65rem;
+}
+.kbatch-toolbar button:hover { color: #f0883e; border-color: #f0883e; }
+.kbatch-tools-hint {
+  margin: 0;
+  padding: 3px 8px;
+  font-size: 0.55rem;
+  color: #6e7681;
+  background: #0d1117;
+  border-bottom: 1px solid #21262d;
+  flex-shrink: 0;
+}
+.kbatch-frame,
+.tool-embed-frame,
+.tool-iframe {
   flex: 1;
   width: 100%;
-  min-height: 280px;
+  min-height: 320px;
   border: none;
   background: #010409;
 }
+.tool-iframe { min-height: 160px; }
 .live-status {
   font-size: 0.62rem;
   color: #6e7681;

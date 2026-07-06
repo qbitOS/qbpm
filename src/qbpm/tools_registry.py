@@ -31,35 +31,55 @@ def discover_tools(root: Path) -> list[dict[str, Any]]:
             if html.exists():
                 manifest["web"] = str(html.relative_to(root))
                 manifest["url"] = f"/tools/{child.name}/{html.name}"
-                embed_name = "kbatch-qbpm.html" if child.name == "kbatch" else html.name
-                embed_html = web / embed_name
-                if embed_html.exists():
-                    manifest["embed"] = f"/tools/{child.name}/{embed_name}?qbpm=1"
-                else:
-                    manifest["embed"] = f"/tools/{child.name}/{html.name}?qbpm=1"
+                manifest["embed"] = f"/tools/{child.name}/{html.name}?qbpm=1"
         roles = {
             "kbatch": {
                 "role": "keyboard-live",
+                "category": "keyboard batch",
+                "label": "kbatch",
+                "description": "keyboard batch — world keyboard & quantum analyzer",
                 "channels": ["kbatch-keyboard-data", "kbatch-training", "feed-caption", "qbpm-live"],
                 "stack": ["jax", "python", "json", "wasm", "repel"],
+                "tabs": [
+                    "analyzer",
+                    "layouts",
+                    "dictionary",
+                    "quantum",
+                    "training",
+                    "capsules",
+                    "contrails",
+                    "musica",
+                    "symbollab",
+                    "lattice",
+                ],
+                "panels": ["code-cell", "terminal"],
+                "patternModes": ["dance", "flow", "contrails", "rhythm", "heatmap", "ergo"],
             },
             "blank-ingest": {
                 "role": "video-ingest",
+                "category": "ingest",
+                "label": "blank ingest",
                 "stack": ["yt-dlp", "ffmpeg", "ffplay", "ffprobe"],
                 "api": "/api/video/resolve",
             },
             "imagine-browser": {
                 "role": "imagine-presets",
+                "category": "imagine",
+                "label": "imagine",
                 "api": "/api/imagine/slugs",
                 "repo": "fornevercollective/imagine",
             },
             "vwall": {
                 "role": "media-wall",
+                "category": "media",
+                "label": "vwall",
                 "stack": ["hls.js", "ffprobe"],
                 "repo": "fornevercollective/vwall",
             },
             "grok-pipe": {
                 "role": "grok-generate",
+                "category": "grok",
+                "label": "grok pipe",
                 "stack": ["imagine", "resolve", "colossus"],
                 "repo": "fornevercollective/grok-public-folder",
             },

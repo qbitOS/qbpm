@@ -17,39 +17,76 @@
                 <span>Eff <b id="s-eff" class="stat-eff">0%</b></span>
                 <span>BPM <b id="s-heartbeat">—</b></span>
                 <span>Layout <b id="s-layout">QWERTY</b></span>
-                <span>Bench <b id="s-bench">—</b></span>
             </div>
         </div>
 
-        <section class="kbatch-qbpm-flow" aria-label="Pattern flow">
-            <div class="viz-title">Pattern Flow · Contrails</div>
-            <div class="viz-canvas-wrap"><canvas id="cv-contrails"></canvas></div>
+        <section class="kbatch-collapse open" data-section="pattern-flow">
+            <button type="button" class="kbatch-collapse-head">
+                <span class="kbatch-chevron">▾</span>
+                Pattern Flow · DDR
+                <span class="kbatch-head-sub">dance · rhythm · contrails</span>
+            </button>
+            <div class="kbatch-collapse-body">
+                <div class="pattern-toolbar">
+                    <label class="pt-label">Mode
+                        <select id="kbatch-ct-mode">
+                            <option value="dance">DDR Dance</option>
+                            <option value="flow">Pattern Flow</option>
+                            <option value="contrails">Contrails</option>
+                            <option value="rhythm">Rhythm</option>
+                            <option value="heatmap">Heatmap</option>
+                            <option value="ergo">Ergo</option>
+                        </select>
+                    </label>
+                    <label class="pt-label">Speed
+                        <input type="range" id="kbatch-ct-speed" min="1" max="10" value="6">
+                    </label>
+                    <span id="kbatch-ct-stats" class="pt-stats">type to pattern</span>
+                </div>
+                <div class="viz-canvas-wrap kbatch-flow-canvas"><canvas id="cv-contrails"></canvas></div>
+                <div id="kbatch-ddr-lanes" class="ddr-lanes" aria-label="DDR lanes"></div>
+                <div id="kbatch-ddr-flow" class="ddr-flow" aria-live="polite"></div>
+                <div id="kbatch-ct-legend" class="ddr-legend"></div>
+            </div>
         </section>
 
-        <div id="s-live-intel" class="kbatch-qbpm-vars" aria-live="polite">flow · musica · encoder</div>
-
-        <section class="kbatch-qbpm-keyboard" aria-label="Keyboard visualizations">
-            <div class="viz-panel">
-                <div class="viz-title" style="color:#f0883e;">Thermal</div>
-                <div class="viz-canvas-wrap"><canvas id="cv-thermal"></canvas></div>
-            </div>
-            <div class="viz-panel">
-                <div class="viz-title" style="color:#d2a8ff;">Pattern</div>
-                <div class="viz-canvas-wrap"><canvas id="cv-geometric"></canvas></div>
+        <section class="kbatch-collapse open" data-section="keyboard">
+            <button type="button" class="kbatch-collapse-head">
+                <span class="kbatch-chevron">▾</span>
+                Keyboard · Variables
+            </button>
+            <div class="kbatch-collapse-body">
+                <div id="s-live-intel" class="kbatch-qbpm-vars" aria-live="polite">flow · musica · encoder</div>
+                <div class="kbatch-qbpm-keyboard">
+                    <div class="viz-panel">
+                        <div class="viz-title" style="color:#f0883e;">Thermal</div>
+                        <div class="viz-canvas-wrap"><canvas id="cv-thermal"></canvas></div>
+                    </div>
+                    <div class="viz-panel">
+                        <div class="viz-title" style="color:#d2a8ff;">Geometric</div>
+                        <div class="viz-canvas-wrap"><canvas id="cv-geometric"></canvas></div>
+                    </div>
+                </div>
             </div>
         </section>
 
-        <section class="kbatch-qbpm-input">
-            <input type="text" id="typing-input" placeholder="Live code / music typing → qbpm graph…" autocomplete="off" spellcheck="false">
-            <div class="hint">Enter analyzes · ingests to <code>/api/live/ingest</code> · <span class="layout-badge" id="active-layout-badge">QWERTY</span></div>
+        <section class="kbatch-collapse open" data-section="input">
+            <button type="button" class="kbatch-collapse-head">
+                <span class="kbatch-chevron">▾</span>
+                Live Input
+            </button>
+            <div class="kbatch-collapse-body kbatch-qbpm-input">
+                <input type="text" id="typing-input" placeholder="Live code / music → qbpm graph + DDR lanes…" autocomplete="off" spellcheck="false">
+                <div class="hint">Enter analyzes · <code>/api/live/ingest</code> · <span class="layout-badge" id="active-layout-badge">QWERTY</span></div>
+            </div>
         </section>
     </div>
 
-    <!-- Compatibility stubs for kbatch-main.js (hidden) -->
     <div id="kbatch-stubs" hidden aria-hidden="true">
         <span id="s-cpx">0%</span><span id="s-strain">0%</span><span id="s-keys">0</span>
         <span id="s-dist">0</span><span id="s-words">0</span><span id="s-hapax">0</span>
-        <span id="s-tone">—</span><span id="s-stack">qbpm</span><span id="s-t5">browser</span><span id="s-stream">live-fast</span>
+        <span id="s-tone">—</span><span id="s-stack">qbpm</span><span id="s-t5">browser</span>
+        <span id="s-stream">live-fast</span><span id="s-bench">—</span>
         <canvas id="cv-3d"></canvas><canvas id="cv-layout"></canvas><canvas id="cv-quantum"></canvas>
         <div id="layout-list"></div>
         <select id="layout-compare-select"></select><select id="train-layout"></select>
@@ -91,6 +128,7 @@
     <script src="kbatch-main.js"></script>
     <script src="lib/kbatch-live-patch.js"></script>
     <script src="lib/kbatch-caption-bridge.js"></script>
+    <script src="lib/kbatch-qbpm-embed.js"></script>
     <script src="lib/kbatch-qbpm-shell.js"></script>
 </body>
 </html>

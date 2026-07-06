@@ -11,23 +11,25 @@
     var METRICS_THROTTLE_MS = 120;
 
     function ContrailsFast() {
-        var canvas = document.getElementById('ct-canvas');
+        var canvas = document.getElementById('ct-canvas') || document.getElementById('cv-contrails');
         var ctx = canvas ? canvas.getContext('2d', { alpha: false }) : null;
-        var input = document.getElementById('ct-input');
-        var statsEl = document.getElementById('ct-stats');
-        var legendEl = document.getElementById('ct-legend');
+        var input = document.getElementById('ct-input') || document.getElementById('typing-input');
+        var statsEl = document.getElementById('ct-stats') || document.getElementById('kbatch-ct-stats');
+        var legendEl = document.getElementById('ct-legend') || document.getElementById('kbatch-ct-legend');
         var metricsEl = document.getElementById('ct-metrics');
-        var modeEl = document.getElementById('ct-mode');
-        var speedEl = document.getElementById('ct-speed');
+        var modeEl = document.getElementById('ct-mode') || document.getElementById('kbatch-ct-mode');
+        var speedEl = document.getElementById('ct-speed') || document.getElementById('kbatch-ct-speed');
         var ergoPanel = document.getElementById('ct-ergo-panel');
         var ergoGrid = document.getElementById('ct-ergo-grid');
         var fingerGrid = document.getElementById('ct-finger-grid');
         var healthRisks = document.getElementById('ct-health-risks');
-        var flowSymbols = document.getElementById('ct-flow-symbols');
+        var flowSymbols = document.getElementById('ct-flow-symbols') || document.getElementById('kbatch-ddr-flow');
 
         if (!canvas || !ctx) {
-            return { active: false };
+            return { active: false, feedText: function () {}, feedKey: function () {}, start: function () {}, stop: function () {} };
         }
+
+        var embedMode = global.document.body && global.document.body.classList.contains('qbpm-embed');
 
         var KBD = {};
         'qwertyuiop'.split('').forEach(function (k, i) { KBD[k] = [0, i]; });
@@ -610,6 +612,15 @@
                 else stop();
             });
             observer.observe(panel, { attributes: true, attributeFilter: ['class'] });
+        } else if (embedMode) {
+            global.setTimeout(function () { start(); }, 80);
+        }
+
+        if (modeEl) {
+            modeEl.addEventListener('change', function () {
+                if (!active) start();
+                global.dispatchEvent(new CustomEvent('kbatch-pattern-mode', { detail: { mode: modeEl.value } }));
+            });
         }
 
         global.addEventListener('resize', function () {
