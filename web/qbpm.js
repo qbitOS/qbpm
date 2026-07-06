@@ -1,6 +1,7 @@
 import { createCanvasCollab } from "./canvas-collab.js";
 import { createCollabShell } from "./collab-shell.js";
 import { createLiveMusicBridge } from "./live-music-bridge.js";
+import { initKbatchPanel, registerQbpmTools, switchKbatchTab } from "./kbatch-panel.js";
 import { initToolsPanel } from "./tools-panel.js";
 import { createUgradHud } from "./ugrad-hud.js";
 import { createFloatWorkspace } from "./float-workspace.js";
@@ -8,6 +9,7 @@ import { createLiveJamBridge } from "./live-jam-bridge.js";
 import { DEVICE_PRESETS, presetById, presetColor, nextDeviceFrameRect } from "./device-presets.js";
 import { framePipelinePorts, VFX, compFillForDevice } from "./vfx-palette.js";
 import { drawCompGrid, drawCompWindow, drawBusEdge } from "./vfx-compositor.js";
+import { pages } from "./pages.js";
 
 const GRAPH_NAME = "default";
 const NODE_W = 168;
@@ -396,7 +398,9 @@ async function runPromptSearch(q) {
     return;
   }
   window.qbpmLive?.ingest?.({ text: q, flow: q.slice(0, 32) }, "prompt-search");
-  window.qbpmTools?.openTool?.("kbatch", { tab: "analyzer" });
+  setRightPanelTab("kbatch");
+  initKbatchPanel();
+  switchKbatchTab("analyzer");
   const frame = document.getElementById("kbatch-frame");
   if (frame?.contentWindow) {
     frame.contentWindow.postMessage({ type: "qbpm-prompt-search", query: q }, "*");
@@ -879,10 +883,30 @@ function vizAnimLoop() {
 }
 
 async function loadGraph(opts = {}) {
-  const url = `/api/graph/${GRAPH_NAME}${opts.bust ? `?t=${Date.now()}` : ""}`;
-  const res = await fetch(url, opts.hard ? { cache: "no-store" } : undefined);
-  if (!res.ok) throw new Error(await res.text());
-  graph = await res.json();
+  const P = pages();
+  const api = P.api(`api/graph/${GRAPH_NAME}`);
+  if (api) {
+    const res = await fetch(
+      `${api}${opts.bust ? `?t=${Date.now()}` : ""}`,
+      opts.hard ? { cache: "no-store" } : undefined,
+    );
+    if (res.ok) {
+      graph = await res.json();
+    } else if (!P.staticShell) {
+      throw new Error(await res.text());
+    }
+  }
+  if (!graph?.nodes) {
+    const local = localStorage.getItem(`qbpm-graph-${GRAPH_NAME}`);
+    if (local) {
+      try { graph = JSON.parse(local); } catch (_) {}
+    }
+  }
+  if (!graph?.nodes) {
+    const res = await fetch(P.graphJson(GRAPH_NAME), opts.hard ? { cache: "no-store" } : undefined);
+    if (!res.ok) throw new Error(`graph ${GRAPH_NAME}: ${res.status}`);
+    graph = await res.json();
+  }
   ensureCanvasMeta();
   normalizeFramePalette();
   for (const n of graph.nodes) {
@@ -921,7 +945,13 @@ async function hardRefreshCanvas() {
 }
 
 async function saveGraph() {
-  const res = await fetch(`/api/graph/${GRAPH_NAME}`, {
+  const api = pages().api(`api/graph/${GRAPH_NAME}`);
+  if (!api) {
+    localStorage.setItem(`qbpm-graph-${GRAPH_NAME}`, JSON.stringify(graph));
+    vizLog.textContent = "saved locally (static shell)";
+    return;
+  }
+  const res = await fetch(api, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(graph),
@@ -1005,14 +1035,16 @@ function setRightPanelTab(tab) {
   document.querySelectorAll("#right-panel-body .panel-block").forEach((blk) => {
     blk.classList.toggle("active", blk.dataset.panel === panel);
   });
+  if (tab === "kbatch") initKbatchPanel();
   if (tab === "tools") initToolsPanel().catch(() => {});
+  workspace.classList.toggle("right-kbatch", tab === "kbatch");
   workspace.classList.toggle("right-tools", tab === "tools");
   try { localStorage.setItem(RIGHT_TAB_KEY, tab); } catch (_) {}
   setTimeout(resize, 30);
 }
 
 function setMobilePanel(name) {
-  workspace.classList.remove("panel-viz", "panel-inspector", "panel-terminal", "panel-tools");
+  workspace.classList.remove("panel-viz", "panel-inspector", "panel-terminal", "panel-kbatch", "panel-tools");
   if (name && name !== "canvas") workspace.classList.add(`panel-${name}`);
   document.querySelectorAll("#mobile-tabs button").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.panel === name);
@@ -1102,6 +1134,7 @@ function initDevicePicker() {
 
 exportGraphState();
 initLiveMusic();
+registerQbpmTools();
 initDevicePicker();
 
 document.getElementById("insp-type").addEventListener("change", syncInspector);
@@ -1392,6 +1425,15 @@ document.getElementById("prompt-imagine")?.addEventListener("click", async () =>
   }
 });
 
+if (pages().staticShell) {
+  const cs = document.getElementById("collab-status");
+  if (cs) cs.textContent = "● static shell";
+  const hint = document.getElementById("canvas-hint");
+  if (hint) {
+    hint.textContent = "GitHub Pages · local graph · full API: qbitos.ai · fornevercollective/Qbpm";
+  }
+}
+
 initCollab();
 resize();
 requestAnimationFrame(vizAnimLoop);
@@ -1400,6 +1442,7 @@ loadGraph().catch((err) => {
 });
 try {
   let savedTab = localStorage.getItem(RIGHT_TAB_KEY);
-  if (savedTab === "kbatch" || savedTab === "piano" || savedTab === "pattern-flow") savedTab = "tools";
+  if (savedTab === "piano") savedTab = "tools";
+  if (savedTab === "pattern-flow") savedTab = "kbatch";
   if (savedTab) setRightPanelTab(savedTab);
 } catch (_) {}

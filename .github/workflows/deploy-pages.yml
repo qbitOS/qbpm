@@ -31,21 +31,7 @@ jobs:
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
       - name: Build static shell
-        run: |
-          mkdir -p _site/static
-          cp -r web/* _site/static/
-          cp web/index.html _site/index.html
-          cp web/manifest.webmanifest _site/manifest.webmanifest
-          cp web/sw.js _site/sw.js
-          # Project pages at qbitos.github.io/qbpm — relative paths (root CNAME is qbitOS.github.io)
-          for f in _site/index.html _site/sw.js; do
-            sed -i 's|/static/|./static/|g' "$f" 2>/dev/null || \
-              sed -i '' 's|/static/|./static/|g' "$f"
-            sed -i 's|href="/manifest|href="./manifest|g' "$f" 2>/dev/null || \
-              sed -i '' 's|href="/manifest|href="./manifest|g' "$f"
-            sed -i 's|register("/sw.js")|register("./sw.js")|g' "$f" 2>/dev/null || \
-              sed -i '' 's|register("/sw.js")|register("./sw.js")|g' "$f"
-          done
+        run: chmod +x deploy/build-static.sh && ./deploy/build-static.sh qbpm _site
 
       - uses: actions/configure-pages@v5
 

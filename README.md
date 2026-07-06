@@ -23,7 +23,7 @@ chmod +x start.sh
 ./start.sh
 ```
 
-Open **http://127.0.0.1:8796** · static shell at **https://qbitos.github.io/qbpm/** · full stack at **https://qbitos.ai**
+Open **http://127.0.0.1:8796** · static shell at **https://qbitos.github.io/qbpm/** · **https://fornevercollective.github.io/Qbpm/** · full stack at **https://qbitos.ai**
 
 ## go-ugrad HUD
 
@@ -42,6 +42,17 @@ Canvas overlay (like [go-ugrad](https://mueee.qbitos.ai/go-ugrad.html)):
 1. Push to `https://github.com/qbitOS/qbpm`
 2. **Settings → Pages → Source:** GitHub Actions
 3. Workflow `.github/workflows/deploy-pages.yml` → **https://qbitos.github.io/qbpm/**
+
+### fornevercollective/Qbpm Pages
+
+Live: **https://fornevercollective.github.io/Qbpm/**
+
+```bash
+chmod +x scripts/publish-fornevercollective.sh deploy/build-static.sh
+./scripts/publish-fornevercollective.sh   # sync web → Qbpm/ and push
+```
+
+In **fornevercollective/Qbpm**: **Settings → Pages → Source:** GitHub Actions. Base path `/Qbpm/` — static graph JSON, music lab, collab UI (solo); point API host at qbitos.ai for full stack.
 
 ### Full stack on qbitos.ai
 

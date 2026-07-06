@@ -17,8 +17,15 @@ body.qbpm-embed-full #header {
     flex-shrink: 0;
     padding: 4px 10px;
 }
-body.qbpm-embed-full #header .hdr-sub {
+body.qbpm-embed-full #header .hdr-sub,
+body.qbpm-embed-full #header a {
     display: none;
+}
+body.qbpm-embed-full #header .hdr-title::after {
+    content: ' · qbpm';
+    color: #6e7681;
+    font-weight: 400;
+    font-size: 0.65rem;
 }
 body.qbpm-embed-full #tab-bar {
     flex-shrink: 0;

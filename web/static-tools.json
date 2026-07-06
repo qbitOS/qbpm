@@ -1,0 +1,20 @@
+{
+  "tools": [
+    {
+      "id": "kbatch",
+      "role": "keyboard-live",
+      "category": "keyboard batch",
+      "label": "kbatch",
+      "url": "https://mueee.qbitos.ai/kbatch.html",
+      "embed": "https://mueee.qbitos.ai/kbatch.html?qbpm=1"
+    },
+    {
+      "id": "jam-hub",
+      "role": "live-jam",
+      "category": "collab · strudel · TD",
+      "label": "live jam hub",
+      "url": "./static/jam-ecosystem.json",
+      "external": true
+    }
+  ]
+}

@@ -59,16 +59,26 @@
         }, 100);
     }
 
+    function currentTab() {
+        var active = global.document.querySelector('.tab-btn.active');
+        return active ? active.dataset.tab : null;
+    }
+
     function boot() {
         global.document.documentElement.classList.add('qbpm-embed-full');
-        global.document.body.classList.add('qbpm-embed-full');
+        global.document.body.classList.add('qbpm-embed-full', 'qbpm-embed');
 
-        var link = global.document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'lib/kbatch-qbpm-full.css';
-        global.document.head.appendChild(link);
+        var tabParam = params.get('tab');
+        if (tabParam) switchTab(tabParam);
 
-        notifyParent({ type: 'ready', ok: true, tool: 'kbatch', tabs: KBATCH_TABS });
+        global.document.querySelectorAll('.tab-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var tab = btn.dataset.tab;
+                if (tab) notifyParent({ type: 'tab', tab: tab });
+            });
+        });
+
+        notifyParent({ type: 'ready', ok: true, tool: 'kbatch', tabs: KBATCH_TABS, tab: currentTab() || tabParam });
     }
 
     global.addEventListener('message', function (ev) {

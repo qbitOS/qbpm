@@ -24,6 +24,7 @@ export function createCanvasCollab(opts) {
   let lastRev = 0;
 
   function connect() {
+    if (typeof window !== "undefined" && window.QBPM_PAGES?.staticShell) return;
     const proto = location.protocol === "https:" ? "wss" : "ws";
     ws = new WebSocket(`${proto}://${location.host}/api/graph/ws?graph=${encodeURIComponent(graphName)}`);
     ws.onopen = () => sendJoin();

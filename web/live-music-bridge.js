@@ -31,6 +31,7 @@ export function createLiveMusicBridge(opts = {}) {
   }
 
   function connect() {
+    if (typeof window !== "undefined" && window.QBPM_PAGES?.staticShell) return;
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
     ws = new WebSocket(wsUrl());
     ws.onopen = () => onEvent({ type: "open" });

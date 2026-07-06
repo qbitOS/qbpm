@@ -19,6 +19,10 @@
   }
 
   function connect() {
+    if (typeof window !== "undefined" && window.QBPM_PAGES?.staticShell) {
+      render("static shell — grok WS needs API host (qbitos.ai)");
+      return Promise.resolve();
+    }
     if (ws && ws.readyState === WebSocket.OPEN) return Promise.resolve();
     return new Promise((resolve, reject) => {
       ws = new WebSocket(wsUrl());

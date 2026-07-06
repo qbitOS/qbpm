@@ -10,6 +10,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0d1117">
     <title>kbatch — World Keyboard &amp; Quantum Analyzer</title>
+    <script>
+    (function () {
+        if (new URLSearchParams(location.search).get('qbpm') !== '1') return;
+        document.documentElement.classList.add('qbpm-embed-pending');
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'lib/kbatch-qbpm-full.css';
+        document.head.appendChild(link);
+    })();
+    </script>
     <link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon.png">
     <link rel="icon" type="image/x-icon" href="../icons/favicon.ico">
     <link rel="stylesheet" href="quantum-theme.css">
@@ -1125,7 +1135,9 @@ console.log(qasm.split('\n').slice(0,5).join('\n'));</textarea>
     <script src="kbatch-sportsfield-aggregate.js"></script>
     <script src="kbatch-tab-query.js"></script>
     <script>
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+    if ('serviceWorker' in navigator && new URLSearchParams(location.search).get('qbpm') !== '1') {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+    }
     </script>
 </body>
 </html>

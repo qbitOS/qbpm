@@ -11,7 +11,10 @@
     var METRICS_THROTTLE_MS = 120;
 
     function ContrailsFast() {
-        var canvas = document.getElementById('ct-canvas') || document.getElementById('cv-contrails');
+        var qbpmEmbed = new URLSearchParams(global.location.search).get('qbpm') === '1';
+        var canvas = qbpmEmbed
+            ? (document.getElementById('cv-contrails') || document.getElementById('ct-canvas'))
+            : (document.getElementById('ct-canvas') || document.getElementById('cv-contrails'));
         var ctx = canvas ? canvas.getContext('2d', { alpha: false }) : null;
         var input = document.getElementById('ct-input') || document.getElementById('typing-input');
         var statsEl = document.getElementById('ct-stats') || document.getElementById('kbatch-ct-stats');
@@ -29,7 +32,10 @@
             return { active: false, feedText: function () {}, feedKey: function () {}, start: function () {}, stop: function () {} };
         }
 
-        var embedMode = global.document.body && global.document.body.classList.contains('qbpm-embed');
+        var embedMode = qbpmEmbed || (global.document.body && (
+            global.document.body.classList.contains('qbpm-embed') ||
+            global.document.body.classList.contains('qbpm-embed-full')
+        ));
 
         var KBD = {};
         'qwertyuiop'.split('').forEach(function (k, i) { KBD[k] = [0, i]; });

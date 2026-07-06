@@ -1,25 +1,11 @@
 /**
- * qbpm tools hub — collapsible sections; kbatch = full keyboard batch app
+ * qbpm tools hub — piano, jam hub, blank-ingest, imagine, vwall, grok-pipe
+ * (kbatch lives on its own tab — see kbatch-panel.js)
  */
 
-import { ensureKbatchPanel, initKbatchLoader } from "./kbatch-loader.js";
 import { ensurePianoPanel } from "./piano/piano-loader.js";
 
 const COLLAPSE_KEY = "qbpm-tools-collapse";
-
-/** All kbatch tabs (keyboard batch tool surface) */
-export const KBATCH_TABS = [
-  { id: "analyzer", label: "Analyzer" },
-  { id: "layouts", label: "Layouts" },
-  { id: "dictionary", label: "Dictionary" },
-  { id: "quantum", label: "Quantum" },
-  { id: "training", label: "Training" },
-  { id: "capsules", label: "Capsules" },
-  { id: "contrails", label: "Contrails" },
-  { id: "musica", label: "Musica" },
-  { id: "symbollab", label: "Symbols" },
-  { id: "lattice", label: "Lattice" },
-];
 
 let toolsCatalog = [];
 let collapseState = {};
@@ -42,7 +28,7 @@ function saveCollapseState() {
 
 function defaultExpanded(id) {
   if (collapseState[id] !== undefined) return collapseState[id];
-  return id === "kbatch";
+  return id === "jam-hub";
 }
 
 function setToolStatus(id, text, ok = true) {
@@ -51,15 +37,6 @@ function setToolStatus(id, text, ok = true) {
   el.textContent = text;
   el.classList.toggle("active", ok);
   el.classList.toggle("error", !ok);
-}
-
-function kbatchFrame() {
-  return document.getElementById("kbatch-frame");
-}
-
-function switchKbatchTab(tab) {
-  kbatchFrame()?.contentWindow?.postMessage({ type: "qbpm-switch-tab", tab }, "*");
-  setToolStatus("kbatch", `● ${tab}`, true);
 }
 
 function mountToolIframe(section, url) {
@@ -125,11 +102,6 @@ function buildSection(id, meta) {
 }
 
 function onSectionOpen(id, meta, section) {
-  if (id === "kbatch") {
-    ensureKbatchPanel();
-    setToolStatus(id, "● kbatch", true);
-    return;
-  }
   if (id === "jam-hub") {
     setToolStatus(id, "● jam", true);
     return;
@@ -148,41 +120,6 @@ function onSectionOpen(id, meta, section) {
   if (embed) mountToolIframe(section, embed);
 }
 
-function renderKbatchSection(accordion, meta) {
-  const kbatch = buildSection("kbatch", {
-    label: "kbatch",
-    category: "keyboard batch",
-    url: meta.url || "/tools/kbatch/kbatch.html",
-  });
-  const body = kbatch.querySelector(".tool-section-body");
-  const tabOptions = KBATCH_TABS.map(
-    (t) => `<option value="${t.id}">${t.label}</option>`,
-  ).join("");
-
-  body.innerHTML = `
-    <div class="kbatch-toolbar">
-      <span class="kbatch-toolbar-title">keyboard batch</span>
-      <span id="kbatch-status" class="live-status">● idle</span>
-      <label class="kbatch-tab-pick">tab
-        <select id="kbatch-tab-select" title="kbatch tab">
-          ${tabOptions}
-        </select>
-      </label>
-      <button type="button" id="btn-kbatch-focus" title="Focus typing input">⌨</button>
-      <button type="button" id="btn-kbatch-reload" title="Reload kbatch">↻</button>
-      <button type="button" id="btn-kbatch-full" title="Open kbatch full window">⤢</button>
-    </div>
-    <p class="kbatch-tools-hint">analyzer · layouts · dictionary · quantum · training · capsules · contrails · musica · symbols · lattice · code cell · terminal</p>
-    <iframe id="kbatch-frame" class="kbatch-frame tool-embed-frame" title="kbatch — keyboard batch" loading="lazy"></iframe>
-  `;
-
-  accordion.append(kbatch);
-
-  document.getElementById("kbatch-tab-select")?.addEventListener("change", (ev) => {
-    switchKbatchTab(ev.target.value);
-  });
-}
-
 async function renderJamHub(accordion) {
   const jam = buildSection("jam-hub", {
     label: "live jam hub",
@@ -194,7 +131,10 @@ async function renderJamHub(accordion) {
 
   let eco = { tools: [], stacks: {} };
   try {
-    const res = await fetch("/static/jam-ecosystem.json", { cache: "no-store" });
+    const jamUrl = (typeof window !== "undefined" && window.QBPM_PAGES?.asset)
+      ? window.QBPM_PAGES.asset("jam-ecosystem.json")
+      : "/static/jam-ecosystem.json";
+    const res = await fetch(jamUrl, { cache: "no-store" });
     if (res.ok) eco = await res.json();
   } catch (_) {}
 
@@ -218,10 +158,7 @@ async function renderJamHub(accordion) {
 }
 
 function renderBuiltinSections(accordion) {
-  const kbatchMeta = toolsCatalog.find((t) => t.id === "kbatch") || {};
-  renderKbatchSection(accordion, kbatchMeta);
   renderJamHub(accordion);
-
   const piano = buildSection("piano", { label: "Piano Buddy", category: "live-music" });
   piano.querySelector(".tool-section-body").innerHTML =
     '<div id="piano-panel-body" class="piano-panel-body">expand to load piano…</div>';
@@ -243,7 +180,7 @@ function renderApiTools(accordion) {
 
 function bindToolbar() {
   document.getElementById("tools-expand-all")?.addEventListener("click", () => {
-    document.querySelectorAll(".tool-section").forEach((s) => {
+    document.querySelectorAll("#tools-accordion .tool-section").forEach((s) => {
       s.classList.add("open");
       collapseState[s.dataset.tool] = true;
       onSectionOpen(s.dataset.tool, toolsCatalog.find((t) => t.id === s.dataset.tool) || {}, s);
@@ -251,7 +188,7 @@ function bindToolbar() {
     saveCollapseState();
   });
   document.getElementById("tools-collapse-all")?.addEventListener("click", () => {
-    document.querySelectorAll(".tool-section").forEach((s) => {
+    document.querySelectorAll("#tools-accordion .tool-section").forEach((s) => {
       s.classList.remove("open");
       collapseState[s.dataset.tool] = false;
     });
@@ -259,69 +196,54 @@ function bindToolbar() {
   });
 }
 
-export async function initToolsPanel() {
-  if (toolsPanelReady) {
-    document.querySelectorAll(".tool-section.open").forEach((section) => {
-      const id = section.dataset.tool;
-      if (id === "kbatch") ensureKbatchPanel();
-    });
-    return;
-  }
+function openAccordionTool(id, opts = {}) {
+  const section = document.querySelector(`#tools-accordion .tool-section[data-tool="${id}"]`);
+  if (!section) return false;
+  section.classList.add("open");
+  collapseState[id] = true;
+  saveCollapseState();
+  onSectionOpen(id, toolsCatalog.find((t) => t.id === id) || {}, section);
+  return true;
+}
 
+export async function initToolsPanel() {
   loadCollapseState();
   const accordion = document.getElementById("tools-accordion");
   if (!accordion) return;
 
-  try {
-    const res = await fetch("/api/tools");
-    const data = await res.json();
-    toolsCatalog = data.tools || [];
+  if (!toolsPanelReady) {
+    try {
+    const toolsApi = (typeof window !== "undefined" && window.QBPM_PAGES?.api)
+      ? window.QBPM_PAGES.api("api/tools")
+      : "/api/tools";
+    if (toolsApi) {
+      const res = await fetch(toolsApi);
+      const data = await res.json();
+      toolsCatalog = data.tools || [];
+    } else {
+      const toolsUrl = (typeof window !== "undefined" && window.QBPM_PAGES?.toolsJson)
+        ? window.QBPM_PAGES.toolsJson()
+        : "/static/tools.json";
+      const res = await fetch(toolsUrl);
+      toolsCatalog = (await res.json()).tools || [];
+    }
   } catch (_) {
     toolsCatalog = [];
   }
-
-  accordion.innerHTML = "";
-  renderBuiltinSections(accordion);
-  renderApiTools(accordion);
-  bindToolbar();
-  initKbatchLoader();
-
-  document.querySelectorAll(".tool-section.open").forEach((section) => {
-    const id = section.dataset.tool;
-    const meta = toolsCatalog.find((t) => t.id === id) || {};
-    onSectionOpen(id, meta, section);
-  });
-
-  if (!window._qbpmKbatchMsgBound) {
-    window._qbpmKbatchMsgBound = true;
-    window.addEventListener("message", (ev) => {
-      const data = ev.data || {};
-      if (data.source !== "kbatch-qbpm") return;
-      if (data.type === "ready") setToolStatus("kbatch", "● kbatch", true);
-      if (data.type === "pattern-mode") setToolStatus("kbatch", `● ${data.mode}`, true);
-    });
+    accordion.innerHTML = "";
+    renderBuiltinSections(accordion);
+    renderApiTools(accordion);
+    bindToolbar();
+    toolsPanelReady = true;
   }
 
-  window.qbpmTools = window.qbpmTools || {};
-  window.qbpmTools.openTool = (id, opts = {}) => {
-    if (id === "pattern-flow") id = "kbatch";
-    const section = document.querySelector(`.tool-section[data-tool="${id}"]`);
-    if (!section) return;
-    section.classList.add("open");
-    collapseState[id] = true;
-    saveCollapseState();
+  document.querySelectorAll("#tools-accordion .tool-section.open").forEach((section) => {
+    const id = section.dataset.tool;
     onSectionOpen(id, toolsCatalog.find((t) => t.id === id) || {}, section);
-    if (id === "kbatch" && opts.tab) {
-      setTimeout(() => switchKbatchTab(opts.tab), 300);
-    }
-  };
-  window.qbpmTools.switchKbatchTab = switchKbatchTab;
-  window.qbpmTools.setPatternMode = (mode) => {
-    switchKbatchTab("contrails");
-    kbatchFrame()?.contentWindow?.postMessage({ type: "qbpm-pattern-mode", mode }, "*");
-  };
+  });
 
-  toolsPanelReady = true;
+  window.qbpmTools = window.qbpmTools || {};
+  window.qbpmTools.openAccordionTool = openAccordionTool;
 }
 
 export function ensureToolsPanel() {
