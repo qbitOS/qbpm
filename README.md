@@ -75,11 +75,20 @@ Canvas overlay (like [go-ugrad](https://mueee.qbitos.ai/go-ugrad.html)):
 
 Variant configs: `deploy/variants/*.env` · launch components: `web/launch-config.json` · runtime: `web/pages-boot.js` reads baked `static/env-config.json`.
 
+### One-time: enable GitHub Pages
+
+In **qbitOS/qbpm → Settings → Pages**:
+
+- **Source:** Deploy from a branch
+- **Branch:** `gh-pages` / `/ (root)`
+
+Workflow pushes `_site` to `gh-pages` on every `main` push.
+
 ### Auto-deploy (GitHub Actions on `main`)
 
 | Workflow | Target |
 |---|---|
-| `deploy-pages.yml` | qbitOS Pages → **https://qbitos.github.io/qbpm/** |
+| `deploy-pages.yml` | qbitOS Pages → **https://qbitos.github.io/qbpm/** (`gh-pages` branch) |
 | `sync-fornevercollective.yml` | mirrors `web/` → **fornevercollective/Qbpm** (needs `FORNEVER_DEPLOY_TOKEN`) |
 | `deploy-cloudflare-pages.yml` | **https://qbpm.qbitos.ai** (needs `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) |
 | `ci.yml` | pytest + static builds for all variants |
