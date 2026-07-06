@@ -39,7 +39,7 @@ export function createFloatDock() {
       <button type="button" data-dock="video" title="Video feed">📹</button>
       <button type="button" data-dock="chat" title="Chat">💬</button>
       <button type="button" data-dock="music" title="Music lab">♪</button>
-      <button type="button" data-dock="proc" title="Osc / processing">∿</button>
+      <button type="button" data-dock="proc" title="Processing · bloch · EQ · bus">∿</button>
       <button type="button" data-dock="focus" class="dock-focus" title="Collapse all · canvas focus">◎</button>
     `;
     wrap.appendChild(rail);
@@ -110,8 +110,8 @@ export function createFloatDock() {
 
     if (!open.proc) hidePanel(proc);
     else {
-      const ph = proc?.offsetHeight || 120;
-      showPanel(proc, ww - (proc?.offsetWidth || 220) - EDGE, wh - ph - EDGE);
+      const ph = Math.min(proc?.offsetHeight || 420, Math.floor(wh * 0.58));
+      showPanel(proc, ww - (proc?.offsetWidth || 340) - EDGE, wh - ph - EDGE);
     }
 
     syncRail();

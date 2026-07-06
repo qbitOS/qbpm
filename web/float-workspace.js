@@ -2,6 +2,7 @@
 
 import { createMusicLab } from "./music-lab.js";
 import { createFloatDock } from "./float-dock.js";
+import { createProcessingWing } from "./processing-wing.js";
 
 const floatDock = createFloatDock();
 
@@ -21,11 +22,7 @@ export function createFloatWorkspace(opts = {}) {
   } = opts;
 
   let musicLab = null;
-
-  let audioCtx = null;
-  let oscNode = null;
-  let gainNode = null;
-  let oscOn = false;
+  let processingWing = null;
   let localStream = null;
 
   const wrap = document.getElementById("canvas-wrap");
@@ -63,14 +60,9 @@ export function createFloatWorkspace(opts = {}) {
         <div class="float-hd">music lab · notation</div>
         <div id="float-music-lab-host"></div>
       </aside>
-      <aside id="float-panel-br" class="float-panel float-br" aria-label="Processing and oscillator">
-        <div class="float-hd">processing · osc</div>
-        <pre id="float-processing" class="float-processing">idle</pre>
-        <div class="float-osc-row">
-          <button type="button" id="float-osc-toggle" title="Oscillator">∿</button>
-          <input id="float-osc-freq" type="range" min="110" max="880" value="440" />
-          <span id="float-osc-hz" class="float-meta">440 Hz</span>
-        </div>
+      <aside id="float-panel-br" class="float-panel float-br" aria-label="Processing wing">
+        <div class="float-hd">processing · bloch · eq · bus</div>
+        <div id="float-processing-host"></div>
       </aside>
       <aside id="float-panel-video" class="float-panel float-video" aria-label="Video feed">
         <div class="float-hd">video · blank</div>
@@ -99,42 +91,12 @@ export function createFloatWorkspace(opts = {}) {
       getBpm,
     });
     musicLab.mount(document.getElementById("float-music-lab-host"));
+    processingWing = createProcessingWing();
+    processingWing.mount(document.getElementById("float-processing-host"));
     requestAnimationFrame(() => floatDock.layoutPanels());
   }
 
-  function ensureAudio() {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    return audioCtx;
-  }
-
   function bindEvents() {
-    document.getElementById("float-osc-toggle")?.addEventListener("click", () => {
-      const ctx = ensureAudio();
-      if (oscOn) {
-        oscNode?.stop();
-        oscNode = null;
-        oscOn = false;
-        document.getElementById("float-osc-toggle")?.classList.remove("active");
-        return;
-      }
-      oscNode = ctx.createOscillator();
-      gainNode = ctx.createGain();
-      oscNode.type = "sine";
-      oscNode.frequency.value = parseFloat(document.getElementById("float-osc-freq")?.value || "440");
-      gainNode.gain.value = 0.06;
-      oscNode.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      oscNode.start();
-      oscOn = true;
-      document.getElementById("float-osc-toggle")?.classList.add("active");
-    });
-
-    document.getElementById("float-osc-freq")?.addEventListener("input", (ev) => {
-      const hz = ev.target.value;
-      document.getElementById("float-osc-hz").textContent = `${hz} Hz`;
-      if (oscNode) oscNode.frequency.value = parseFloat(hz);
-    });
-
     const sendChat = () => {
       const text = document.getElementById("float-chat-in")?.value?.trim();
       if (!text) return;
@@ -205,8 +167,7 @@ export function createFloatWorkspace(opts = {}) {
   }
 
   function setProcessing(text) {
-    const el = document.getElementById("float-processing");
-    if (el && el.textContent !== text) el.textContent = text;
+    processingWing?.setStatus?.(text);
   }
 
   function drawNotation(live) {
@@ -228,9 +189,8 @@ export function createFloatWorkspace(opts = {}) {
 
   function destroy() {
     musicLab?.destroy?.();
+    processingWing?.destroy?.();
     if (localStream) localStream.getTracks().forEach((t) => t.stop());
-    if (oscNode) try { oscNode.stop(); } catch (_) {}
-    if (audioCtx) audioCtx.close();
   }
 
   return {
