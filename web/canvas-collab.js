@@ -11,6 +11,7 @@ export function createCanvasCollab(opts) {
     onChat,
     onHop,
     onVideo,
+    onJam,
     onDrawOverlay,
   } = opts;
 
@@ -46,6 +47,10 @@ export function createCanvasCollab(opts) {
       }
       if (msg.type === "chat") {
         onChat?.(msg);
+        return;
+      }
+      if (msg.type === "jam") {
+        onJam?.(msg);
         return;
       }
       if (msg.type === "hop" && msg.clientId !== clientId) {
@@ -113,6 +118,11 @@ export function createCanvasCollab(opts) {
   function sendChat(text) {
     if (!ws || ws.readyState !== 1) return;
     ws.send(JSON.stringify({ type: "chat", text, name, color }));
+  }
+
+  function sendJam(pattern) {
+    if (!ws || ws.readyState !== 1) return;
+    ws.send(JSON.stringify({ type: "jam", pattern, name, color }));
   }
 
   function requestHop(targetId) {
@@ -185,6 +195,7 @@ export function createCanvasCollab(opts) {
     sendCursor,
     sendViewport,
     sendChat,
+    sendJam,
     requestHop,
     sendVideo,
     broadcastGraph,

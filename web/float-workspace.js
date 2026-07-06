@@ -1,10 +1,9 @@
 /** Floating workspace — music lab, oscillator, blank-style video, frame-anchored chat */
 
-import { moveLayer } from "./gpu-loop.js";
 import { createMusicLab } from "./music-lab.js";
+import { createFloatDock } from "./float-dock.js";
 
-const DOCK_GAP = 8;
-const DOCK_MARGIN = 10;
+const floatDock = createFloatDock();
 
 export function createFloatWorkspace(opts = {}) {
   const {
@@ -18,6 +17,7 @@ export function createFloatWorkspace(opts = {}) {
     getLocalHandle = () => "guest",
     getPanScale,
     getFrames,
+    onJamEval,
   } = opts;
 
   let musicLab = null;
@@ -38,51 +38,12 @@ export function createFloatWorkspace(opts = {}) {
     return { setPeerChats() {}, positionFramePanels() {}, getLeftDockLayout() {}, destroy() {} };
   }
 
-  function getMainFrame() {
-    const frameList = getFrames?.() || [];
-    return frameList.find((f) => f.id === "frame-main") || frameList[0];
-  }
-
-  function worldToScreen(wx, wy, pan, scale) {
-    return { x: pan.x + wx * scale, y: pan.y + wy * scale };
+  function positionFramePanels() {
+    floatDock.layoutPanels();
   }
 
   function getLeftDockLayout() {
-    const { pan, scale } = getPanScale?.() || { pan: { x: 0, y: 0 }, scale: 1 };
-    const main = getMainFrame();
-    if (!main) return null;
-    const [fx, fy, , fh] = main.rect;
-    const scr = worldToScreen(fx, fy, pan, scale);
-    const videoEl = document.getElementById("float-panel-video");
-    const chatEl = document.getElementById("float-panel-tr");
-    const videoW = videoEl?.offsetWidth || 200;
-    const chatW = chatEl?.offsetWidth || 220;
-    const colW = videoW + DOCK_GAP + chatW;
-    const colX = Math.round(scr.x - colW - DOCK_MARGIN);
-    const colY = Math.max(48, Math.round(scr.y));
-    const videoH = videoEl?.offsetHeight || 180;
-    const chatH = chatEl?.offsetHeight || 140;
-    const rowH = Math.max(videoH, chatH);
-    const bottomY = pan.y + (fy + fh) * scale;
-    return { colX, colY, colW, rowH, rowBottom: colY + rowH, mainScr: scr, bottomY };
-  }
-
-  function positionFramePanels() {
-    const layout = getLeftDockLayout();
-    if (!layout) return;
-    const videoEl = document.getElementById("float-panel-video");
-    const chatEl = document.getElementById("float-panel-tr");
-    const videoW = videoEl?.offsetWidth || 200;
-    moveLayer(videoEl, layout.colX, layout.colY);
-    moveLayer(chatEl, layout.colX + videoW + DOCK_GAP, layout.colY);
-
-    const bl = document.getElementById("float-panel-bl");
-    const br = document.getElementById("float-panel-br");
-    const blH = bl?.offsetHeight || 120;
-    const brW = br?.offsetWidth || 220;
-    const brH = br?.offsetHeight || 120;
-    if (bl) moveLayer(bl, layout.colX, layout.bottomY - blH - DOCK_MARGIN);
-    if (br) moveLayer(br, layout.mainScr.x - brW - DOCK_MARGIN, layout.bottomY - brH - DOCK_MARGIN);
+    return null;
   }
 
   function ensureDom(parent) {
@@ -127,14 +88,18 @@ export function createFloatWorkspace(opts = {}) {
       <div id="float-peer-chats" class="float-peer-chats"></div>
     `;
     parent.appendChild(root);
+    floatDock.ensureRail(parent);
+    floatDock.layoutPanels();
     musicLab = createMusicLab({
       onNotePlay,
       onSend: onMusicSend,
       onOpenGrandPiano,
+      onJamEval,
       getSendTargets,
       getBpm,
     });
     musicLab.mount(document.getElementById("float-music-lab-host"));
+    requestAnimationFrame(() => floatDock.layoutPanels());
   }
 
   function ensureAudio() {
@@ -276,6 +241,8 @@ export function createFloatWorkspace(opts = {}) {
     positionFramePanels,
     getLeftDockLayout,
     getVideoElement,
+    openDockPanel: (k) => floatDock.openPanel(k),
+    collapseDock: () => floatDock.collapseAll(),
     destroy,
   };
 }

@@ -242,6 +242,21 @@ async def graph_ws_loop(
                     )
                 continue
 
+            if mtype == "jam":
+                pattern = msg.get("pattern") or {}
+                await hub.broadcast(
+                    graph_name,
+                    {
+                        "type": "jam",
+                        "from": client.client_id,
+                        "fromName": client.name,
+                        "color": client.color,
+                        "pattern": pattern,
+                    },
+                    skip=client.client_id,
+                )
+                continue
+
             if mtype == "hop.request":
                 target_id = str(msg.get("targetId", ""))
                 target = hub.room(graph_name).get(target_id)

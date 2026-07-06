@@ -130,6 +130,10 @@ function onSectionOpen(id, meta, section) {
     setToolStatus(id, "● kbatch", true);
     return;
   }
+  if (id === "jam-hub") {
+    setToolStatus(id, "● jam", true);
+    return;
+  }
   if (id === "piano") {
     const host = section.querySelector("#piano-panel-body");
     if (host) {
@@ -179,9 +183,44 @@ function renderKbatchSection(accordion, meta) {
   });
 }
 
+async function renderJamHub(accordion) {
+  const jam = buildSection("jam-hub", {
+    label: "live jam hub",
+    category: "collab · strudel · TD · DAW refs",
+  });
+  const body = jam.querySelector(".tool-section-body");
+  body.innerHTML = `<p class="jam-hub-loading">loading ecosystem…</p>`;
+  accordion.append(jam);
+
+  let eco = { tools: [], stacks: {} };
+  try {
+    const res = await fetch("/static/jam-ecosystem.json", { cache: "no-store" });
+    if (res.ok) eco = await res.json();
+  } catch (_) {}
+
+  const stacks = Object.entries(eco.stacks || {})
+    .map(([k, v]) => `<span class="jam-stack-tag">${k}: ${(v || []).join(" · ")}</span>`)
+    .join("");
+  const links = (eco.tools || [])
+    .slice(0, 32)
+    .map(
+      (t) =>
+        `<a class="jam-eco-link" href="${t.repo}" target="_blank" rel="noopener" title="${t.role || ""}">${t.label}</a>`,
+    )
+    .join("");
+
+  body.innerHTML = `
+    <p class="jam-hub-mission">${eco.mission || "mass collaboration live jam"}</p>
+    <div class="jam-hub-stacks">${stacks}</div>
+    <p class="jam-hub-hint">◎ dock rail · ♪ music lab · () strudel flare · send → nodes/users · comp lanes</p>
+    <div class="jam-eco-grid">${links}</div>
+  `;
+}
+
 function renderBuiltinSections(accordion) {
   const kbatchMeta = toolsCatalog.find((t) => t.id === "kbatch") || {};
   renderKbatchSection(accordion, kbatchMeta);
+  renderJamHub(accordion);
 
   const piano = buildSection("piano", { label: "Piano Buddy", category: "live-music" });
   piano.querySelector(".tool-section-body").innerHTML =

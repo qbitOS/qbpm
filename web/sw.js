@@ -1,4 +1,4 @@
-const CACHE = "qbpm-v12";
+const CACHE = "qbpm-v13";
 const SHELL = [
   "/",
   "/static/qbpm.css",
@@ -12,6 +12,9 @@ const SHELL = [
   "/static/float-workspace.js",
   "/static/float-workspace.css",
   "/static/music-lab.js",
+  "/static/float-dock.js",
+  "/static/live-jam-bridge.js",
+  "/static/jam-ecosystem.json",
   "/static/vfx-palette.js",
   "/static/vfx-compositor.js",
   "/static/live-music-bridge.js",

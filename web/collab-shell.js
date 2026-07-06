@@ -1,9 +1,5 @@
 /** Collaborative shell — frame-anchored user dock, frame video tiles */
 
-import { moveLayer } from "./gpu-loop.js";
-
-const DOCK_GAP = 8;
-
 export function createCollabShell(opts) {
   const {
     getCollab,
@@ -26,13 +22,14 @@ export function createCollabShell(opts) {
   const els = ensureDom();
 
   function ensureDom() {
-    const wrap = document.getElementById("canvas-wrap");
-    if (!wrap) return {};
+    const host = document.getElementById("header-dock") || document.getElementById("canvas-wrap");
+    if (!host) return {};
 
     let badge = document.getElementById("user-frame-badge");
     if (!badge) {
       badge = document.createElement("div");
       badge.id = "user-frame-badge";
+      badge.className = "header-dock-badge";
       badge.innerHTML = `
         <div class="ufb-id" title="Your session id">
           <span class="ufb-dot" id="uwt-sync-dot">●</span>
@@ -49,11 +46,12 @@ export function createCollabShell(opts) {
           <button type="button" id="uwt-video" title="Toggle video">📷</button>
         </div>
       `;
-      wrap.appendChild(badge);
+      host.appendChild(badge);
     }
 
+    const wrap = document.getElementById("canvas-wrap");
     let overlays = document.getElementById("canvas-overlays");
-    if (!overlays) {
+    if (!overlays && wrap) {
       overlays = document.createElement("div");
       overlays.id = "canvas-overlays";
       wrap.appendChild(overlays);
@@ -241,18 +239,11 @@ export function createCollabShell(opts) {
   }
 
   function positionUserBadge() {
-    const badge = els.badge;
-    if (!badge) return;
     const cid = getLocalClientId?.() || "local";
     if (els.clientIdEl && els.clientIdEl.textContent !== cid.slice(-6)) {
       els.clientIdEl.textContent = cid.slice(-6);
       els.clientIdEl.style.color = getLocalColor?.() || "#58a6ff";
     }
-    const layout = getFloatWorkspace?.()?.getLeftDockLayout?.();
-    const lx = layout ? layout.colX : 10;
-    const ly = layout ? layout.rowBottom + DOCK_GAP : 48;
-    badge.style.width = layout ? `${layout.colW}px` : "";
-    moveLayer(badge, lx, ly);
   }
 
   function positionOverlays() {

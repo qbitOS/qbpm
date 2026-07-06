@@ -61,6 +61,7 @@ export function createMusicLab(opts = {}) {
     onNotePlay,
     onSend,
     onOpenGrandPiano,
+    onJamEval,
     getSendTargets = () => ({ nodes: [], peers: [] }),
     getBpm = () => 120,
   } = opts;
@@ -86,6 +87,10 @@ export function createMusicLab(opts = {}) {
           <button type="button" class="ml-btn" id="ml-seq-play" title="Play pattern">▶</button>
           <button type="button" class="ml-btn" id="ml-seq-stop" title="Stop">■</button>
           <button type="button" class="ml-btn ml-link" id="ml-grand" title="Open grand piano + staff">🎹 grand</button>
+        </div>
+        <div class="ml-strudel-row">
+          <input id="ml-strudel" type="text" placeholder="d1 $ s 'bd sd' · (flare) · live jam" spellcheck="false" autocomplete="off" aria-label="Strudel-style pattern" />
+          <button type="button" id="ml-strudel-go" class="ml-btn" title="Eval pattern">()</button>
         </div>
         <canvas id="ml-waveform" class="ml-waveform" width="240" height="36" aria-label="Audio waveform"></canvas>
         <div id="ml-staff" class="ml-staff" aria-label="Staff notation"></div>
@@ -511,6 +516,16 @@ export function createMusicLab(opts = {}) {
       const payload = buildPayload();
       pushToGrandPiano(payload);
       onOpenGrandPiano?.(payload);
+    });
+
+    const runStrudel = () => {
+      const src = document.getElementById("ml-strudel")?.value?.trim();
+      if (!src) return;
+      onJamEval?.(src, getBpm() || 120);
+    };
+    document.getElementById("ml-strudel-go")?.addEventListener("click", runStrudel);
+    document.getElementById("ml-strudel")?.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") { ev.preventDefault(); runStrudel(); }
     });
   }
 

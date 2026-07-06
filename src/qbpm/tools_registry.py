@@ -87,4 +87,17 @@ def discover_tools(root: Path) -> list[dict[str, Any]]:
         if child.name in roles:
             manifest.update(roles[child.name])
         tools.append(manifest)
+    tools.append(
+        {
+            "id": "jam-hub",
+            "role": "live-jam",
+            "category": "collab · strudel · TD",
+            "label": "live jam hub",
+            "description": "DAW ecosystem refs · () flare · mass collab routing",
+            "url": "/static/jam-ecosystem.json",
+            "stack": ["strudel", "touchdesigner", "grok", "kbatch", "vexflow"],
+            "channels": ["qbpm-jam", "qbpm-live", "piano-buddy-state"],
+            "external": True,
+        }
+    )
     return tools

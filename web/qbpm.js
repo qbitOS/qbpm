@@ -4,6 +4,7 @@ import { createLiveMusicBridge } from "./live-music-bridge.js";
 import { initToolsPanel } from "./tools-panel.js";
 import { createUgradHud } from "./ugrad-hud.js";
 import { createFloatWorkspace } from "./float-workspace.js";
+import { createLiveJamBridge } from "./live-jam-bridge.js";
 import { DEVICE_PRESETS, presetById, presetColor, nextDeviceFrameRect } from "./device-presets.js";
 import { framePipelinePorts, VFX, compFillForDevice } from "./vfx-palette.js";
 import { drawCompGrid, drawCompWindow, drawBusEdge } from "./vfx-compositor.js";
@@ -53,6 +54,7 @@ let liveState = null;
 let collabShell = null;
 let ugradHud = null;
 let floatWorkspace = null;
+let jamBridge = null;
 let lastProcessingText = "";
 
 function canvasPoint(ev) {
@@ -71,6 +73,7 @@ function resize() {
   canvas.style.width = `${rect.width}px`;
   canvas.style.height = `${rect.height}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  floatWorkspace?.positionFramePanels?.();
   draw();
   resizeViz();
 }
@@ -445,7 +448,23 @@ function initCollab() {
       collabShell?.appendPromptOutput(`hop ← ${msg.fromName || msg.from}`);
     },
     onVideo: (msg) => collabShell?.onRemoteVideo(msg),
+    onJam: (msg) => {
+      const p = msg.pattern || {};
+      if (p.musica) liveState = { ...liveState, musica: p.musica, bpm: p.bpm };
+      floatWorkspace?.setProcessing?.(`jam ← ${msg.fromName || msg.from}: ${p.musica?.slice(0, 32) || "pattern"}`);
+      syncFloatPanels();
+      draw();
+    },
     onDrawOverlay: () => draw(),
+  });
+
+  jamBridge = createLiveJamBridge({
+    getCollab: () => collab,
+    ingest: (p, src) => window.qbpmLive?.ingest?.(p, src),
+    onPattern: (p) => {
+      liveState = { ...liveState, musica: p.musica, bpm: p.bpm, flare: p.flare };
+      syncFloatPanels();
+    },
   });
 
   floatWorkspace = createFloatWorkspace({
@@ -475,6 +494,7 @@ function initCollab() {
           selectNode(n.id);
         }
       } else if (targetType === "peer") {
+        collab?.sendJam?.(payload);
         collab?.sendChat?.(`♪ → ${target}: ${payload.musica || "pattern"}`);
       } else if (targetType === "broadcast") {
         collab?.broadcastGraph?.(graph);
@@ -483,8 +503,13 @@ function initCollab() {
     },
     onOpenGrandPiano: (payload) => {
       window.qbpmTools?.openTool?.("piano");
-      window.qbpmTools?.openTool?.("tools");
+      floatWorkspace?.openDockPanel?.("music");
       collabShell?.appendPromptOutput?.(`grand piano ← ${payload?.musica?.slice(0, 40) || "pattern"}`);
+    },
+    onJamEval: (src, bpm) => {
+      const p = jamBridge?.evalAndPlay?.(src, bpm);
+      floatWorkspace?.openDockPanel?.("music");
+      floatWorkspace?.setProcessing?.(`() ${p?.musica?.slice(0, 36) || src.slice(0, 36)}`);
     },
   });
 
@@ -1181,12 +1206,13 @@ function onPointerDown(ev) {
     selectedId = null;
     document.getElementById("insp-id").value = "";
     draw();
-    return;
+  } else {
+    selectedId = null;
+    document.getElementById("insp-id").value = "";
   }
-
-  selectedId = null;
-  document.getElementById("insp-id").value = "";
-  draw();
+  panning = true;
+  panStart = { x: ev.clientX, y: ev.clientY, pan: { ...pan } };
+  canvas.classList.add("grabbing");
 }
 
 function onPointerMove(ev) {
