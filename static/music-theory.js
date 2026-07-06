@@ -1,5 +1,7 @@
 /** Music theory — time sig, swing, microtonal, negative harmony, polyrhythm, structure */
 
+import { applyStructureTemplate, chartSummary } from "./notation-chart.js";
+
 export const DEFAULT_THEORY = {
   bpm: 120,
   locked: { bpm: false, swing: false, signature: false, structure: false },
@@ -9,6 +11,14 @@ export const DEFAULT_THEORY = {
   negativeHarmony: { enabled: false, axis: "C" },
   polyrhythm: { enabled: false, ratio: [3, 4] },
   structure: { section: "verse", marker: "" },
+  notation: {
+    system: "modern",
+    key: "C",
+    mode: "ionian",
+    solfege: { mode: "movable", variant: "major" },
+    transposing: { instrument: "concert" },
+  },
+  structureChart: applyStructureTemplate("pop"),
   preset: null,
 };
 
@@ -85,6 +95,18 @@ export function mergeTheory(base, patch) {
   if (patch.negativeHarmony) out.negativeHarmony = { ...out.negativeHarmony, ...patch.negativeHarmony };
   if (patch.polyrhythm) out.polyrhythm = { ...out.polyrhythm, ...patch.polyrhythm };
   if (patch.structure) out.structure = { ...out.structure, ...patch.structure };
+  if (patch.notation) {
+    out.notation = { ...out.notation, ...patch.notation };
+    if (patch.notation.solfege) out.notation.solfege = { ...out.notation.solfege, ...patch.notation.solfege };
+    if (patch.notation.transposing) out.notation.transposing = { ...out.notation.transposing, ...patch.notation.transposing };
+  }
+  if (patch.structureChart) {
+    if (patch.structureChart.template && !patch.structureChart.sections) {
+      out.structureChart = applyStructureTemplate(patch.structureChart.template);
+    } else {
+      out.structureChart = { ...out.structureChart, ...patch.structureChart };
+    }
+  }
   if (patch.preset != null) out.preset = patch.preset;
   return out;
 }
@@ -284,5 +306,6 @@ export function theorySummary(theory) {
   const neg = t.negativeHarmony?.enabled ? "neg" : "";
   const poly = t.polyrhythm?.enabled ? `${t.polyrhythm.ratio.join(":")}` : "";
   const sec = t.structure?.section || "";
-  return [sig, swing ? `sw ${swing}%` : "", micro, edo, neg, poly, sec].filter(Boolean).join(" · ");
+  const chart = chartSummary(t);
+  return [sig, swing ? `sw ${swing}%` : "", micro, edo, neg, poly, sec, chart].filter(Boolean).join(" · ");
 }
