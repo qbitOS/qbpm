@@ -702,6 +702,17 @@ body.launch-off-kbatch #mobile-tabs button[data-panel="kbatch"] {
 .device-picker .dp-icon { font-size: 0.9rem; width: 1.2rem; text-align: center; }
 .device-picker .dp-meta { color: #6e7681; font-size: 0.52rem; margin-left: auto; }
 
+.video-lane-picker {
+  left: calc(var(--dock-rail-w) + var(--canvas-ui-inset) + 44px);
+  min-width: 220px;
+}
+.video-lane-picker .vlp-chain {
+  border-bottom: 1px solid #21262d;
+  margin-bottom: 4px;
+  padding-bottom: 6px;
+}
+.video-lane-picker .vlp-chain .dp-meta { color: #79c0ff; }
+
 .canvas-resolution {
   position: absolute;
   top: 8px;

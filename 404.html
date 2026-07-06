@@ -50,7 +50,8 @@
     <section id="canvas-wrap" data-panel="canvas">
       <div id="canvas-toolbar">
         <button id="btn-add" type="button" title="Add node">+</button>
-        <button id="btn-add-live-rail" type="button" title="Add live video rail node">📹</button>
+        <button id="btn-add-video-lane" type="button" title="Add video lane node or chain">📹</button>
+        <div id="video-lane-picker" class="video-lane-picker device-picker" aria-label="Video lane nodes"></div>
         <button id="btn-studio-preset" type="button" title="Load drum session preset (Underoath / Gillespie)">🥁</button>
         <button id="btn-del-node" type="button" title="Delete selected node">✕</button>
         <button id="btn-center" type="button" title="Center view">◎</button>
@@ -60,7 +61,7 @@
         <div id="device-picker" class="device-picker" aria-label="Device frames"></div>
         <button id="btn-pan-mode" type="button" title="Pan mode (mobile)" class="mobile-only" aria-pressed="false">✥</button>
       </div>
-      <div id="canvas-hint" class="hide-mobile">wire ◉ ports · drag +−0 · shift frame bus · 🥁 studio preset</div>
+      <div id="canvas-hint" class="hide-mobile">wire ◉ ports · 📹 video lane menu · shift frame bus · 🥁 studio</div>
       <div id="canvas-resolution" class="canvas-resolution" aria-live="polite">—</div>
       <button type="button" id="btn-right-expand" title="Expand right column" aria-label="Expand right column">◂</button>
       <canvas id="canvas"></canvas>

@@ -4,6 +4,7 @@
  */
 
 import { nodeDef } from "./node-registry.js";
+import { appendVideoLaneChain } from "./video-lane-presets.js";
 
 const UNDER_OATH_MICS = [
   { id: "kick-in", mic: "kick-in", label: "Kick In", pos: [120, 120], pan: -0.1 },
@@ -70,31 +71,12 @@ export function buildUnderoathDrumSession(owner = "local") {
   }
 
   const videoY = 480;
-  const videoNodes = [
-    { id: "vid-ingest", type: "live.ingest", label: "Transport Ingest", x: 120 },
-    { id: "vid-rail", type: "live.rail", label: "Live Rail", x: 320 },
-    { id: "vid-vwall", type: "live.vwall", label: "VWall", x: 520 },
-    { id: "vid-queue", type: "live.queue", label: "Video Queue", x: 720 },
-    { id: "vid-transport", type: "live.transport", label: "Play Controls", x: 920 },
-  ];
-  for (const v of videoNodes) {
-    nodes.push({
-      id: v.id,
-      type: v.type,
-      pos: [v.x, videoY],
-      owner,
-      section: "video",
-      params: { in: 1, out: 1 },
-      data: { label: v.label, urls: [], features: [v.type.split(".")[1]] },
-    });
-  }
-  edges.push(
-    edge("vid-ingest", "vid-rail", "video"),
-    edge("vid-rail", "vid-vwall", "video"),
-    edge("vid-vwall", "vid-queue", "video"),
-    edge("vid-queue", "vid-transport", "video"),
-    edge("vid-transport", "studio-hub", "video", "out", "in"),
+  const chain = appendVideoLaneChain(
+    { nodes: [], edges: [] },
+    { owner, origin: [120, videoY], gap: 200, prefix: "vid" },
   );
+  nodes.push(...chain.nodes);
+  edges.push(...chain.edges, edge(chain.lastId, "studio-hub", "video", "out", "in"));
 
   const musicY = 640;
   const musicNodes = [
