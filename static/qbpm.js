@@ -19,6 +19,16 @@ import { resolveTransport, drawNodeCycleBar } from "./node-cycle.js";
 import { getTabRuntime } from "./tab-runtime.js";
 import { createVizUserRail } from "./viz-user-rail.js";
 import { createVizViewsRail } from "./viz-views-rail.js";
+import { createVizGroupsRail } from "./viz-groups-rail.js";
+import {
+  arrangeOrchestraLayout,
+  assignToGroup,
+  ensureCanvasGroups,
+  isSessionModerator,
+  mergeCanvasGroups,
+  setMemberPrefs,
+  toggleMemberList,
+} from "./canvas-groups.js";
 import { createLiveNodePanel, LIVE_PANEL_W, LIVE_PANEL_H } from "./live-node-panel.js";
 
 const GRAPH_NAME = "default";
@@ -74,6 +84,7 @@ let jamBridge = null;
 let lastProcessingText = "";
 let vizUserRail = null;
 let vizViewsRail = null;
+let vizGroupsRail = null;
 let liveNodePanel = null;
 const SOLO_GRAPH_KEY = "qbpm-solo-graph";
 let soloGraph = localStorage.getItem(SOLO_GRAPH_KEY) !== "0";
@@ -208,6 +219,7 @@ function ensureCanvasMeta() {
       },
     };
   }
+  ensureCanvasGroups(graph.meta);
   if (ensuringCanvasMeta) return graph.meta;
   ensuringCanvasMeta = true;
   try {
@@ -218,6 +230,91 @@ function ensureCanvasMeta() {
     ensuringCanvasMeta = false;
   }
   return graph.meta;
+}
+
+function canvasGroups() {
+  return ensureCanvasGroups(ensureCanvasMeta());
+}
+
+function isLocalModerator() {
+  const cid = collab?.clientId || localOwnerId();
+  return isSessionModerator(cid, canvasGroups(), collabPeers, {
+    getVideoWall: () => floatWorkspace?.getVideoWall?.(),
+    localOnly: collabPeers.length === 0,
+  });
+}
+
+function broadcastCanvasGroups() {
+  if (!soloGraph) collab?.broadcastPatch?.({ meta: { canvasGroups: canvasGroups() } });
+  vizGroupsRail?.render?.();
+  vizViewsRail?.render?.();
+  qubeManager?.scheduleFlush?.("session");
+}
+
+function onToggleCanvasGroup(kind, id) {
+  const cid = collab?.clientId || localOwnerId();
+  const g = canvasGroups();
+  if (kind === "claim-host") {
+    g.session.hostId = cid;
+    g.session.conductorId = cid;
+    broadcastCanvasGroups();
+    vizLog.textContent = "★ session host claimed · orchestra arrange enabled";
+    return;
+  }
+  toggleMemberList(g, cid, kind, id);
+  broadcastCanvasGroups();
+  vizLog.textContent = `group · ${kind} · ${id}`;
+}
+
+function applyOrchestraArrange() {
+  if (!isLocalModerator()) {
+    vizLog.textContent = "🎼 arrange · moderator/host only (★ host or vwall mod pin)";
+    return;
+  }
+  const result = arrangeOrchestraLayout({
+    frames: frames(),
+    viewports: viewports(),
+    nodes: graph.nodes,
+    groups: canvasGroups(),
+    peers: collabPeers,
+    getOwnerId: (n) => n.owner || localOwnerId(),
+  });
+  graph.meta.frames = result.frames;
+  graph.meta.viewports = result.viewports;
+  graph.nodes = result.nodes;
+  graph.meta.canvasGroups = result.groups;
+  if (!soloGraph) {
+    collab?.broadcastPatch?.({ nodes: graph.nodes, meta: { canvasGroups: result.groups } });
+  }
+  broadcastCanvasLayout();
+  vizGroupsRail?.render?.();
+  vizViewsRail?.render?.();
+  draw();
+  vizLog.textContent = "🎼 orchestra layout · sections · frames · nodes · views";
+}
+
+function addCanvasChannel() {
+  if (!isLocalModerator()) return;
+  const label = prompt("Channel name (e.g. violins-1, beat-lab):");
+  if (!label?.trim()) return;
+  const g = canvasGroups();
+  const id = `ch-${Date.now().toString(36)}`;
+  g.channels.push({ id, label: label.trim(), color: "#6e7681", members: [] });
+  broadcastCanvasGroups();
+}
+
+function assignFrameToTeam(frameId, teamId) {
+  if (!isLocalModerator()) return;
+  const g = canvasGroups();
+  const team = g.teams.find((t) => t.id === teamId);
+  assignToGroup(g, "frames", frameId, { teamId, section: teamId, genre: team?.genre });
+  const fr = frames().find((f) => f.id === frameId);
+  if (fr) {
+    fr.orchestraSection = teamId;
+    broadcastCanvasLayout();
+  }
+  broadcastCanvasGroups();
+  vizLog.textContent = `assigned ${frameId} → ${team?.label || teamId}`;
 }
 
 function frames() {
@@ -695,10 +792,12 @@ function initCollab() {
       if (soloGraph && from && from !== collab?.clientId) return;
       graph = g;
       ensureCanvasMeta();
+      ensureCanvasGroups(graph.meta);
       graph.nodes.forEach(tagNodeOwner);
       collabShell?.flashSync("ok");
       vizUserRail?.render?.();
       vizViewsRail?.render?.();
+      vizGroupsRail?.render?.();
       draw();
     },
     onGraphPatch: (patch, rev, from) => {
@@ -711,11 +810,19 @@ function initCollab() {
         }
       }
       if (patch.edges) graph.edges = patch.edges;
-      if (patch.meta) graph.meta = { ...graph.meta, ...patch.meta };
+      if (patch.meta) {
+        const cg = patch.meta.canvasGroups;
+        const rest = { ...patch.meta };
+        delete rest.canvasGroups;
+        graph.meta = { ...graph.meta, ...rest };
+        if (cg) graph.meta.canvasGroups = mergeCanvasGroups(graph.meta.canvasGroups, cg);
+        ensureCanvasGroups(graph.meta);
+      }
       collabShell?.flashSync("ok");
       refreshCanvasTargets();
       vizUserRail?.render?.();
       vizViewsRail?.render?.();
+      vizGroupsRail?.render?.();
       draw();
     },
     onFrameUpdate: (f, v, edges) => {
@@ -723,6 +830,7 @@ function initCollab() {
       if (v) graph.meta.viewports = v;
       if (edges) graph.meta.frameEdges = edges;
       vizViewsRail?.render?.();
+      vizGroupsRail?.render?.();
       draw();
       collabShell?.positionOverlays?.();
     },
@@ -744,6 +852,7 @@ function initCollab() {
       }
       vizUserRail?.render?.();
       vizViewsRail?.render?.();
+      vizGroupsRail?.render?.();
       collabShell?.renderPeers(clients);
       floatWorkspace?.onVideoPresence?.(clients);
       ugradHud?.refresh();
@@ -775,10 +884,32 @@ function initCollab() {
     onDrawOverlay: () => draw(),
   });
 
+  vizGroupsRail = createVizGroupsRail({
+    getGroups: canvasGroups,
+    getLocalClient: () => ({
+      clientId: collab?.clientId || localOwnerId(),
+      name: localStorage.getItem("qbpm-collab-name") || "you",
+    }),
+    getPeers: () => collabPeers,
+    isModerator: isLocalModerator,
+    getFrames: frames,
+    onToggleGroup: onToggleCanvasGroup,
+    onOrchestraArrange: applyOrchestraArrange,
+    onAddChannel: addCanvasChannel,
+    onAssignFrame: assignFrameToTeam,
+  });
+  vizGroupsRail.mount();
+  const initCid = collab?.clientId || localOwnerId();
+  const initG = canvasGroups();
+  if (!initG.memberPrefs[initCid]) {
+    setMemberPrefs(initG, initCid, { teams: ["rhythm"], channels: [], genres: ["collab"] });
+  }
+
   vizViewsRail = createVizViewsRail({
     getFrames: frames,
     getViewports: viewports,
     getPeers: () => collabPeers,
+    getGroups: canvasGroups,
     getActiveFrameId: () => activeFrameId,
     getActiveWindowId: () => activeWindowId,
     getGraphName: () => GRAPH_NAME,

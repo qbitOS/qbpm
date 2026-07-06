@@ -87,7 +87,7 @@ export function drawCompWindow(ctx, frame, rect, active, scale, linking) {
   if (frame.device || frame.owner || frame.cluster) {
     ctx.fillStyle = VFX.textDim;
     ctx.font = `${7.5 / scale}px Menlo, monospace`;
-    const sub = [frame.device, frame.cluster, frame.owner].filter(Boolean).join(" · ");
+    const sub = [frame.orchestraSection, frame.device, frame.cluster, frame.owner].filter(Boolean).join(" · ");
     ctx.fillText(sub, x + 8 / scale, y + h - 8 / scale);
   }
 

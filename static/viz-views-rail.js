@@ -21,6 +21,7 @@ export function createVizViewsRail(opts = {}) {
     getActiveFrameId = () => null,
     getActiveWindowId = () => null,
     getGraphName = () => "default",
+    getGroups = () => null,
     onHopFrame,
     onHopViewport,
     onSelectFrame,
@@ -47,7 +48,10 @@ export function createVizViewsRail(opts = {}) {
   }
 
   function frameMeta(f) {
-    const parts = [f.device, f.cluster, f.owner].filter(Boolean);
+    const groups = getGroups();
+    const a = groups?.assignments?.frames?.[f.id];
+    const team = a?.teamId ? groups?.teams?.find((t) => t.id === a.teamId)?.label : f.orchestraSection;
+    const parts = [team, f.device, f.cluster, f.owner].filter(Boolean);
     return parts.length ? parts.join(" · ") : f.lane || "comp";
   }
 
